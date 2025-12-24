@@ -10,8 +10,9 @@
 #' @param tracegen An integer means the number of tracing generation. This paramter can only be used when the \emph{trace} parameter is not NULL. All generations of the candidates will be traced when the parameter tracegen is NULL or 0.
 #' @param addgen A logical value indicates whether individual generation number will be generated. The default values is TRUE, then a new column named \strong{Gen} will be added in the returned data.table.
 #' @param addnum A logical value indicates whether numeric pedigree will be generated. The defaulted value is TRUE, then three new columns of \strong{IndNum}, \strong{SireNum} and \strong{DamNum} will be added in the returned data.table.
+#' @param inbreed A logical value indicates whether inbreeding coefficients will be calculated. The default value is FALSE. If TRUE, a new column named \strong{f} will be added in the returned data.table.
 #'
-#' @return A data.table including the tidy pedigree is returned. Individual, sire and dam ID columns are renamed as \strong{Ind}, \strong{Sire} and \strong{Dam}. Missing parent is replacted with the default missing value \strong{NA}. The column \strong{Sex} includes individuals' sex (male or female, NA for unknown sex). The column \strong{Cand} will be included when the parameter \emph{cand} is not NULL. The column \strong{Gen} will be included when the parameter \emph{addgen} is TRUE. The columns \strong{IndNum}, \strong{SireNum}, and \strong{DamNum} will be included when the parameter \emph{addnum} is TRUE. Ind, Sire, Dam and Sex columns are character; The column Cand is logical; The Gen, IndNum, SireNum and DamNum are integer.
+#' @return A data.table including the tidy pedigree is returned. Individual, sire and dam ID columns are renamed as \strong{Ind}, \strong{Sire} and \strong{Dam}. Missing parent is replacted with the default missing value \strong{NA}. The column \strong{Sex} includes individuals' sex (male or female, NA for unknown sex). The column \strong{Cand} will be included when the parameter \emph{cand} is not NULL. The column \strong{Gen} will be included when the parameter \emph{addgen} is TRUE. The columns \strong{IndNum}, \strong{SireNum}, and \strong{DamNum} will be included when the parameter \emph{addnum} is TRUE. The column \strong{f} will be included when the parameter \emph{inbreed} is TRUE. Ind, Sire, Dam and Sex columns are character; The column Cand is logical; The Gen, IndNum, SireNum and DamNum are integer.
 #'
 #' @examples
 #' require(visPedigree)
@@ -19,6 +20,9 @@
 #' simple_ped
 #' tidy_ped <- tidyped(simple_ped)
 #' tidy_ped
+#' # Calculate inbreeding coefficients
+#' tidy_ped_inbreed <- tidyped(simple_ped, inbreed = TRUE)
+#' tidy_ped_inbreed
 #' # The pedigree of individual J5X804 to ancestors is pruned,
 #' # and the column Cand is added and returned
 #' tidy_ped_J5X804 <- tidyped(simple_ped,cand="J5X804")
@@ -41,7 +45,8 @@ tidyped <-
            trace = "up",
            tracegen = NULL,
            addgen = TRUE,
-           addnum = TRUE) {
+           addnum = TRUE,
+           inbreed = FALSE) {
     ped_is_DT <- "data.table" %in% class(ped)
     if (!ped_is_DT) {
       ped_inter <- as.data.table(ped)
@@ -88,14 +93,23 @@ tidyped <-
 
     # The Gen column will be deleted
     if (c("Gen") %in% ped_colnames) {
+        ped_inter[, Gen := NULL]
         warning("The column Gen of the original pedigree is deleted.")
     }
 
-    # IndNum SireNum or DamNum columns will be deleted
-    three_num_columns <- c("IndNum","SireNum", "DamNum")
-    if (any(three_num_columns %in% ped_colnames)) {
-      exist_columns <- three_num_columns[three_num_columns %in% ped_colnames]
-      warning("The columns ", paste(exist_columns,collapse = ","),
+    # IndNum SireNum, DamNum or f columns will be deleted if they are to be re-generated
+    cols_to_delete <- c()
+    if (addnum) {
+      cols_to_delete <- c(cols_to_delete, "IndNum", "SireNum", "DamNum")
+    }
+    if (inbreed) {
+      cols_to_delete <- c(cols_to_delete, "f")
+    }
+
+    if (length(cols_to_delete) > 0 && any(cols_to_delete %in% ped_colnames)) {
+      exist_columns <- cols_to_delete[cols_to_delete %in% ped_colnames]
+      ped_inter[, (exist_columns) := NULL]
+      warning("The columns ", paste(exist_columns, collapse = ","),
               " of the original pedigree are deleted.")
     }
 
@@ -209,6 +223,14 @@ tidyped <-
       Cand <- NULL
       ped_new[,Cand := Ind %in% cand]
     }
+    
     attr(ped_new,"tidyped") <- TRUE
+
+    # Calculate inbreeding coefficients using inbreed() function
+    if (inbreed) {
+      ped_new <- inbreed(ped_new)
+    }
+
     return(ped_new)
   }
+

@@ -13,6 +13,7 @@
 #' @param showgraph A logical value indicating whether a plot will be shown in the defaulted graphic device, such as the Plots panel of Rstudio. It is useful for quick viewing of the pedigree graph without opening the pdf file. However, the graph on the defaulted graphic device may be not legible, such as overlapped labels, aliasing lines due to the restricted width and height. It's a good choice to set \code{showgraph = FALSE} when the pedigree is large. The default value is TRUE.
 #' @param file NULL or a character value means whether the pedigree graph will be saved in a pdf file. The graph in the pdf file is a legible vector drawing, and labels don't overlap especially when the number of individuals is big and width of the individual label is long in one generation. It is recommended that saving a pedigree graph in the pdf file. The default value is NULL.
 #' @param highlight NULL, a character vector of individual IDs, or a list specifying individuals to highlight. If a character vector is provided, individuals will be highlighted with the default color scheme (orange border and light orange fill). If a list is provided, it should contain: \code{ids} (required, character vector of individual IDs), \code{frame.color} (optional, hex color for border), and \code{color} (optional, hex color for fill). For example: \code{c("A", "B")} or \code{list(ids = c("A", "B"), frame.color = "#9c27b0", color = "#ce93d8")}. The function will check if the specified individuals exist in the pedigree and issue a warning for any missing IDs. The default value is NULL.
+#' @param showf A logical value indicating whether inbreeding coefficients will be shown in the graph. If \code{showf = TRUE} and the column \strong{f} exists in the pedigree, the inbreeding coefficient will be appended to the individual label, e.g., "ID (0.05)". The default value is FALSE.
 #' @return No returned values. The graph will be plotted directly on graphic devices.
 #'
 #' @examples
@@ -21,6 +22,8 @@
 #' simple_ped
 #' simple_ped_tidy <- tidyped(simple_ped)
 #' visped(simple_ped_tidy)
+#' # Showing inbreeding coefficients in the graph
+#' visped(simple_ped_tidy, showf = TRUE)
 #' # Drawing a simple pedigree of a individual with id of J5X804
 #' simple_ped_J5X804_tidy <- tidyped(simple_ped,cand=c("J5X804"))
 #' visped(simple_ped_J5X804_tidy)
@@ -45,7 +48,7 @@
 #' @importFrom graphics strwidth
 #' @export
 visped <- function(ped,
-                   compact = FALSE, outline = FALSE, cex = NULL, showgraph = TRUE, file = NULL, highlight = NULL) {
+                   compact = FALSE, outline = FALSE, cex = NULL, showgraph = TRUE, file = NULL, highlight = NULL, showf = FALSE) {
   if (is.null(attributes(ped)$tidyped)) {
     stop("The pedigree need to be firstly trimmed by the tidyped() function!")
   } else {
@@ -64,7 +67,7 @@ visped <- function(ped,
   # Restore user options even if plotting errors.
   on.exit(options(digits = old_digits), add = TRUE)
 
-  ped_igraph <- ped2igraph(ped_new, compact, highlight)
+  ped_igraph <- ped2igraph(ped_new, compact, highlight, showf)
   real_node <- ped_igraph$node[nodetype %in% c("real", "compact")]
   gen_node_num <- real_node[, .N, by = gen]
   gen_max_size <-  max(gen_node_num$N, na.rm = TRUE)
@@ -328,7 +331,7 @@ visped <- function(ped,
   invisible(NULL)
 }
 
-ped2igraph <- function(ped, compact = TRUE, highlight = NULL) {
+ped2igraph <- function(ped, compact = TRUE, highlight = NULL, showf = FALSE) {
   ped_new <- copy(ped)
   ped_col_names <- colnames(ped_new)
   # There is the Cand column in the pedigree if it is traced by the tidyped function
@@ -357,6 +360,11 @@ ped2igraph <- function(ped, compact = TRUE, highlight = NULL) {
         sex = Sex,
         gen = Gen
       )]
+  }
+
+  if (showf && "f" %in% ped_col_names) {
+    ped_node[, f := ped_new$f]
+    ped_node[, label := paste0(label, "\n(", f, ")")]
   }
 
   max_id <- max(ped_node$id,na.rm = TRUE)
