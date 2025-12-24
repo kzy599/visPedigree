@@ -116,8 +116,9 @@ visped <- function(ped,
   gen_num <- max(real_node$gen, na.rm = TRUE)
   max_layer <- max(ped_igraph$node$layer, na.rm = TRUE)
   g <- graph_from_data_frame(ped_igraph$edge, directed = TRUE, ped_igraph$node)
-  # Map vertex ids to their layer indices directly to avoid per-layer scans.
+  # Map vertex ids to their layer indices directly (preserve reverse layer order).
   layer_idx <- ped_igraph$node[match(V(g)$name, as.character(id)), layer]
+  layer_idx <- max_layer - layer_idx + 1
   l <- layout_with_sugiyama(g,
         layers = layer_idx,
         hgap = hgap,
