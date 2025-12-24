@@ -16,7 +16,16 @@ More complex pedigree graphs can be found in the following [vignette links](#vig
    library(devtools)
    install_github("luansheng/visPedigree")
    ```
-   
+## a small example
+```R   
+library(visPedigree)
+tidy_small_ped <-
+  tidyped(ped = small_ped,
+  cand = c("Y","Z1","Z2"))
+visped(tidy_small_ped)
+```
+
+
 ## <a id="vignette">Vignette</a>
 Drawing an animal pedigree using the visPedigree package [EN](https://luansheng.netlify.app/2018/11/09/vispedigree-use-guide/) [CN](https://luansheng.netlify.app/2018/09/24/the-first-package-vispedigree-0-1/)      
 
