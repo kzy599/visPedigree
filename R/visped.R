@@ -12,6 +12,7 @@
 #' @param cex NULL or a numeric value changing the size of individual label shown in the graph. \emph{cex} is an abbreviation of character expansion factor. \code{visped} function will try to guess (\code{cex=NULL}) the matched cex value and returned it in the messages. According to the returned cex of the last run, this parameter should be increased if the label's width is longer than that of the shape in the output pdf file; Contrariwise, this parameter should be decreased if the label's width is shorter than that of the shape in the output pdf file; then rerunning \code{visped} function. The default value is NULL.
 #' @param showgraph A logical value indicating whether a plot will be shown in the defaulted graphic device, such as the Plots panel of Rstudio. It is useful for quick viewing of the pedigree graph without opening the pdf file. However, the graph on the defaulted graphic device may be not legible, such as overlapped labels, aliasing lines due to the restricted width and height. It's a good choice to set \code{showgraph = FALSE} when the pedigree is large. The default value is TRUE.
 #' @param file NULL or a character value means whether the pedigree graph will be saved in a pdf file. The graph in the pdf file is a legible vector drawing, and labels don't overlap especially when the number of individuals is big and width of the individual label is long in one generation. It is recommended that saving a pedigree graph in the pdf file. The default value is NULL.
+#' @param highlight NULL, a character vector of individual IDs, or a list specifying individuals to highlight. If a character vector is provided, individuals will be highlighted with the default color scheme (orange border and light orange fill). If a list is provided, it should contain: \code{ids} (required, character vector of individual IDs), \code{frame.color} (optional, hex color for border), and \code{color} (optional, hex color for fill). For example: \code{c("A", "B")} or \code{list(ids = c("A", "B"), frame.color = "#9c27b0", color = "#ce93d8")}. The function will check if the specified individuals exist in the pedigree and issue a warning for any missing IDs. The default value is NULL.
 #' @return No returned values. The graph will be plotted directly on graphic devices.
 #'
 #' @examples
@@ -25,6 +26,10 @@
 #' visped(simple_ped_J5X804_tidy)
 #' # Drawing the graph in the pdf file
 #' visped(simple_ped_J5X804_tidy,file="output.pdf")
+#' # Highlighting specific individuals with default colors
+#' visped(simple_ped_tidy, highlight = c("Y", "Z1", "Z2"))
+#' # Highlighting specific individuals with custom colors
+#' visped(simple_ped_tidy, highlight = list(ids = c("Y", "Z1"), frame.color = "#4caf50", color = "#81c784"))
 #' # Drawing a compact pedigree
 #' # The candidates' labels in 2007
 #' cand_labels <- big_family_size_ped[(Year == 2007) & (substr(Ind,1,2) == "G8"),Ind]
@@ -40,7 +45,7 @@
 #' @importFrom graphics strwidth
 #' @export
 visped <- function(ped,
-                   compact = FALSE, outline = FALSE, cex = NULL, showgraph = TRUE, file = NULL) {
+                   compact = FALSE, outline = FALSE, cex = NULL, showgraph = TRUE, file = NULL, highlight = NULL) {
   if (is.null(attributes(ped)$tidyped)) {
     stop("The pedigree need to be firstly trimmed by the tidyped() function!")
   } else {
@@ -59,7 +64,7 @@ visped <- function(ped,
   # Restore user options even if plotting errors.
   on.exit(options(digits = old_digits), add = TRUE)
 
-  ped_igraph <- ped2igraph(ped_new, compact)
+  ped_igraph <- ped2igraph(ped_new, compact, highlight)
   real_node <- ped_igraph$node[nodetype %in% c("real", "compact")]
   gen_node_num <- real_node[, .N, by = gen]
   gen_max_size <-  max(gen_node_num$N, na.rm = TRUE)
@@ -323,7 +328,7 @@ visped <- function(ped,
   invisible(NULL)
 }
 
-ped2igraph <- function(ped,compact=TRUE) {
+ped2igraph <- function(ped, compact = TRUE, highlight = NULL) {
   ped_new <- copy(ped)
   ped_col_names <- colnames(ped_new)
   # There is the Cand column in the pedigree if it is traced by the tidyped function
@@ -460,6 +465,51 @@ ped2igraph <- function(ped,compact=TRUE) {
   # Setting male and female's color
   ped_node[sex %in% c("male"), ":="(frame.color="#0e8dbb", color = "#119ecc")]
   ped_node[sex %in% c("female"), ":="(frame.color="#e6a11f", color = "#f4b131")]
+  
+  # Apply highlight colors if specified
+  if (!is.null(highlight)) {
+    # Normalize highlight to list format
+    if (is.character(highlight)) {
+      # Simple vector of IDs - use default highlight colors
+      highlight <- list(
+        ids = highlight,
+        frame.color = "#9c27b0",  # green border
+        color = "#ce93d8"          # Light green fill
+      )
+    }
+    
+    # Extract IDs and validate
+    if (!is.null(highlight$ids) && length(highlight$ids) > 0) {
+      highlight_ids <- highlight$ids
+      
+      # Check which IDs exist in the pedigree
+      existing_ids <- ped_node[nodetype %in% c("real", "compact"), unique(label)]
+      valid_ids <- highlight_ids[highlight_ids %in% existing_ids]
+      invalid_ids <- highlight_ids[!(highlight_ids %in% existing_ids)]
+      
+      # Warn about missing IDs
+      if (length(invalid_ids) > 0) {
+        warning(
+          "The following individual(s) specified in highlight are not found in the pedigree: ",
+          paste(invalid_ids, collapse = ", "),
+          "\nOnly the following individual(s) will be highlighted: ",
+          if (length(valid_ids) > 0) paste(valid_ids, collapse = ", ") else "none"
+        )
+      }
+      
+      # Apply colors only to valid IDs
+      if (length(valid_ids) > 0) {
+        if (!is.null(highlight$frame.color)) {
+          ped_node[label %in% valid_ids & nodetype %in% c("real", "compact"), 
+                   frame.color := highlight$frame.color]
+        }
+        if (!is.null(highlight$color)) {
+          ped_node[label %in% valid_ids & nodetype %in% c("real", "compact"), 
+                   color := highlight$color]
+        }
+      }
+    }
+  }
 
   # The edge color is same with the color of the it's "to" node.
   min_familynum <- min(family_num$familynum)
