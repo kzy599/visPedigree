@@ -364,7 +364,7 @@ ped2igraph <- function(ped, compact = TRUE, highlight = NULL, showf = FALSE) {
 
   if (showf && "f" %in% ped_col_names) {
     ped_node[, f := ped_new$f]
-    ped_node[, label := paste0(label, "\n(", f, ")")]
+    ped_node[, label := paste0(label, "\n", f)]
   }
 
   max_id <- max(ped_node$id,na.rm = TRUE)

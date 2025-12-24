@@ -10,7 +10,8 @@ tidyped(
   trace = "up",
   tracegen = NULL,
   addgen = TRUE,
-  addnum = TRUE
+  addnum = TRUE,
+  inbreed = FALSE
 )
 }
 \arguments{
@@ -25,9 +26,11 @@ tidyped(
 \item{addgen}{A logical value indicates whether individual generation number will be generated. The default values is TRUE, then a new column named \strong{Gen} will be added in the returned data.table.}
 
 \item{addnum}{A logical value indicates whether numeric pedigree will be generated. The defaulted value is TRUE, then three new columns of \strong{IndNum}, \strong{SireNum} and \strong{DamNum} will be added in the returned data.table.}
+
+\item{inbreed}{A logical value indicates whether inbreeding coefficients will be calculated. The default value is FALSE. If TRUE, a new column named \strong{f} will be added in the returned data.table.}
 }
 \value{
-A data.table including the tidy pedigree is returned. Individual, sire and dam ID columns are renamed as \strong{Ind}, \strong{Sire} and \strong{Dam}. Missing parent is replacted with the default missing value \strong{NA}. The column \strong{Sex} includes individuals' sex (male or female, NA for unknown sex). The column \strong{Cand} will be included when the parameter \emph{cand} is not NULL. The column \strong{Gen} will be included when the parameter \emph{addgen} is TRUE. The columns \strong{IndNum}, \strong{SireNum}, and \strong{DamNum} will be included when the parameter \emph{addnum} is TRUE. Ind, Sire, Dam and Sex columns are character; The column Cand is logical; The Gen, IndNum, SireNum and DamNum are integer.
+A data.table including the tidy pedigree is returned. Individual, sire and dam ID columns are renamed as \strong{Ind}, \strong{Sire} and \strong{Dam}. Missing parent is replacted with the default missing value \strong{NA}. The column \strong{Sex} includes individuals' sex (male or female, NA for unknown sex). The column \strong{Cand} will be included when the parameter \emph{cand} is not NULL. The column \strong{Gen} will be included when the parameter \emph{addgen} is TRUE. The columns \strong{IndNum}, \strong{SireNum}, and \strong{DamNum} will be included when the parameter \emph{addnum} is TRUE. The column \strong{f} will be included when the parameter \emph{inbreed} is TRUE. Ind, Sire, Dam and Sex columns are character; The column Cand is logical; The Gen, IndNum, SireNum and DamNum are integer.
 }
 \description{
 \code{tidyped} function checks, sorts, traces, and returns a trimmed pedigree.
@@ -41,6 +44,9 @@ require(data.table)
 simple_ped
 tidy_ped <- tidyped(simple_ped)
 tidy_ped
+# Calculate inbreeding coefficients
+tidy_ped_inbreed <- tidyped(simple_ped, inbreed = TRUE)
+tidy_ped_inbreed
 # The pedigree of individual J5X804 to ancestors is pruned,
 # and the column Cand is added and returned
 tidy_ped_J5X804 <- tidyped(simple_ped,cand="J5X804")

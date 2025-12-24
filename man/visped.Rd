@@ -11,7 +11,8 @@ visped(
   cex = NULL,
   showgraph = TRUE,
   file = NULL,
-  highlight = NULL
+  highlight = NULL,
+  showf = FALSE
 )
 }
 \arguments{
@@ -28,6 +29,8 @@ visped(
 \item{file}{NULL or a character value means whether the pedigree graph will be saved in a pdf file. The graph in the pdf file is a legible vector drawing, and labels don't overlap especially when the number of individuals is big and width of the individual label is long in one generation. It is recommended that saving a pedigree graph in the pdf file. The default value is NULL.}
 
 \item{highlight}{NULL, a character vector of individual IDs, or a list specifying individuals to highlight. If a character vector is provided, individuals will be highlighted with the default color scheme (orange border and light orange fill). If a list is provided, it should contain: \code{ids} (required, character vector of individual IDs), \code{frame.color} (optional, hex color for border), and \code{color} (optional, hex color for fill). For example: \code{c("A", "B")} or \code{list(ids = c("A", "B"), frame.color = "#9c27b0", color = "#ce93d8")}. The function will check if the specified individuals exist in the pedigree and issue a warning for any missing IDs. The default value is NULL.}
+
+\item{showf}{A logical value indicating whether inbreeding coefficients will be shown in the graph. If \code{showf = TRUE} and the column \strong{f} exists in the pedigree, the inbreeding coefficient will be appended to the individual label, e.g., "ID (0.05)". The default value is FALSE.}
 }
 \value{
 No returned values. The graph will be plotted directly on graphic devices.
@@ -46,6 +49,8 @@ library(data.table)
 simple_ped
 simple_ped_tidy <- tidyped(simple_ped)
 visped(simple_ped_tidy)
+# Showing inbreeding coefficients in the graph
+visped(simple_ped_tidy, showf = TRUE)
 # Drawing a simple pedigree of a individual with id of J5X804
 simple_ped_J5X804_tidy <- tidyped(simple_ped,cand=c("J5X804"))
 visped(simple_ped_J5X804_tidy)

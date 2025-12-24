@@ -33,9 +33,13 @@ if (!is_installed) {
 ```
 
 4. [Drawing the pedigree graph](#4)   
+// ...existing code...
 4.1 [A simple pedigree graph](#4.1)   
 4.1.1 [Highlighting specific individuals](#4.1.1)   
+4.1.2 [Showing inbreeding coefficients](#4.1.2)   
 4.2 [A reduced pedigree graph](#4.2)   
+// ...existing code...
+
 4.3 [An outlined pedigree graph](#4.3)   
 4.4 [How to use this package in a selective breeding program](#4.4)   
 4.4.1 [Analysis of founders for an individual](#4.4.1)   
@@ -86,6 +90,29 @@ visped(tidyped(small_ped),
        highlight = list(ids = c("Y", "Z1"), 
                         frame.color = "#4caf50", 
                         color = "#81c784"))
+```
+
+#### <a id="4.1.2">4.1.2 Showing inbreeding coefficients</a>
+The inbreeding coefficient (F) of each individual can be calculated and displayed in the pedigree graph. There are two ways to do this:
+
+1. Set `inbreed = TRUE` in the `tidyped()` function. This will calculate the inbreeding coefficients using the `nadiv` package and add an `f` column to the tidied pedigree.
+2. Set `showf = TRUE` in the `visped()` function. This will calculate the inbreeding coefficients (if not already present) and append them to the individual labels in the graph, e.g., "ID (F=0.05)".
+
+```{r inbreed, fig.width=6.5, fig.height=6.5}
+# Create a simple inbred pedigree
+library(data.table)
+test_ped <- data.table(
+  Ind = c("A", "B", "C", "D", "E"),
+  Sire = c(NA, NA, "A", "C", "C"),
+  Dam = c(NA, NA, "B", "B", "D"),
+  Sex = c("male", "female", "male", "female", "male")
+)
+# Option 1: Calculate during tidying
+tidy_test <- tidyped(test_ped, inbreed = TRUE)
+head(tidy_test)
+
+# Option 2: Calculate and show in the graph
+visped(tidy_test, showf = TRUE)
 ```
 
 ### <a id="4.2">4.2 A reduced pedigree graph</a>
