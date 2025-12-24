@@ -115,19 +115,11 @@ visped <- function(ped,
   hgap <- round(1 / gen_max_size, 8)
   gen_num <- max(real_node$gen, na.rm = TRUE)
   max_layer <- max(ped_igraph$node$layer, na.rm = TRUE)
-  # Restoring the IDs for all nodes in each layer
-  layers <-  vector(mode = "list", length = max_layer)
-  k <- 1
-  for (i in max_layer:1) {
-    layers[[k]] <- ped_igraph$node[layer == i, id]
-    k <- k + 1
-  }
   g <- graph_from_data_frame(ped_igraph$edge, directed = TRUE, ped_igraph$node)
+  # Map vertex ids to their layer indices directly to avoid per-layer scans.
+  layer_idx <- ped_igraph$node[match(V(g)$name, as.character(id)), layer]
   l <- layout_with_sugiyama(g,
-        layers = apply(sapply(layers, function(x)
-          V(g)$name %in% x)
-          , 1
-          , which),
+        layers = layer_idx,
         hgap = hgap,
         maxiter = 120,  # Sugiyama layout max iterations
         attributes = "all")$layout
@@ -188,11 +180,23 @@ visped <- function(ped,
   #=== Matching a virtual node's x pos to the smallest position of the full-sib =======
   # A virtual node is a tie between two parents and their progenies
   virtual_node <- ped_igraph$node[nodetype %in% c("virtual")]
-  for (i in 2:gen_num) {
-    real_family_min_x <- real_node[gen == i, .(minx = min(x,na.rm=TRUE)),by=c("familylabel")]
-    virtual_family_label <- virtual_node[gen == i, familylabel]
-    min_x <- real_family_min_x[match(virtual_family_label, familylabel),minx]
-    virtual_node[gen == i, x := min_x]
+  if (nrow(virtual_node) > 0) {
+    # Preserve original row order because merge() can reorder rows.
+    virtual_node[, v_order := .I]
+    real_family_min_x <-
+      real_node[, .(minx = min(x, na.rm = TRUE)), by = .(gen, familylabel)]
+    virtual_node <-
+      merge(
+        virtual_node,
+        real_family_min_x,
+        by = c("gen", "familylabel"),
+        all.x = TRUE,
+        sort = FALSE
+      )
+    virtual_node[, x := minx]
+    virtual_node[, minx := NULL]
+    setorder(virtual_node, v_order)
+    virtual_node[, v_order := NULL]
   }
   ped_igraph$node[nodetype %in% c("virtual")] <- virtual_node
   # l[,1] <- ped_igraph$node[match(V(g)$name,as.character(id)),x]
