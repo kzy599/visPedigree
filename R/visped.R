@@ -271,6 +271,8 @@ visped <- function(ped,
     } else {
       V(g)$label.cex[V(g)$nodetype %in% c("real", "compact")] = cex
     }
+    # Avoid NA label.cex values on virtual nodes.
+    V(g)$label.cex[is.na(V(g)$label.cex)] <- 1
   }
   E(g)$size = edge_size
   E(g)$arrow.size = edge_arrow_size
