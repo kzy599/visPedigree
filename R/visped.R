@@ -54,7 +54,10 @@ visped <- function(ped,
   # Reserved digits
   fixed_digits <- 7
   # Digits when calculating
-  options(digits=20)
+  old_digits <- getOption("digits")
+  options(digits = 20)
+  # Restore user options even if plotting errors.
+  on.exit(options(digits = old_digits), add = TRUE)
 
   ped_igraph <- ped2igraph(ped_new, compact)
   real_node <- ped_igraph$node[nodetype %in% c("real", "compact")]
@@ -83,13 +86,29 @@ visped <- function(ped,
     }
   }
 
-  if (!outline & best_cex == 0) {
+  if (!outline & best_cex == 0 & is.null(cex)) {
      stop(
        "Too many individuals (>=",
        gen_max_size,
        ") in one generation!!! Two choices:\n", "1. Removing full-sib individuals using the parameter compact = TRUE; or, \n",
        "2. Visualizing all nodes without labels using the parameter outline = TRUE.\n",
        "Rerun visped() function!")
+  }
+  if (!outline & !is.null(cex)) {
+    # Warn when a user-supplied cex likely exceeds PDF width.
+    label_max_width_cex <- max(
+      strwidth(max_strwidth_label, cex = cex, units = "inches"),
+      na.rm = TRUE
+    )
+    if (gen_max_size <= 16 & label_max_width_cex < 0.8) {
+      label_max_width_cex <- 0.8
+    }
+    if ((label_max_width_cex * gen_max_size) >= pdf_max_width) {
+      warning(
+        "The provided cex may make the pedigree wider than the PDF maximum width; ",
+        "labels or shapes could be clipped. Consider using compact = TRUE or outline = TRUE."
+      )
+    }
   }
 
   #=== Generating the hierarchy layout of all nodes using the sugiyama algorithm =======
@@ -279,6 +298,8 @@ visped <- function(ped,
     pdf(file = file,
         width = canvas_width_s,
         height = canvas_height)
+    # Ensure the device is closed even if plotting fails.
+    on.exit(dev.off(), add = TRUE)
     plot.igraph(
       g,
       rescale = FALSE,
@@ -287,7 +308,6 @@ visped <- function(ped,
       layout = l,
       asp = 0
     )
-    dev.off()
     message(paste("The vector drawing of the pedigree is saved in the ",
             getwd(),
             "/",file," file",sep=""))
@@ -305,7 +325,7 @@ visped <- function(ped,
     message("It is recommended that the pedigree graph is saved in the pdf file using the parameter file")
     message("The graph in the pdf file is a vector drawing: shapes, labels and lines are legible; shapes and labels aren't overlapped.")
   }
-  options(digits=7)
+  invisible(NULL)
 }
 
 ped2igraph <- function(ped,compact=TRUE) {
