@@ -6,12 +6,12 @@
 #'
 #' In the graph, two shapes and three colors are used. Circle is for individual, square is for family. Dark sky blue means male, dark golden rod means female, dark olive green means unknown sex. For example, one circle with dark sky blue means a male individual; One square with dark golden rod means all female individuals in a full-sib family when \code{compact = TRUE}.
 #'
-#' @param ped A data.table including the pedigree tidied by the \code{\link{tidyped}} function with the parameter \code{addnum=TRUE}. It is recommended that the pedigree is tidied and pruned by candidates using the \code{\link{tidyped}} function with the not null parameter \code{cand}.
+#' @param ped A data.table including the pedigree tidied by the \code{\link{tidyped}} function with the parameter \code{addnum=TRUE}. It is recommended that the pedigree is tidied and pruned by candidates using the \code{\link{tidyped}} function with the non-null parameter \code{cand}.
 #' @param compact A logical value indicating whether IDs of full-sib individuals in one generation will be deleted and replaced with the number of full-sib individuals. For example, if there are 100 full-sib individuals in one generation, they will be deleted from the pedigree and be replaced with one individual label of "100" when \code{compact = TRUE}. The default value is FALSE
 #' @param outline A logical value indicating whether shapes without label will be shown. A graph of the pedigree without individuals' label is shown when setting \code{outline = TRUE}. It is very useful for viewing the outline of the pedigree and finding the immigrant individuals in each generation when the width of a pedigree graph is longer than the maximum width (200 inches) of the pdf file. The defaulted value is FALSE.
 #' @param cex NULL or a numeric value changing the size of individual label shown in the graph. \emph{cex} is an abbreviation of character expansion factor. \code{visped} function will try to guess (\code{cex=NULL}) the matched cex value and returned it in the messages. According to the returned cex of the last run, this parameter should be increased if the label's width is longer than that of the shape in the output pdf file; Contrariwise, this parameter should be decreased if the label's width is shorter than that of the shape in the output pdf file; then rerunning \code{visped} function. The default value is NULL.
 #' @param showgraph A logical value indicating whether a plot will be shown in the defaulted graphic device, such as the Plots panel of Rstudio. It is useful for quick viewing of the pedigree graph without opening the pdf file. However, the graph on the defaulted graphic device may be not legible, such as overlapped labels, aliasing lines due to the restricted width and height. It's a good choice to set \code{showgraph = FALSE} when the pedigree is large. The default value is TRUE.
-#' @param file NULL or a character value means whether the pedigree graph will be saved in a pdf file. The graph in the pdf file is a legible vector drawing, and labels isn't overlapped especially when the number of individuals is big and width of the individual label is long in one generation. It is recommended that saving a pedigree graph in the pdf file. The default value is NULL.
+#' @param file NULL or a character value means whether the pedigree graph will be saved in a pdf file. The graph in the pdf file is a legible vector drawing, and labels don't overlap especially when the number of individuals is big and width of the individual label is long in one generation. It is recommended that saving a pedigree graph in the pdf file. The default value is NULL.
 #' @return No returned values. The graph will be plotted directly on graphic devices.
 #'
 #' @examples
@@ -195,7 +195,6 @@ visped <- function(ped,
       if (max(x_stats_gen$N) <= 16) {
         # increase large space between two nodes when the node number is small
         f <- 3 * round(node_width_s / min_node_space, 8)
-      }
       } else {
         # keep small space between two nodes when the node number are big
         f <- round(node_width_s / min_node_space, 8)
@@ -218,7 +217,7 @@ visped <- function(ped,
     node_width_v <- seq(from=label_max_width, to=node_width_s, by=-0.0001)
     canvas_width_v <- node_width_v * gen_max_size
     if (min(canvas_width_v,na.rm = TRUE) > pdf_max_width) {
-      stop("The outline of the pedigree is not shwon due to too many nodes in one genertion")
+      stop("The outline of the pedigree is not shown due to too many nodes in one generation")
     }
     canvas_width_v <- sort(canvas_width_v)
     canvas_width_s <- max(canvas_width_v[canvas_width_v < pdf_max_width])
@@ -304,7 +303,7 @@ visped <- function(ped,
   }
   if (is.null(file)) {
     message("It is recommended that the pedigree graph is saved in the pdf file using the parameter file")
-    message("The graph in the pdf file is a vector drawing: shapes, labels and lines are legible; shapes and labels isn't overlapped.")
+    message("The graph in the pdf file is a vector drawing: shapes, labels and lines are legible; shapes and labels aren't overlapped.")
   }
   options(digits=7)
 }
@@ -368,7 +367,7 @@ ped2igraph <- function(ped,compact=TRUE) {
   # There will be three node types in the ped_note, including real, compact, and virtual.
   # Real nodes are all individuals in the pedigree.
   # Compact nodes are full-sib individuals with parents, but without progeny,
-  # they exist only when the "compact" paramete is TRUE
+  # they exist only when the "compact" parameter is TRUE
   nodetype = NULL # due to NSE notes in R CMD check
   ped_node[,nodetype:="real"]
 
@@ -486,9 +485,9 @@ ped2igraph <- function(ped,compact=TRUE) {
 repeloverlap <- function(x) {
   if (anyDuplicated(x)>0) {
     x_dt <- as.data.table(x)
-    # The number of the x postions with duplicated values
+    # The number of the x positions with duplicated values
     x_dt_times <- x_dt[,.N,by=x]
-    # The number of the x postions with unique value
+    # The number of the x positions with unique value
     unique_elements <- sort(x_dt_times[,x])
     unique_elements_num <- length(unique_elements)
     x_dt_dup <- x_dt_times[N>1]
