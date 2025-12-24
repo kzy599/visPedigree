@@ -50,16 +50,11 @@ visped <- function(ped,
   }
   ped_new <- copy(ped)
 
-  # Convertting pedigree to nodes and edges data.table
+  # Converting pedigree to nodes and edges data.table
   # Reserved digits
   fixed_digits <- 7
   # Digits when calculating
   options(digits=20)
-  # IndNum, SireNum, and DamNum columns are used as IDs to node and edges
-  #ped_col_names <- names(ped)
-  # if (!all(c("IndNum", "SireNum", "DamNum") %in% ped_col_names)) {
-  #   stop("The pedigree need to be firstly trimmed by the tidyped() function!")
-  # }
 
   ped_igraph <- ped2igraph(ped_new, compact)
   real_node <- ped_igraph$node[nodetype %in% c("real", "compact")]
@@ -68,9 +63,9 @@ visped <- function(ped,
 
 
   #=== Obtaining the maximum width of nodes' label =====================================================
-  # The maximum width of a pdf file is 200 inch
-  pdf_max_width = 200
-  cexs <-  seq(from = 0.1, to = 1, by = 0.05)
+  # The maximum width of a PDF file is 200 inch
+  pdf_max_width = 200  # Max PDF width in inches
+  cexs <-  seq(from = 0.1, to = 1, by = 0.05)  # CEX sequence
   best_cex <- 0
   max_strwidth_label <- real_node[which.max(strwidth(real_node$label, cex = 1, units = "inches")), label]
   for (i in length(cexs):1) {
@@ -115,7 +110,7 @@ visped <- function(ped,
           , 1
           , which),
         hgap = hgap,
-        maxiter = 120,
+        maxiter = 120,  # Sugiyama layout max iterations
         attributes = "all")$layout
   l <- norm_coords(l,
         xmin = 0,
@@ -130,7 +125,7 @@ visped <- function(ped,
    for (i in 1:gen_num) {
     v_rank <- rank(real_node[gen == i, x], na.last = TRUE, ties.method = "first")
     x_sorted <- sort(real_node[gen == i, x])
-    x_sorted <- round(x_sorted,fixed_digits)
+    x_sorted <- round(x_sorted, fixed_digits)
     x_new <- repeloverlap(x_sorted)
     real_node[gen == i, x := x_new[v_rank]]
    }
@@ -171,8 +166,8 @@ visped <- function(ped,
     ped_igraph$node[nodetype %in% c("real", "compact")] <- real_node
   }
 
-  #=== Matching a virtual node's x pos to the samllest position of the full-sib =======
-  # A virutal node is a tie between two parents and their progenies
+  #=== Matching a virtual node's x pos to the smallest position of the full-sib =======
+  # A virtual node is a tie between two parents and their progenies
   virtual_node <- ped_igraph$node[nodetype %in% c("virtual")]
   for (i in 2:gen_num) {
     real_family_min_x <- real_node[gen == i, .(minx = min(x,na.rm=TRUE)),by=c("familylabel")]
@@ -201,8 +196,8 @@ visped <- function(ped,
         # increase large space between two nodes when the node number is small
         f <- 3 * round(node_width_s / min_node_space, 8)
       }
-      else {
-        # keep samll space between two nodes when the node number are big
+      } else {
+        # keep small space between two nodes when the node number are big
         f <- round(node_width_s / min_node_space, 8)
       }
     } else {
@@ -210,7 +205,7 @@ visped <- function(ped,
     }
     x_f <- f * (l[, 1])
     # Setting the width of the canvas
-    # Adding extra 6 node width to the canvas's width to decerase node size
+    # Adding extra 6 node width to the canvas's width to decrease node size
     # when only have one node in one layer
     # because node size is equal to the percentage of node width to the canvas width
     canvas_width_s <- max(x_f, na.rm = TRUE) - min(x_f, na.rm = TRUE) + 6 * node_width_s
@@ -220,7 +215,7 @@ visped <- function(ped,
   if (outline) {
     # Maybe < 20,000,000 nodes could be shown in one generation
     node_width_s <- 0.0001
-    node_width_v <- seq(from=label_max_width, to=node_width_s,by=-0.0001)
+    node_width_v <- seq(from=label_max_width, to=node_width_s, by=-0.0001)
     canvas_width_v <- node_width_v * gen_max_size
     if (min(canvas_width_v,na.rm = TRUE) > pdf_max_width) {
       stop("The outline of the pedigree is not shwon due to too many nodes in one genertion")
@@ -239,10 +234,10 @@ visped <- function(ped,
   }
 
 
-  canvas_height <- canvas_width_s * 0.618
+  canvas_height <- canvas_width_s * 0.618  # Golden ratio
 
   # inch
-  gen_height <- 0.618
+  gen_height <- 0.618  # Golden ratio for generation height
   if (canvas_height < gen_num * (node_width_s) + 3 * node_width_s) {
     canvas_height <- gen_num * (node_width_s) + 3 * node_width_s
   }
@@ -270,7 +265,7 @@ visped <- function(ped,
   E(g)$arrow.size = edge_arrow_size
   E(g)$arrow.width = edge_arrow_width
 
-  #===Draw the peidgree================================================================
+  #===Draw the pedigree================================================================
   if (showgraph) {
     plot.igraph(
       g,
@@ -418,10 +413,7 @@ ped2igraph <- function(ped,compact=TRUE) {
   ped_edge <- unique(ped_edge)
   ped_edge <- ped_edge[order(from, to)]
   size = arrow.size = arrow.width = color = curved = NULL # due to NSE notes in R CMD check
-  # grey
-  #ped_edge[,":="(size=1,arrow.size=1,arrow.width=1,color="#9d96ad",curved=0.15)]
-  #ped_edge[,":="(size=1,arrow.size=1,arrow.width=1,color="#a69f89",curved=0.15)]
-  #ped_edge[,":="(size=1,arrow.size=1,arrow.width=1,color="#afa8be",curved=0.10)]
+  # Set edge colors - currently using dark grey
   ped_edge[,":="(size=1,arrow.size=1,arrow.width=1,color="#333333",curved=0.10)]
   # Add familynum as new virtual nodes
   ped_node <-
@@ -444,13 +436,10 @@ ped2igraph <- function(ped,compact=TRUE) {
 
   #=== Set default shape, size and color for male and female===========================
   # Setting the default attributes of nodes
-  # Notes: size = 15 means the width of a circle node account for 15% of the whole width
+  # Notes: size = 15 means the width of a circle node accounts for 15% of the whole width
   # of the graph
-  #ped_node[, ":="(shape = "circle", frame.color="#8495e8", color="#9daaea",size = 15)]
-  #ped_node[, ":="(shape = "circle", frame.color="black", color="#aaa16c",size = 15)]
   shape = frame.color = color = size = label.color = NULL
   ped_node[, ":="(shape = "circle", frame.color="#7fae59", color="#9cb383",size = 15, label.color="#0d0312")]
-  #ped_node[, ":="(shape = "circle", frame.color=NA, color="#9cb383",size = 15)]
   ped_node[nodetype %in% c("compact"), ":="(shape="square")]
   # Setting virtual size of nodes to 0.0001
   ped_node[id > max_id,":="(shape="none",label="",size=0)]
