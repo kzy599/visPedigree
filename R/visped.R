@@ -489,56 +489,107 @@ ped2igraph <- function(ped,compact=TRUE) {
 
 `:=` = function(...) NULL
 
-#' Repel the overlapping nodes in x axis.
+#' Repel overlapping nodes on the x-axis
 #'
-#' \code{repeloverlap} function converts repeated axis x positions to continuous positions.
+#' \code{repeloverlap} converts repeated x-axis positions to evenly-spaced continuous positions.
 #'
-#' This function takes a vector including axis x positions with repeated values, converts the repeated values of one x position to continuous positions. For example, x = c(1.2,2.1,2.1,2.1,3.2,4.6,5.7), where 2.1 is a axis x position with two repeated values; bl <- (3.2-2.1)/3; transformed x = c(1.2,2.1,2.1+bl,2.1+2*bl,3.2,4.6,5.7)
-#' @param x A vector including x positions with repeated values
-#' @return A vector including x positions with unique values
+#' When multiple nodes share the same x position, this function spreads them evenly
+#' within the available space to their neighbors. For example, given
+#' x = c(1.2, 2.1, 2.1, 2.1, 3.2, 4.6, 5.7), where 2.1 appears three times,
+#' the function calculates spacing: gap = (3.2 - 2.1) / 3 and transforms to
+#' c(1.2, 2.1, 2.1 + gap, 2.1 + 2*gap, 3.2, 4.6, 5.7).
+#'
+#' @param x A numeric vector of x positions with possible repeated values
+#' @return A numeric vector of x positions with unique values, preserving order
 #' @keywords internal
 repeloverlap <- function(x) {
-  if (anyDuplicated(x)>0) {
-    x_dt <- as.data.table(x)
-    # The number of the x positions with duplicated values
-    x_dt_times <- x_dt[,.N,by=x]
-    # The number of the x positions with unique value
-    unique_elements <- sort(x_dt_times[,x])
-    unique_elements_num <- length(unique_elements)
-    x_dt_dup <- x_dt_times[N>1]
-    dup_num <- nrow(x_dt_dup)
-    y <- vector(mode = "list",length = dup_num)
-    for (i in 1:dup_num) {
-      rank_left <- which(unique_elements==x_dt_dup[i,x])
-      # For the last two x positions with repeated values
-      # For example, c(1,2,3,4,5,5,6,6)
-      if (i == (dup_num-1)) {
-        if ((rank_left == unique_elements_num-1) & (which(unique_elements==x_dt_dup[i+1,x]) == unique_elements_num)) {
-          rank_right <- rank_left+1
-          range <- unique_elements[rank_right]-unique_elements[rank_left]
-          break_num <- x_dt_dup[i,N]+x_dt_dup[i+1,N]-1
-          break_length <- range/break_num
-          y[[i]] <- c(x_dt_dup[i,x],x_dt_dup[i+1,x],unique_elements[rank_left]+break_length*seq(break_num-1))
-          break
-        }
-      }
-      break_num <- x_dt_dup[i,N]
-      # For the repeated values which are not in the end.
-      # For example, c(1,1,2,3,4,5,6)
-      if (rank_left < unique_elements_num) {
-        rank_right <- rank_left+1
-      }
-      # For the last one repeated value
-      # for example, c(1,1,2,3,4,5,6,6)
-      if (rank_left == unique_elements_num) {
-        rank_right <-  rank_left
-        rank_left <- rank_left-1
-      }
-      range <- unique_elements[rank_right]-unique_elements[rank_left]
-      break_length <- range/break_num
-      y[[i]] <- c(x_dt_dup[i,x],unique_elements[rank_left]+break_length*seq(break_num-1))
-    }
-    return(sort(union(unique_elements, do.call("c",y))))
+  n <- length(x)
+  # Early return if no duplicates
+  if (n <= 1 || anyDuplicated(x) == 0) {
+    return(x)
   }
-  return(x)
+  
+  # Count occurrences using data.table for efficient aggregation
+  x_dt <- as.data.table(x)
+  x_counts <- x_dt[, .N, by = x]
+  
+  # Filter to keep only duplicated positions
+  dup_info <- x_counts[N > 1]
+  if (nrow(dup_info) == 0) {
+    return(x)
+  }
+  
+  # Special case: only one unique value (all identical)
+  # Cannot spread - return original
+  if (nrow(x_counts) == 1) {
+    return(x)
+  }
+  
+  # Sort and pre-allocate
+  setorder(dup_info, x)
+  unique_pos <- sort(x_counts[, x])
+  n_unique <- length(unique_pos)
+  n_dup <- nrow(dup_info)
+  
+  # Pre-allocate result vector with maximum possible size
+  max_new_vals <- sum(dup_info$N) - n_dup
+  result <- numeric(n_unique + max_new_vals)
+  result[seq_len(n_unique)] <- unique_pos
+  result_idx <- n_unique
+  
+  # Process each duplicated position
+  for (i in seq_len(n_dup)) {
+    dup_val <- dup_info$x[i]
+    n_copies <- dup_info$N[i]
+    idx <- match(dup_val, unique_pos)
+    
+    # Special case: last two consecutive duplicate positions
+    # They share the space between them proportionally
+    if (i == n_dup - 1 && n_dup >= 2) {
+      next_dup_val <- dup_info$x[i + 1]
+      next_idx <- match(next_dup_val, unique_pos)
+      
+      # Check if they are consecutive in unique_pos
+      if (next_idx == idx + 1) {
+        # Combine copies from both positions and spread evenly
+        next_n_copies <- dup_info$N[i + 1]
+        total_copies <- n_copies + next_n_copies - 1
+        gap <- (next_dup_val - dup_val) / total_copies
+        
+        # Generate positions for current duplicates (excluding the first)
+        n_new1 <- n_copies - 1
+        n_new2 <- next_n_copies - 1
+        result[(result_idx + 1):(result_idx + n_new1)] <- dup_val + gap * seq_len(n_new1)
+        
+        # Generate positions for next duplicates (all of them, excluding last)
+        result[(result_idx + n_new1 + 1):(result_idx + n_new1 + n_new2)] <- 
+          dup_val + gap * seq(n_copies, total_copies - 1)
+        
+        result_idx <- result_idx + n_new1 + n_new2
+        # Skip the next iteration since we handled it here
+        break
+      }
+    }
+    
+    # Normal case: spread between current and next position
+    n_new <- n_copies - 1
+    if (n_new > 0) {
+      if (idx < n_unique) {
+        next_pos <- unique_pos[idx + 1]
+        gap <- (next_pos - dup_val) / n_copies
+        # Keep first copy at original position, spread the rest
+        result[(result_idx + 1):(result_idx + n_new)] <- dup_val + gap * seq_len(n_new)
+      } else if (idx > 1) {
+        # Last position: spread backward from previous
+        prev_pos <- unique_pos[idx - 1]
+        gap <- (dup_val - prev_pos) / n_copies
+        # Generate all new positions between prev and current
+        result[(result_idx + 1):(result_idx + n_new)] <- prev_pos + gap * seq_len(n_new)
+      }
+      result_idx <- result_idx + n_new
+    }
+  }
+  
+  # Return sorted positions (only the used portion)
+  return(sort(result[seq_len(result_idx)]))
 }
