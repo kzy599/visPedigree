@@ -4,8 +4,14 @@
 \alias{tidyped}
 \title{Tidy and prepare a pedigree}
 \usage{
-tidyped(ped, cand = NULL, trace = "up", tracegen = NULL,
-  addgen = TRUE, addnum = TRUE)
+tidyped(
+  ped,
+  cand = NULL,
+  trace = "up",
+  tracegen = NULL,
+  addgen = TRUE,
+  addnum = TRUE
+)
 }
 \arguments{
 \item{ped}{A data.table or data frame including the pedigree, which including the first three columns: \strong{individual}, \strong{sire} and \strong{dam} IDs. More columns, such as sex, generation can be included in the pedigree file. Names of the three columns can be assigend as you would like, but their orders must be not changded in the pedigree. Individual ID should not be coded as "", " ", "0", asterisk, and "NA", otherwise these individuals will be deleted from the pedigree. Missing parents should be denoted by either "NA", "0", asterisk. Space and "" will also be recoded as missing parents, but not be recommended.}

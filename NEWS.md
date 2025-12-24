@@ -1,3 +1,14 @@
+# Changes in version 0.3 released on 24 Dec 2025
+## New features
+1. Added `highlight` parameter to `visped()` function. Users can now highlight specific individuals using a character vector of IDs (default orange) or a list for custom colors (frame and fill).
+2. Implemented existence validation for highlighted individuals with detailed warning messages.
+3. Optimized `repeloverlap()` function using `data.table` for significantly better performance and 100% functional consistency with previous versions.
+
+## Bug fixes
+1. Fixed spelling errors in `visped()` documentation ("shwon" -> "shown", "genertion" -> "generation").
+
+// ...existing code...
+
 # Changes in version 0.2.6 released on 31 Mar 2020
 ## New features
 ## Bug fixes

@@ -34,6 +34,7 @@ if (!is_installed) {
 
 4. [Drawing the pedigree graph](#4)   
 4.1 [A simple pedigree graph](#4.1)   
+4.1.1 [Highlighting specific individuals](#4.1.1)   
 4.2 [A reduced pedigree graph](#4.2)   
 4.3 [An outlined pedigree graph](#4.3)   
 4.4 [How to use this package in a selective breeding program](#4.4)   
@@ -70,6 +71,22 @@ suppressMessages(visped(tidy_simple_ped, showgraph = FALSE, file="simpleped.pdf"
 ```
 
 After opening the [simpleped.PDF](simpleped.PDF) file and you'll see a high definition pedigree graph.
+
+#### <a id="4.1.1">4.1.1 Highlighting specific individuals</a>
+Specific individuals can be highlighted in the pedigree graph using the **highlight** parameter. This is useful for marking candidates, founders, or any individuals of interest.
+
+You can provide a character vector of individual IDs to use the default highlight colors (orange border and light orange fill):
+```{r highlight1, fig.width=6.5, fig.height=6.5}
+visped(tidyped(small_ped), highlight = c("Y", "Z1"))
+```
+
+Alternatively, you can customize the colors by providing a list with **ids**, **frame.color**, and **color**:
+```{r highlight2, fig.width=6.5, fig.height=6.5}
+visped(tidyped(small_ped), 
+       highlight = list(ids = c("Y", "Z1"), 
+                        frame.color = "#4caf50", 
+                        color = "#81c784"))
+```
 
 ### <a id="4.2">4.2 A reduced pedigree graph</a>
 

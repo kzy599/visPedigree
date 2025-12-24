@@ -4,11 +4,18 @@
 \alias{visped}
 \title{Visualize a tidy pedigree}
 \usage{
-visped(ped, compact = FALSE, outline = FALSE, cex = NULL,
-  showgraph = TRUE, file = NULL)
+visped(
+  ped,
+  compact = FALSE,
+  outline = FALSE,
+  cex = NULL,
+  showgraph = TRUE,
+  file = NULL,
+  highlight = NULL
+)
 }
 \arguments{
-\item{ped}{A data.table including the pedigree tidied by the \code{\link{tidyped}} function with the parameter \code{addnum=TRUE}. It is recommended that the pedigree is tidied and pruned by candidates using the \code{\link{tidyped}} function with the not null parameter \code{cand}.}
+\item{ped}{A data.table including the pedigree tidied by the \code{\link{tidyped}} function with the parameter \code{addnum=TRUE}. It is recommended that the pedigree is tidied and pruned by candidates using the \code{\link{tidyped}} function with the non-null parameter \code{cand}.}
 
 \item{compact}{A logical value indicating whether IDs of full-sib individuals in one generation will be deleted and replaced with the number of full-sib individuals. For example, if there are 100 full-sib individuals in one generation, they will be deleted from the pedigree and be replaced with one individual label of "100" when \code{compact = TRUE}. The default value is FALSE}
 
@@ -18,7 +25,9 @@ visped(ped, compact = FALSE, outline = FALSE, cex = NULL,
 
 \item{showgraph}{A logical value indicating whether a plot will be shown in the defaulted graphic device, such as the Plots panel of Rstudio. It is useful for quick viewing of the pedigree graph without opening the pdf file. However, the graph on the defaulted graphic device may be not legible, such as overlapped labels, aliasing lines due to the restricted width and height. It's a good choice to set \code{showgraph = FALSE} when the pedigree is large. The default value is TRUE.}
 
-\item{file}{NULL or a character value means whether the pedigree graph will be saved in a pdf file. The graph in the pdf file is a legible vector drawing, and labels isn't overlapped especially when the number of individuals is big and width of the individual label is long in one generation. It is recommended that saving a pedigree graph in the pdf file. The default value is NULL.}
+\item{file}{NULL or a character value means whether the pedigree graph will be saved in a pdf file. The graph in the pdf file is a legible vector drawing, and labels don't overlap especially when the number of individuals is big and width of the individual label is long in one generation. It is recommended that saving a pedigree graph in the pdf file. The default value is NULL.}
+
+\item{highlight}{NULL, a character vector of individual IDs, or a list specifying individuals to highlight. If a character vector is provided, individuals will be highlighted with the default color scheme (orange border and light orange fill). If a list is provided, it should contain: \code{ids} (required, character vector of individual IDs), \code{frame.color} (optional, hex color for border), and \code{color} (optional, hex color for fill). For example: \code{c("A", "B")} or \code{list(ids = c("A", "B"), frame.color = "#9c27b0", color = "#ce93d8")}. The function will check if the specified individuals exist in the pedigree and issue a warning for any missing IDs. The default value is NULL.}
 }
 \value{
 No returned values. The graph will be plotted directly on graphic devices.
@@ -42,6 +51,10 @@ simple_ped_J5X804_tidy <- tidyped(simple_ped,cand=c("J5X804"))
 visped(simple_ped_J5X804_tidy)
 # Drawing the graph in the pdf file
 visped(simple_ped_J5X804_tidy,file="output.pdf")
+# Highlighting specific individuals with default colors
+visped(simple_ped_tidy, highlight = c("Y", "Z1", "Z2"))
+# Highlighting specific individuals with custom colors
+visped(simple_ped_tidy, highlight = list(ids = c("Y", "Z1"), frame.color = "#4caf50", color = "#81c784"))
 # Drawing a compact pedigree
 # The candidates' labels in 2007
 cand_labels <- big_family_size_ped[(Year == 2007) & (substr(Ind,1,2) == "G8"),Ind]

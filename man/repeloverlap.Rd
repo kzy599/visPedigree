@@ -2,20 +2,24 @@
 % Please edit documentation in R/visped.R
 \name{repeloverlap}
 \alias{repeloverlap}
-\title{Repel the overlapping nodes in x axis.}
+\title{Repel overlapping nodes on the x-axis}
 \usage{
 repeloverlap(x)
 }
 \arguments{
-\item{x}{A vector including x positions with repeated values}
+\item{x}{A numeric vector of x positions with possible repeated values}
 }
 \value{
-A vector including x positions with unique values
+A numeric vector of x positions with unique values, preserving order
 }
 \description{
-\code{repeloverlap} function converts repeated axis x positions to continuous positions.
+\code{repeloverlap} converts repeated x-axis positions to evenly-spaced continuous positions.
 }
 \details{
-This function takes a vector including axis x positions with repeated values, converts the repeated values of one x position to continuous positions. For example, x = c(1.2,2.1,2.1,2.1,3.2,4.6,5.7), where 2.1 is a axis x position with two repeated values; bl <- (3.2-2.1)/3; transformed x = c(1.2,2.1,2.1+bl,2.1+2*bl,3.2,4.6,5.7)
+When multiple nodes share the same x position, this function spreads them evenly
+within the available space to their neighbors. For example, given
+x = c(1.2, 2.1, 2.1, 2.1, 3.2, 4.6, 5.7), where 2.1 appears three times,
+the function calculates spacing: gap = (3.2 - 2.1) / 3 and transforms to
+c(1.2, 2.1, 2.1 + gap, 2.1 + 2*gap, 3.2, 4.6, 5.7).
 }
 \keyword{internal}

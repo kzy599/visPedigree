@@ -1,41 +1,50 @@
-## ----setup, include = FALSE----------------------------------------------
+## ----setup, include = FALSE---------------------------------------------------
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>"
 )
 
-## ----installdevtools, include=FALSE, eval=TRUE---------------------------
+## ----installdevtools, include=FALSE, eval=TRUE--------------------------------
 suppressPackageStartupMessages(is_installed <- require(devtools))
 if (!is_installed) {
   install.packages("devtools")
   suppressPackageStartupMessages(require(devtools))
 } 
 
-## ----installvisPed, include=FALSE, eval=TRUE-----------------------------
+## ----installvisPed, include=FALSE, eval=TRUE----------------------------------
 suppressPackageStartupMessages(is_installed <- require(visPedigree))
 if (!is_installed) {
   install_github("luansheng/visPedigree")  
   suppressPackageStartupMessages(require(visPedigree))
 } 
 
-## ----smallped, fig.width=6.5, fig.height=6.5, fig.show="hold"------------
+## ----smallped, fig.width=6.5, fig.height=6.5, fig.show="hold"-----------------
 tidy_small_ped <-
   tidyped(ped = small_ped,
           cand = c("Y", "Z1", "Z2"))
 visped(tidy_small_ped, compact = TRUE, file = "smallped.pdf")
 
-## ----vissimpleped,  fig.width=6.5, fig.height=6.5, fig.show="hold"-------
+## ----vissimpleped,  fig.width=6.5, fig.height=6.5, fig.show="hold"------------
 tidy_simple_ped <- tidyped(simple_ped)
 visped(tidy_simple_ped)
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 suppressMessages(visped(tidy_simple_ped, showgraph = FALSE, file="simpleped.pdf"))
 
-## ----deepped, eval=FALSE-------------------------------------------------
-#  cand_J11_labels <- deep_ped[(substr(Ind, 1, 3) == "K11"), Ind]
-#  visped(tidyped(deep_ped, cand = cand_J11_labels, tracegen = 3))
+## ----highlight1, fig.width=6.5, fig.height=6.5--------------------------------
+visped(tidyped(small_ped), highlight = c("Y", "Z1"))
 
-## ----reduceped1, fig.width=6.5, fig.height=6.5---------------------------
+## ----highlight2, fig.width=6.5, fig.height=6.5--------------------------------
+visped(tidyped(small_ped), 
+       highlight = list(ids = c("Y", "Z1"), 
+                        frame.color = "#4caf50", 
+                        color = "#81c784"))
+
+## ----deepped, eval=FALSE------------------------------------------------------
+# cand_J11_labels <- deep_ped[(substr(Ind, 1, 3) == "K11"), Ind]
+# visped(tidyped(deep_ped, cand = cand_J11_labels, tracegen = 3))
+
+## ----reduceped1, fig.width=6.5, fig.height=6.5--------------------------------
 cand_J11_labels <- deep_ped[(substr(Ind,1,3) == "K11"),Ind]
 visped(
   tidyped(
@@ -49,7 +58,7 @@ visped(
   file = "deepped1.pdf"
 )
 
-## ----reduceped2, fig.width=6.5, fig.height=6.5---------------------------
+## ----reduceped2, fig.width=6.5, fig.height=6.5--------------------------------
 visped(
   tidyped(
     deep_ped,
@@ -63,7 +72,7 @@ visped(
   file = "deepped2.pdf"
 )
 
-## ----reduceped3, fig.width=6.5, fig.height=6.5---------------------------
+## ----reduceped3, fig.width=6.5, fig.height=6.5--------------------------------
 suppressMessages(visped(
   tidyped(
     deep_ped,
@@ -75,12 +84,12 @@ suppressMessages(visped(
   file = "deepped3.pdf"
 ))
 
-## ----pedofoneind, fig.width=6.5, fig.height=6.5--------------------------
+## ----pedofoneind, fig.width=6.5, fig.height=6.5-------------------------------
 suppressWarnings(J110550G_ped <-
                    tidyped(deep_ped, cand = "K110550H"))
 suppressMessages(visped(J110550G_ped, showgraph = TRUE, file = "K110550HGped.pdf"))
 
-## ----optiMate, fig.width=6.5, fig.height=6.5-----------------------------
+## ----optiMate, fig.width=6.5, fig.height=6.5----------------------------------
 cand_2007_G8_labels <-
   big_family_size_ped[(Year == 2007) & (substr(Ind, 1, 2) == "G8"), Ind]
 suppressWarnings(

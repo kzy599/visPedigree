@@ -473,8 +473,8 @@ ped2igraph <- function(ped, compact = TRUE, highlight = NULL) {
       # Simple vector of IDs - use default highlight colors
       highlight <- list(
         ids = highlight,
-        frame.color = "#9c27b0",  # green border
-        color = "#ce93d8"          # Light green fill
+        frame.color = "#9c27b0",  # purple border
+        color = "#ce93d8"          # Light purple fill
       )
     }
     
