@@ -182,22 +182,10 @@ visped <- function(ped,
   # A virtual node is a tie between two parents and their progenies
   virtual_node <- ped_igraph$node[nodetype %in% c("virtual")]
   if (nrow(virtual_node) > 0) {
-    # Preserve original row order because merge() can reorder rows.
-    virtual_node[, v_order := .I]
+    # Update x via join to preserve row order and column types.
     real_family_min_x <-
       real_node[, .(minx = min(x, na.rm = TRUE)), by = .(gen, familylabel)]
-    virtual_node <-
-      merge(
-        virtual_node,
-        real_family_min_x,
-        by = c("gen", "familylabel"),
-        all.x = TRUE,
-        sort = FALSE
-      )
-    virtual_node[, x := minx]
-    virtual_node[, minx := NULL]
-    setorder(virtual_node, v_order)
-    virtual_node[, v_order := NULL]
+    virtual_node[real_family_min_x, x := i.minx, on = .(gen, familylabel)]
   }
   ped_igraph$node[nodetype %in% c("virtual")] <- virtual_node
   # l[,1] <- ped_igraph$node[match(V(g)$name,as.character(id)),x]
