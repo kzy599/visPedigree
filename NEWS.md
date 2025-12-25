@@ -1,10 +1,10 @@
-# Changes in version 0.4 released on 24 Dec 2025
+# Changes in version 0.4.1 released on 25 Dec 2025
 ## New features
 1. Added `inbreed` parameter to `tidyped()` function to calculate inbreeding coefficients using the `nadiv` package. The result is stored in a concise column named `f`.
 2. Added `showf` parameter to `visped()` function to display inbreeding coefficients on the pedigree graph. This parameter only controls display; it does not trigger new calculations, ensuring better performance and separation of concerns.
 3. Refactored `inbreed()` function as a standalone tool that operates on `tidyped` objects, utilizing numeric IDs for faster and more robust calculation via `nadiv::makeDiiF`.
 4. Optimized `repeloverlap()` function using `data.table` for significantly better performance and 100% functional consistency with previous versions.
-5. Added `highlight` parameter to `visped()` function. Users can now highlight specific individuals using a character vector of IDs or a list for custom colors.
+5. Added `highlight` parameter to `visped()` function. Users can now highlight specific individuals using a character vector of IDs (default purple border and light purple fill) or a list for custom colors.
 
 ## Bug fixes
 1. Fixed spelling errors in `visped()` documentation ("shwon" -> "shown", "genertion" -> "generation").

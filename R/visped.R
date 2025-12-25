@@ -561,7 +561,7 @@ ped2igraph <- function(ped, compact = TRUE, highlight = NULL, showf = FALSE) {
 #' c(1.2, 2.1, 2.1 + gap, 2.1 + 2*gap, 3.2, 4.6, 5.7).
 #'
 #' @param x A numeric vector of x positions with possible repeated values
-#' @return A numeric vector of x positions with unique values, preserving order
+#' @return A numeric vector of x positions with unique values
 #' @keywords internal
 repeloverlap <- function(x) {
   n <- length(x)
@@ -651,6 +651,6 @@ repeloverlap <- function(x) {
     }
   }
   
-  # Return sorted positions (only the used portion)
-  return(sort(result[seq_len(result_idx)]))
+  # Return positions (only the used portion)
+  return(result[seq_len(result_idx)])
 }

@@ -10,7 +10,7 @@ repeloverlap(x)
 \item{x}{A numeric vector of x positions with possible repeated values}
 }
 \value{
-A numeric vector of x positions with unique values, preserving order
+A numeric vector of x positions with unique values
 }
 \description{
 \code{repeloverlap} converts repeated x-axis positions to evenly-spaced continuous positions.
