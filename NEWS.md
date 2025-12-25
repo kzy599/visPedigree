@@ -9,8 +9,6 @@
 ## Bug fixes
 1. Fixed spelling errors in `visped()` documentation ("shwon" -> "shown", "genertion" -> "generation").
 
-// ...existing code...
-
 # Changes in version 0.2.6 released on 31 Mar 2020
 ## New features
 ## Bug fixes
