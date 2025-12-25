@@ -16,9 +16,10 @@ More complex pedigree graphs can be found in the following [vignette links](#vig
    library(devtools)
    install_github("luansheng/visPedigree")
    ```
-## A small example
+## Small examples
 ```R   
 library(visPedigree)
+# Example 1
 cands <- c("Y","Z1","Z2")
 tidy_small_ped <-
   tidyped(ped = small_ped,
@@ -26,6 +27,18 @@ tidy_small_ped <-
 # Draw the pedigree, compacting full-sib individuals, and highlighting candidates
 # only "Y" could be highlighted here since "Z1" and "Z2" are not in the tidied compacted pedigree  
 visped(tidy_small_ped, compact = TRUE, highlight = cands)
+
+# Example 2
+library(data.table)
+test_ped <- data.table(
+  Ind = c("A", "B", "C", "D", "E"),
+  Sire = c(NA, NA, "A", "C", "C"),
+  Dam = c(NA, NA, "B", "B", "D"),
+  Sex = c("male", "female", "male", "female", "male")
+)
+# Option 1: Calculate during tidying
+tidy_test <- tidyped(test_ped, inbreed = TRUE)
+
 ```
 
 ## <a id="vignette">Vignette</a>
