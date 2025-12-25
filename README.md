@@ -19,10 +19,13 @@ More complex pedigree graphs can be found in the following [vignette links](#vig
 ## A small example
 ```R   
 library(visPedigree)
+cands <- c("Y","Z1","Z2")
 tidy_small_ped <-
   tidyped(ped = small_ped,
-  cand = c("Y","Z1","Z2"))
-visped(tidy_small_ped, compact = TRUE)
+  cand = cands)
+# Draw the pedigree, compacting full-sib individuals, and highlighting candidates
+# only "Y" could be highlighted here since "Z1" and "Z2" are not in the tidied compacted pedigree  
+visped(tidy_small_ped, compact = TRUE, highlight = cands)
 ```
 
 ## <a id="vignette">Vignette</a>
