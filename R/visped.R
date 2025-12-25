@@ -12,7 +12,7 @@
 #' @param cex NULL or a numeric value changing the size of individual label shown in the graph. \emph{cex} is an abbreviation of character expansion factor. \code{visped} function will try to guess (\code{cex=NULL}) the matched cex value and returned it in the messages. According to the returned cex of the last run, this parameter should be increased if the label's width is longer than that of the shape in the output pdf file; Contrariwise, this parameter should be decreased if the label's width is shorter than that of the shape in the output pdf file; then rerunning \code{visped} function. The default value is NULL.
 #' @param showgraph A logical value indicating whether a plot will be shown in the defaulted graphic device, such as the Plots panel of Rstudio. It is useful for quick viewing of the pedigree graph without opening the pdf file. However, the graph on the defaulted graphic device may be not legible, such as overlapped labels, aliasing lines due to the restricted width and height. It's a good choice to set \code{showgraph = FALSE} when the pedigree is large. The default value is TRUE.
 #' @param file NULL or a character value means whether the pedigree graph will be saved in a pdf file. The graph in the pdf file is a legible vector drawing, and labels don't overlap especially when the number of individuals is big and width of the individual label is long in one generation. It is recommended that saving a pedigree graph in the pdf file. The default value is NULL.
-#' @param highlight NULL, a character vector of individual IDs, or a list specifying individuals to highlight. If a character vector is provided, individuals will be highlighted with the default color scheme (orange border and light orange fill). If a list is provided, it should contain: \code{ids} (required, character vector of individual IDs), \code{frame.color} (optional, hex color for border), and \code{color} (optional, hex color for fill). For example: \code{c("A", "B")} or \code{list(ids = c("A", "B"), frame.color = "#9c27b0", color = "#ce93d8")}. The function will check if the specified individuals exist in the pedigree and issue a warning for any missing IDs. The default value is NULL.
+#' @param highlight NULL, a character vector of individual IDs, or a list specifying individuals to highlight. If a character vector is provided, individuals will be highlighted with the default color scheme (purple border and light purple fill). If a list is provided, it should contain: \code{ids} (required, character vector of individual IDs), \code{frame.color} (optional, hex color for border), and \code{color} (optional, hex color for fill). For example: \code{c("A", "B")} or \code{list(ids = c("A", "B"), frame.color = "#9c27b0", color = "#ce93d8")}. The function will check if the specified individuals exist in the pedigree and issue a warning for any missing IDs. The default value is NULL.
 #' @param showf A logical value indicating whether inbreeding coefficients will be shown in the graph. If \code{showf = TRUE} and the column \strong{f} exists in the pedigree, the inbreeding coefficient will be appended to the individual label, e.g., "ID (0.05)". The default value is FALSE.
 #' @return No returned values. The graph will be plotted directly on graphic devices.
 #'
@@ -362,6 +362,9 @@ ped2igraph <- function(ped, compact = TRUE, highlight = NULL, showf = FALSE) {
       )]
   }
 
+  # Preserve original IDs for highlighting, even if labels are modified later.
+  ped_node[, label_base := label]
+
   if (showf && "f" %in% ped_col_names) {
     ped_node[, f := ped_new$f]
     ped_node[, label := paste0(label, "\n", f)]
@@ -422,7 +425,7 @@ ped2igraph <- function(ped, compact = TRUE, highlight = NULL, showf = FALSE) {
       fullsib_family_label_sex <- unique(fullsib_id_DT$familylabelsex)
       compact_family <- fullsib_id_DT[match(fullsib_family_label_sex,familylabelsex)]
       # The compact families' id are the number of individuals by family and sex.
-      compact_family[,":="(label=familysize,nodetype="compact")]
+      compact_family[,":="(label=familysize,nodetype="compact", label_base=NA_character_)]
       # Deleting full-sib individuals from families with 2 and more full-sib individuals
       ped_node <- ped_node[!(id %in% fullsib_ids)]
       ped_node <- rbind(ped_node,compact_family,fill=TRUE)
@@ -491,7 +494,7 @@ ped2igraph <- function(ped, compact = TRUE, highlight = NULL, showf = FALSE) {
       highlight_ids <- highlight$ids
       
       # Check which IDs exist in the pedigree
-      existing_ids <- ped_node[nodetype %in% c("real", "compact"), unique(label)]
+      existing_ids <- ped_node[nodetype %in% c("real"), unique(label_base)]
       valid_ids <- highlight_ids[highlight_ids %in% existing_ids]
       invalid_ids <- highlight_ids[!(highlight_ids %in% existing_ids)]
       
@@ -508,11 +511,11 @@ ped2igraph <- function(ped, compact = TRUE, highlight = NULL, showf = FALSE) {
       # Apply colors only to valid IDs
       if (length(valid_ids) > 0) {
         if (!is.null(highlight$frame.color)) {
-          ped_node[label %in% valid_ids & nodetype %in% c("real", "compact"), 
+          ped_node[label_base %in% valid_ids & nodetype %in% c("real"), 
                    frame.color := highlight$frame.color]
         }
         if (!is.null(highlight$color)) {
-          ped_node[label %in% valid_ids & nodetype %in% c("real", "compact"), 
+          ped_node[label_base %in% valid_ids & nodetype %in% c("real"), 
                    color := highlight$color]
         }
       }

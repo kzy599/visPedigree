@@ -79,7 +79,7 @@ After opening the [simpleped.PDF](simpleped.PDF) file and you'll see a high defi
 #### <a id="4.1.1">4.1.1 Highlighting specific individuals</a>
 Specific individuals can be highlighted in the pedigree graph using the **highlight** parameter. This is useful for marking candidates, founders, or any individuals of interest.
 
-You can provide a character vector of individual IDs to use the default highlight colors (orange border and light orange fill):
+You can provide a character vector of individual IDs to use the default highlight colors (purple border and light purple fill):
 ```{r highlight1, fig.width=6.5, fig.height=6.5}
 visped(tidyped(small_ped), highlight = c("Y", "Z1"))
 ```
@@ -93,10 +93,10 @@ visped(tidyped(small_ped),
 ```
 
 #### <a id="4.1.2">4.1.2 Showing inbreeding coefficients</a>
-The inbreeding coefficient (F) of each individual can be calculated and displayed in the pedigree graph. There are two ways to do this:
+The inbreeding coefficient (F) of each individual can be calculated and displayed in the pedigree graph. The calculation happens before plotting, and `showf` only controls display:
 
 1. Set `inbreed = TRUE` in the `tidyped()` function. This will calculate the inbreeding coefficients using the `nadiv` package and add an `f` column to the tidied pedigree.
-2. Set `showf = TRUE` in the `visped()` function. This will calculate the inbreeding coefficients (if not already present) and append them to the individual labels in the graph, e.g., "ID (F=0.05)".
+2. Or call `inbreed()` directly on a tidied pedigree to add the `f` column. Then set `showf = TRUE` in `visped()` to append the coefficients to the labels (e.g., "ID\n0.05").
 
 ```{r inbreed, fig.width=6.5, fig.height=6.5}
 # Create a simple inbred pedigree
@@ -111,7 +111,7 @@ test_ped <- data.table(
 tidy_test <- tidyped(test_ped, inbreed = TRUE)
 head(tidy_test)
 
-# Option 2: Calculate and show in the graph
+# Option 2: Show in the graph (requires existing f column)
 visped(tidy_test, showf = TRUE)
 ```
 
