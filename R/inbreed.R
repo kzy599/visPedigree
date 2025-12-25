@@ -44,7 +44,7 @@ inbreed <- function(ped) {
   res <- nadiv::makeDiiF(as.data.frame(nadiv_ped))
   
   # Create a mapping table to ensure correct order when joining back
-  f_map <- data.table(id = nadiv_ped[[1]], f_val = round(res$f, 4))
+  f_map <- data.table(id = nadiv_ped[[1]], f_val = res$f)
   
   ped_new <- copy(ped)
   # Join by ID to ensure f values are assigned to the correct individuals

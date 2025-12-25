@@ -362,12 +362,8 @@ ped2igraph <- function(ped, compact = TRUE, highlight = NULL, showf = FALSE) {
       )]
   }
 
-  # Preserve original IDs for highlighting, even if labels are modified later.
-  ped_node[, label_base := label]
-
-  if (showf && "f" %in% ped_col_names) {
+  if ("f" %in% ped_col_names) {
     ped_node[, f := ped_new$f]
-    ped_node[, label := paste0(label, "\n", f)]
   }
 
   max_id <- max(ped_node$id,na.rm = TRUE)
@@ -425,7 +421,7 @@ ped2igraph <- function(ped, compact = TRUE, highlight = NULL, showf = FALSE) {
       fullsib_family_label_sex <- unique(fullsib_id_DT$familylabelsex)
       compact_family <- fullsib_id_DT[match(fullsib_family_label_sex,familylabelsex)]
       # The compact families' id are the number of individuals by family and sex.
-      compact_family[,":="(label=familysize,nodetype="compact", label_base=NA_character_)]
+      compact_family[,":="(label=as.character(familysize),nodetype="compact")]
       # Deleting full-sib individuals from families with 2 and more full-sib individuals
       ped_node <- ped_node[!(id %in% fullsib_ids)]
       ped_node <- rbind(ped_node,compact_family,fill=TRUE)
@@ -494,7 +490,7 @@ ped2igraph <- function(ped, compact = TRUE, highlight = NULL, showf = FALSE) {
       highlight_ids <- highlight$ids
       
       # Check which IDs exist in the pedigree
-      existing_ids <- ped_node[nodetype %in% c("real"), unique(label_base)]
+      existing_ids <- ped_node[nodetype %in% c("real"), unique(label)]
       valid_ids <- highlight_ids[highlight_ids %in% existing_ids]
       invalid_ids <- highlight_ids[!(highlight_ids %in% existing_ids)]
       
@@ -511,11 +507,11 @@ ped2igraph <- function(ped, compact = TRUE, highlight = NULL, showf = FALSE) {
       # Apply colors only to valid IDs
       if (length(valid_ids) > 0) {
         if (!is.null(highlight$frame.color)) {
-          ped_node[label_base %in% valid_ids & nodetype %in% c("real"), 
+          ped_node[label %in% valid_ids & nodetype %in% c("real"), 
                    frame.color := highlight$frame.color]
         }
         if (!is.null(highlight$color)) {
-          ped_node[label_base %in% valid_ids & nodetype %in% c("real"), 
+          ped_node[label %in% valid_ids & nodetype %in% c("real"), 
                    color := highlight$color]
         }
       }
@@ -543,6 +539,11 @@ ped2igraph <- function(ped, compact = TRUE, highlight = NULL, showf = FALSE) {
   new_names <- c("id",old_names[!(old_names %in% c("id"))])
   ped_node <- ped_node[, ..new_names]
   ped_node <- ped_node[order(layer,id)]
+
+  if (showf && "f" %in% colnames(ped_node)) {
+    ped_node[nodetype %in% c("real", "compact") & !is.na(f) & f > 0, 
+             label := paste0(label, "\n[", round(f, 4), "]")]
+  }
 
   return(list(node = ped_node, edge = ped_edge))
 
