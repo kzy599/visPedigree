@@ -33,13 +33,10 @@ if (!is_installed) {
 ```
 
 4. [Drawing the pedigree graph](#4)   
-// ...existing code...
 4.1 [A simple pedigree graph](#4.1)   
 4.1.1 [Highlighting specific individuals](#4.1.1)   
 4.1.2 [Showing inbreeding coefficients](#4.1.2)   
 4.2 [A reduced pedigree graph](#4.2)   
-// ...existing code...
-
 4.3 [An outlined pedigree graph](#4.3)   
 4.4 [How to use this package in a selective breeding program](#4.4)   
 4.4.1 [Analysis of founders for an individual](#4.4.1)   
@@ -92,14 +89,9 @@ visped(tidyped(small_ped),
                         color = "#81c784"))
 ```
 
-#### <a id="4.1.2">4.1.2 Showing inbreeding coefficients</a>
-The inbreeding coefficient (F) of each individual can be calculated and displayed in the pedigree graph. The calculation happens before plotting, and `showf` only controls display:
-
-1. Set `inbreed = TRUE` in the `tidyped()` function. This will calculate the inbreeding coefficients using the `nadiv` package and add an `f` column to the tidied pedigree.
-2. Or call `inbreed()` directly on a tidied pedigree to add the `f` column. Then set `showf = TRUE` in `visped()` to append the coefficients to the labels (e.g., "ID\n0.05").
-
-```{r inbreed, fig.width=6.5, fig.height=6.5}
-# Create a simple inbred pedigree
+### <a id="4.1.2">4.1.2 Showing inbreeding coefficients</a>
+Inbreeding coefficients can be displayed on the pedigree graph using the **showf** parameter in the **visped** function. This requires that the pedigree has been processed with inbreeding coefficients calculated using the **inbreed** parameter in the **tidyped** function.
+```{r showinbreed, fig.width=6.5, fig.height=6.5}
 library(data.table)
 test_ped <- data.table(
   Ind = c("A", "B", "C", "D", "E"),
@@ -107,12 +99,8 @@ test_ped <- data.table(
   Dam = c(NA, NA, "B", "B", "D"),
   Sex = c("male", "female", "male", "female", "male")
 )
-# Option 1: Calculate during tidying
-tidy_test <- tidyped(test_ped, inbreed = TRUE)
-head(tidy_test)
-
-# Option 2: Show in the graph (requires existing f column)
-visped(tidy_test, showf = TRUE)
+tidy_test_ped_inbreed <- tidyped(test_ped, inbreed = TRUE)
+visped(tidy_test_ped_inbreed, showf = TRUE)
 ```
 
 ### <a id="4.2">4.2 A reduced pedigree graph</a>

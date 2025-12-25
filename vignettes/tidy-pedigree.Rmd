@@ -27,6 +27,7 @@ Therefore, we developed the [visPedigree](https://github.com/luansheng/visPedigr
 3.1 [Introduction](#3.1)   
 3.2 [Tracing the pedigree of a specific individual](#3.2)   
 3.3 [Creating an integer pedigree](#3.3)   
+3.4 [Calculating inbreeding coefficients](#3.4)
 
 ## <a id="1">1. Installation of the visPedigree package</a>
 
@@ -163,4 +164,32 @@ Tracing down to the descendants of J0Z990, a total of 5 descendants can be found
 Some programs require an integer pedigree for genetic evaluation. Individuals will need to be numbered consecutively when calculating the additive genetic correlation matrix.
 
 By default, the **tidyped** function will add  three columns (IndNum, SireNum, and DamNum) in the returned dataset. If you don't need it, you can set `addnum=FALSE` to turn it off.
+```{r intped}
+tidy_simple_ped_with_int <-
+  tidyped(ped = tidy_simple_ped_no_gen_num, addnum = TRUE)
+head(tidy_simple_ped_with_int)
+```
 
+
+#### <a id="3.4">3.4 Calculating inbreeding coefficients</a>
+The inbreeding coefficient (F) of each individual can be calculated using tidyped() or inbreed() functions. There are two options to add the inbreeding coefficients to a tidied pedigree:
+
+1. Set `inbreed = TRUE` in the `tidyped()` function. This will calculate the inbreeding coefficients using the `nadiv` package and add an `f` column to the tidied pedigree.
+2. Or call `inbreed()` directly on a tidied pedigree to add the `f` column. 
+
+```{r inbreed, fig.width=6.5, fig.height=6.5}
+# Create a simple inbred pedigree
+library(data.table)
+test_ped <- data.table(
+  Ind = c("A", "B", "C", "D", "E"),
+  Sire = c(NA, NA, "A", "C", "C"),
+  Dam = c(NA, NA, "B", "B", "D"),
+  Sex = c("male", "female", "male", "female", "male")
+)
+# Option 1: Calculate during tidying
+tidy_test <- tidyped(test_ped, inbreed = TRUE)
+head(tidy_test)
+
+# Option 2: Calculate after tidying
+tidy_test <- inbreed(tidyped(test_ped))
+```
