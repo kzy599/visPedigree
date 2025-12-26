@@ -419,7 +419,7 @@ ped2igraph <- function(ped, compact = TRUE, highlight = NULL, showf = FALSE) {
     # Moreover, finding full-sib individuals
     familysize <- NULL
     ped_node_1[,familysize:=.N,by=.(familylabel,sex)]
-    if (max(ped_node_1$familysize,na.rm=TRUE)>=2) {
+    if (nrow(ped_node_1) > 0 && max(ped_node_1$familysize,na.rm=TRUE)>=2) {
       # The full-sib individuals in a family will be compacted if the family size >= 2
       fullsib_id_DT <- ped_node_1[familysize >=2]
       fullsib_ids <- fullsib_id_DT$id
