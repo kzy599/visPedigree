@@ -43,7 +43,7 @@ test_ped <- data.table(
   Sex = c("male", "female", "male", "female", "male")
 )
 tidy_test <- tidyped(test_ped, inbreed = TRUE)
-visped(tidy_test)
+visped(tidy_test, highlight = c("E"), showf = TRUE)
 
 ```
 
