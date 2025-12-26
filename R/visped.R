@@ -407,6 +407,12 @@ ped2igraph <- function(ped, compact = TRUE, highlight = NULL, showf = FALSE) {
     sire_dam_label <- sire_dam_label[!is.na(sire_dam_label)]
     ped_node_1 <- ped_node[!(label %in% sire_dam_label)]
 
+    # Exclude highlighted individuals from being compacted to ensure they remain visible
+    if (!is.null(highlight)) {
+      h_ids <- if (is.list(highlight)) highlight$ids else highlight
+      ped_node_1 <- ped_node_1[!(label %in% h_ids)]
+    }
+
     # Moreover, finding full-sib individuals
     familysize <- NULL
     ped_node_1[,familysize:=.N,by=.(familylabel,sex)]
