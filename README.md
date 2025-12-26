@@ -11,8 +11,9 @@ More complex pedigree graphs can be found in the [vignettes](#vignettes).
 ## Installation
 
 ### From CRAN
+*(Note: The package is preparing for submission and not yet available on CRAN)*
 ```R
-install.packages("visPedigree")
+# install.packages("visPedigree")
 ```
 
 ### From GitHub
