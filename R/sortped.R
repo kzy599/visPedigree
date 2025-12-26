@@ -1,13 +1,13 @@
 #' Sort a pedigree
 #'
-#' \code{sortped} function assigns generations and sorts a pedigree .
+#' The \code{sortped} function assigns generations and sorts a pedigree.
 #'
-#' This function takes a pedigree, assigns individuals to different generations, sort parents before offspring.
+#' This function takes a pedigree, assigns individuals to different generations, and sorts parents before offspring.
 #'
-#' @param ped A data.table or data frame including the pedigree, in which the names of the first three columns are \strong{Ind}, \strong{Sire} and \strong{Dam}. Missing parent has been replaced with the default missing value \strong{NA}.
-#' @param addgen A logical value indicates whether the individual generation number will be inferred. The default values is TRUE, then a new column named \strong{Gen} will be added in the returned data.table.
+#' @param ped A data.table or data frame containing the pedigree, where the first three columns are \strong{Ind}, \strong{Sire}, and \strong{Dam}. Missing parents should be replaced with the default missing value \strong{NA}.
+#' @param addgen A logical value indicating whether the individual generation number will be inferred. Default is TRUE, which adds a \strong{Gen} column to the output.
 #'
-#' @return A data.table including the resorted pedigree is returned. The individual generation is inferred and a new column \strong{Gen} is added when the parameter \emph{addgen} is TRUE. The Gen column is integer.
+#' @return A data.table containing the sorted pedigree. Individual generations are inferred and a new column \strong{Gen} is added when \code{addgen = TRUE}. The \strong{Gen} column is an integer.
 #' @keywords internal
 #' @import data.table
 sortped <- function(ped,addgen=TRUE) {
@@ -24,14 +24,14 @@ sortped <- function(ped,addgen=TRUE) {
     #=== Detect pedigree loop =========================================================
     # The progeny's pedigree is subsetted
     ped_progeny_dt <- ped_parent_dt[!(Ind %chin% sire_dam_v)]
-    # No offspring are subsetted because pedigree loops may cause IDs of Ind column are equal
-    # to IDs of the Sire and Dam columns
+    # If no individuals are identified as offspring (i.e., every individual is also a parent),
+    # a pedigree loop has been detected.
     if (nrow(ped_progeny_dt) == 0) {
       stop("Pedigree error! Pedigree loops are detected!")
     }
     # Add tracing generation number
     ind_trace_gen_dt[Ind %chin% sire_dam_v,TraceGen:=TraceGen+1]
-    # The parents' pedigree are subsetted
+    # The parents' pedigree is subsetted
     ped_parent_dt <- ped_parent_dt[Ind %chin% sire_dam_v]
     sire_dam_v <- unique(c(ped_parent_dt$Sire,ped_parent_dt$Dam))
     sire_dam_v <- sire_dam_v[!is.na(sire_dam_v)]
@@ -40,18 +40,18 @@ sortped <- function(ped,addgen=TRUE) {
     }
   }
 
-  # Assigning the progenies with parents but without progeny to the minimum tracing generation of parents - 1
+  # Assigning the progeny with parents but without progeny to the minimum tracing generation of parents - 1
   ped_trace_gen_dt <- merge(ped_new,ind_trace_gen_dt,by=c("Ind"),all.x=TRUE)
   setnames(ped_trace_gen_dt,old=c("TraceGen"),new=c("TraceGenInd"))
   TraceGenSire = TraceGenDam = NULL
-  # Refreshing the tracing number of the Sire and Dams.
+  # Refreshing the tracing number of the Sire and Dam.
   ped_trace_gen_dt[, TraceGenSire := TraceGenInd[match(Sire,Ind)]]
   ped_trace_gen_dt[, TraceGenDam := TraceGenInd[match(Dam,Ind)]]
   ped_trace_gen_dt[(TraceGenInd==0) & ((!is.na(Sire)) | (!is.na(Dam))),
                  TraceGenInd := apply(as.matrix(.SD),1,function(x) min(x,na.rm=TRUE))-1,
                  .SDcols=c("TraceGenSire","TraceGenDam")]
 
-  # Setting the individuals without parents and progenies as founders
+  # Setting the individuals without parents and progeny as founders
   max_trace_gen_num_s <- max(ind_trace_gen_dt$TraceGen,na.rm = TRUE)
   ped_trace_gen_dt[(TraceGenInd==0) & (is.na(Sire) & is.na(Dam)),TraceGenInd:=max_trace_gen_num_s]
 
@@ -61,11 +61,11 @@ sortped <- function(ped,addgen=TRUE) {
                                        by=c("FamilyLabel")]
   ped_trace_gen_dt[!is.na(FamilyLabel),TraceGenInd:=MaxTraceGen]
 
-  # Refreshing the tracing number of the Sire and Dams.
+  # Refreshing the tracing number of the Sire and Dam.
   ped_trace_gen_dt[, TraceGenSire := TraceGenInd[match(Sire,Ind)]]
   ped_trace_gen_dt[, TraceGenDam := TraceGenInd[match(Dam,Ind)]]
 
-  # if an individual has not parents, it's generation number will be same with that of it's mater
+  # If an individual has no parents, its generation number will be the same as its mate's
   ind_no_parents_v <- ped_trace_gen_dt[is.na(Sire) & is.na(Dam), Ind]
   if (length(ind_no_parents_v) > 0) {
     sire_gen_dt <-
@@ -77,7 +77,7 @@ sortped <- function(ped,addgen=TRUE) {
       ped_trace_gen_dt[match(sire_gen_dt$Sire, Ind), TraceGenInd := sire_gen_dt$TraceGenDam]
     }
 
-    # Refreshing the tracing number of the Sire and Dams.
+    # Refreshing the tracing number of the Sire and Dam.
     ped_trace_gen_dt[, TraceGenSire := TraceGenInd[match(Sire,Ind)]]
     ped_trace_gen_dt[, TraceGenDam := TraceGenInd[match(Dam,Ind)]]
 
@@ -91,16 +91,16 @@ sortped <- function(ped,addgen=TRUE) {
     }
   }
 
-  # Refreshing the tracing number of the Sire and Dams.
+  # Refreshing the tracing number of the Sire and Dam.
   ped_trace_gen_dt[, TraceGenSire := TraceGenInd[match(Sire,Ind)]]
   ped_trace_gen_dt[, TraceGenDam := TraceGenInd[match(Dam,Ind)]]
 
-  # The tracing generation number of some indivduals may be not right.
-  # The following code try to renew individual tracing generation number
-  # by the difference with that of parent
+  # The tracing generation number of some individuals may not be correct.
+  # The following code tries to renew individual tracing generation numbers
+  # by the difference with those of parents.
   # The tracing generation number of an individual will be renewed as
-  # min(parents' tracing generation number)-1, if interval on tracing generation number
-  # between it and it's parents is greater than 1.
+  # min(parents' tracing generation number)-1, if the interval in tracing generation number
+  # between it and its parents is greater than 1.
   ped_trace_gen_dt[!is.na(TraceGenSire) | !is.na(TraceGenDam),
               TraceGenInterval := apply(as.matrix(.SD), 1, function(x) min(x, na.rm = TRUE)) - TraceGenInd,
               .SDcols = c("TraceGenSire", "TraceGenDam")]
@@ -109,7 +109,7 @@ sortped <- function(ped,addgen=TRUE) {
                 TraceGenInd := apply(as.matrix(.SD), 1, function(x) min(x, na.rm = TRUE)) - 1,
                 .SDcols = c("TraceGenSire", "TraceGenDam")]
     ped_trace_gen_dt[, ":="(TraceGenSire = NULL, TraceGenDam = NULL)]
-    # Refreshing the tracing number of the Sire and Dams.
+    # Refreshing the tracing number of the Sire and Dam.
     ped_trace_gen_dt[, TraceGenSire := TraceGenInd[match(Sire,Ind)]]
     ped_trace_gen_dt[, TraceGenDam := TraceGenInd[match(Dam,Ind)]]
     ped_trace_gen_dt[!is.na(TraceGenSire) | !is.na(TraceGenDam),

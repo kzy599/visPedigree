@@ -11,11 +11,11 @@
 #' @importFrom nadiv makeDiiF
 inbreed <- function(ped) {
   if (is.null(attributes(ped)$tidyped)) {
-    stop("The pedigree need to be firstly trimmed by the tidyped() function!")
+    stop("The pedigree must first be tidied using the tidyped() function!")
   }
 
   if (!requireNamespace("nadiv", quietly = TRUE)) {
-    stop("Package \"nadiv\" is needed for inbreeding calculation. Please install it.")
+    stop("The 'nadiv' package is required for inbreeding calculations. Please install it.")
   }
 
   # Work on a copy and ensure it is sorted by IndNum (if available) 

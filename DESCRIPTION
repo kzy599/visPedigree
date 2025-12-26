@@ -1,9 +1,16 @@
 Package: visPedigree
 Type: Package
-Title: Tidying and visualization for animal pedigree
-Version: 0.4.1
+Title: Tidying and Visualizing Animal Pedigrees
+Version: 0.5.0
 Authors@R: person("Sheng","Luan", email="luansheng@foxmail.com", role = c("aut","cre"))
-Description: This package takes a pedigree, checks duplicated, bisexual individuals, detects pedigree loop, adds missing founders, sorts the pedigree, and traces the pedigree of the candidates. It outputs a hierarchical graph for all individuals in the pedigree. It can draw the graph of a very large pedigree (> 10,000 individuals per generation) by compacting the full-sib individuals. It is especially effective for drawing the pedigree of aquatic animal, which usually including many full-sib families per generation in the nucleus breeding population.
+Description: Provides tools for tidying and visualizing animal pedigrees. The
+    package performs pedigree checks for duplicated and bisexual individuals,
+    detects pedigree loops, adds missing founders, sorts the pedigree, and
+    traces the ancestry of candidates. It generates hierarchical graphs for
+    all individuals and can handle large pedigrees (over 10,000 individuals
+    per generation) by compacting full-sib groups. It is particularly
+    effective for aquatic animal pedigrees, which often feature numerous
+    full-sib families within nucleus breeding populations.
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
@@ -14,7 +21,8 @@ Imports: data.table (>= 1.11.4),
 RoxygenNote: 7.3.3
 Suggests: testthat,
     knitr,
-    rmarkdown
+    rmarkdown,
+    devtools
 URL: https://github.com/luansheng/visPedigree
 BugReports: https://github.com/luansheng/visPedigree/issues
 VignetteBuilder: knitr

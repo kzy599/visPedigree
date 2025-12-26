@@ -7,17 +7,17 @@
 checkped(ped, addgen = TRUE)
 }
 \arguments{
-\item{ped}{A data.table or data frame with the pedigree, which including the first three columns: \strong{individual}, \strong{sire} and \strong{dam} IDs. More columns, such as sex and generation can be included in the pedigree file. Names of the three columns can be assigned as you would like, but their orders must not be changed in the pedigree. Individual ID should not be coded as "", " ", "0", asterisk, and "NA", otherwise these individuals will be deleted from the pedigree. Missing parents should be denoted by either "NA", "0", asterisk. Space and "" will also be recoded as missing parents, but not be recommended.}
+\item{ped}{A data.table or data frame with the pedigree, which includes the first three columns: \strong{individual}, \strong{sire} and \strong{dam} IDs. More columns, such as sex and generation can be included in the pedigree file. Names of the three columns can be assigned as you would like, but their orders must not be changed in the pedigree. Individual IDs should not be coded as "", " ", "0", "*", or "NA"; otherwise, these individuals will be removed from the pedigree. Missing parents should be denoted by either "NA", "0", or "*". Space and "" will also be recoded as missing parents, but are not recommended.}
 
-\item{addgen}{A logical value indicates whether the generation number of an individual will be generated. The default value is TRUE, then a new column named \strong{Gen} will be added to the returned data.table.}
+\item{addgen}{A logical value indicating whether the generation number of an individual will be generated. The default value is TRUE, then a new column named \strong{Gen} will be added to the returned data.table.}
 }
 \value{
-A data.table with the checked pedigree is returned. Individual, sire, and dam ID columns are renamed as \strong{Ind}, \strong{Sire} and \strong{Dam}. A Missing parent is replacted with the default missing value \strong{NA}. The column \strong{Sex} includes individuals' sex (male or female, NA for unknown sex). The column \strong{Gen} will be included when the parameter \emph{addgen} is TRUE. Ind, Sire, Dam, and Sex columns are character; The Gen column is an integer type.
+A data.table with the checked pedigree is returned. Individual, sire, and dam ID columns are renamed as \strong{Ind}, \strong{Sire} and \strong{Dam}. Missing parents are replaced with the default missing value \strong{NA}. The \strong{Sex} column contains the individual's sex (male, female, or NA for unknown). The \strong{Gen} column will be included when the parameter \emph{addgen} is TRUE. Ind, Sire, Dam, and Sex columns are character; The Gen column is an integer type.
 }
 \description{
 \code{checkped} function checks a pedigree.
 }
 \details{
-This function takes a pedigree, detects missing parents, checks duplicated or bisexual individuals, adds missing founders, and sorts the pedigree. All individuals' sex will be inferred if there is no sexual information in the pedigree. If the pedigree includes the column \strong{Sex}, then individuals' sexes need to be recoded as "male", "female", or NA (unknown sex). Missing sexes will be identified from the pedigree structure and be added if possible.
+This function takes a pedigree, detects missing parents, checks for duplicated or bisexual individuals, adds missing founders, and sorts the pedigree. All individuals' sex will be inferred if there is no sexual information in the pedigree. If the pedigree includes the column \strong{Sex}, then individuals' sexes need to be recoded as "male", "female", or NA (unknown sex). Missing sexes will be identified from the pedigree structure and be added if possible.
 }
 \keyword{internal}

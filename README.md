@@ -1,34 +1,40 @@
 # visPedigree
-Tidying and visualization for animal pedigree. 
-This package takes a pedigree, checks duplicated, bisexual individuals, detects pedigree loop, adds missing founders, sorts parents before offspring, and traces the pedigree of the candidates. It outputs a hierarchical graph for all individuals in the pedigree. It can draw the graph of a very large pedigree (> 10,000 individuals per generation) by compacting the full-sib individuals. It is especially effective for drawing the pedigree of aquatic animal, which usually including many full-sib families per generation in the nucleus breeding population.
+
+Tidying and visualization for animal pedigrees.
+
+The `visPedigree` package provides tools to check for duplicate and bisexual individuals, detect pedigree loops, add missing founders, sort parents before offspring, and trace the pedigrees of specified candidates. It generates hierarchical graphs for all individuals in a pedigree and can handle very large datasets (> 10,000 individuals per generation) by compacting full-sib groups. It is particularly effective for aquatic animal pedigrees, which often include numerous full-sib families per generation in nucleus breeding populations.
+
 ![simple pedigree](https://luansheng.netlify.app/post/2018-11-09-vispedigree-use-guide_files/figure-html/smallped-1.png)
 
-More complex pedigree graphs can be found in the following [vignette links](#vignette).
+More complex pedigree graphs can be found in the [vignettes](#vignettes).
 
-## To obtain visPedigree:
- * From GitHub:
-   * Install devtools from CRAN
-   ```R
-   install.packages("devtools")
-   ```
-   * install the latest development version directly in R using the [`devtools`](https://github.com/hadley/devtools) package:
-   ```R
-   library(devtools)
-   install_github("luansheng/visPedigree")
-   ```
-## Small examples
+## Installation
+
+### From CRAN
+```R
+install.packages("visPedigree")
+```
+
+### From GitHub
+You can install the development version from GitHub using the `devtools` package:
+```R
+# install.packages("devtools")
+devtools::install_github("luansheng/visPedigree")
+```
+
+## Quick Start
 ```R   
 library(visPedigree)
-# Example 1
-cands <- c("Y","Z1","Z2")
-tidy_small_ped <-
-  tidyped(ped = small_ped,
-  cand = cands)
-# Draw the pedigree, compacting full-sib individuals, and highlighting candidates
-# only "Y" could be highlighted here since "Z1" and "Z2" are not in the tidied compacted pedigree  
+
+# Example 1: Tidy and visualize a small pedigree
+cands <- c("Y", "Z1", "Z2")
+tidy_small_ped <- tidyped(ped = small_ped, cand = cands)
+
+# Draw the pedigree, compacting full-sib individuals and highlighting candidates.
+# Note: the compacted candidates are also highlighted here.
 visped(tidy_small_ped, compact = TRUE, highlight = cands)
 
-# Example 2
+# Example 2: Calculate and show inbreeding coefficients
 library(data.table)
 test_ped <- data.table(
   Ind = c("A", "B", "C", "D", "E"),
@@ -36,8 +42,8 @@ test_ped <- data.table(
   Dam = c(NA, NA, "B", "B", "D"),
   Sex = c("male", "female", "male", "female", "male")
 )
-# Option 1: Calculate during tidying
 tidy_test <- tidyped(test_ped, inbreed = TRUE)
+visped(tidy_test)
 
 ```
 
@@ -45,5 +51,5 @@ tidy_test <- tidyped(test_ped, inbreed = TRUE)
 Drawing an animal pedigree using the visPedigree package [EN](https://luansheng.netlify.app/2018/11/09/vispedigree-use-guide/) [CN](https://luansheng.netlify.app/2018/09/24/the-first-package-vispedigree-0-1/)      
 
 ## Citation
-LUAN Sheng. visPedigree: A package for tidying and drawing animal pedigree. 2018, URL https://github.com/luansheng/visPedigree.
+LUAN Sheng (2018). visPedigree: A package for tidying and drawing animal pedigree. URL https://github.com/luansheng/visPedigree.
 

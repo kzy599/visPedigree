@@ -15,50 +15,55 @@ tidyped(
 )
 }
 \arguments{
-\item{ped}{A data.table or data frame including the pedigree, which including the first three columns: \strong{individual}, \strong{sire} and \strong{dam} IDs. More columns, such as sex, generation can be included in the pedigree file. Names of the three columns can be assigend as you would like, but their orders must be not changded in the pedigree. Individual ID should not be coded as "", " ", "0", asterisk, and "NA", otherwise these individuals will be deleted from the pedigree. Missing parents should be denoted by either "NA", "0", asterisk. Space and "" will also be recoded as missing parents, but not be recommended.}
+\item{ped}{A data.table or data frame containing the pedigree. The first three columns must be \strong{individual}, \strong{sire}, and \strong{dam} IDs. Additional columns, such as sex or generation, can be included. Column names can be customized, but their order must remain unchanged. Individual IDs should not be coded as "", " ", "0", "*", or "NA"; otherwise, they will be removed. Missing parents should be denoted by "NA", "0", or "*". Spaces and empty strings ("") are also treated as missing parents but are not recommended.}
 
-\item{cand}{A character vector including individual IDs, or NULL. Only the candidates and their ancestors and offspring will be kept in the pedigree if this parameter is not NULL.}
+\item{cand}{A character vector of individual IDs, or NULL. If provided, only the candidates and their ancestors/descendants are retained.}
 
-\item{trace}{A character value implying how to trace the pedigree of the candidates, is equal to "\strong{up}", "\strong{down}", or "\strong{all}". "up" means tracing candidates's pedigree to ancestors; "down" means tracing candidates's pedigree to descendants, "all" means tracing candidaes' pedigree to ancestors and descendants simutaneously. This parameter can be used only if the \emph{cand} parameter is not NULL. The defaulted value is "up".}
+\item{trace}{A character value specifying the tracing direction: "\strong{up}", "\strong{down}", or "\strong{all}". "up" traces ancestors; "down" traces descendants; "all" traces both simultaneously. This parameter is only used if \code{cand} is not NULL. Default is "up".}
 
-\item{tracegen}{An integer means the number of tracing generation. This paramter can only be used when the \emph{trace} parameter is not NULL. All generations of the candidates will be traced when the parameter tracegen is NULL or 0.}
+\item{tracegen}{An integer specifying the number of generations to trace. This parameter is only used if \code{trace} is not NULL. If NULL or 0, all available generations are traced.}
 
-\item{addgen}{A logical value indicates whether individual generation number will be generated. The default values is TRUE, then a new column named \strong{Gen} will be added in the returned data.table.}
+\item{addgen}{A logical value indicating whether to generate generation numbers. Default is TRUE, which adds a \strong{Gen} column to the output.}
 
-\item{addnum}{A logical value indicates whether numeric pedigree will be generated. The defaulted value is TRUE, then three new columns of \strong{IndNum}, \strong{SireNum} and \strong{DamNum} will be added in the returned data.table.}
+\item{addnum}{A logical value indicating whether to generate a numeric pedigree. Default is TRUE, which adds \strong{IndNum}, \strong{SireNum}, and \strong{DamNum} columns to the output.}
 
-\item{inbreed}{A logical value indicates whether inbreeding coefficients will be calculated. The default value is FALSE. If TRUE, a new column named \strong{f} will be added in the returned data.table.}
+\item{inbreed}{A logical value indicating whether to calculate inbreeding coefficients. Default is FALSE. If TRUE, an \strong{f} column is added to the output.}
 }
 \value{
-A data.table including the tidy pedigree is returned. Individual, sire and dam ID columns are renamed as \strong{Ind}, \strong{Sire} and \strong{Dam}. Missing parent is replacted with the default missing value \strong{NA}. The column \strong{Sex} includes individuals' sex (male or female, NA for unknown sex). The column \strong{Cand} will be included when the parameter \emph{cand} is not NULL. The column \strong{Gen} will be included when the parameter \emph{addgen} is TRUE. The columns \strong{IndNum}, \strong{SireNum}, and \strong{DamNum} will be included when the parameter \emph{addnum} is TRUE. The column \strong{f} will be included when the parameter \emph{inbreed} is TRUE. Ind, Sire, Dam and Sex columns are character; The column Cand is logical; The Gen, IndNum, SireNum and DamNum are integer.
+A data.table containing the tidied pedigree. Individual, sire, and dam ID columns are renamed to \strong{Ind}, \strong{Sire}, and \strong{Dam}. Missing parents are replaced with \strong{NA}. The \strong{Sex} column contains "male", "female", or NA. The \strong{Cand} column is included if \code{cand} is not NULL. The \strong{Gen} column is included if \code{addgen} is TRUE. The \strong{IndNum}, \strong{SireNum}, and \strong{DamNum} columns are included if \code{addnum} is TRUE. The \strong{f} column is included if \code{inbreed} is TRUE. \strong{Ind}, \strong{Sire}, \strong{Dam}, and \strong{Sex} are character columns; \strong{Cand} is logical; \strong{Gen}, \strong{IndNum}, \strong{SireNum}, and \strong{DamNum} are integer.
 }
 \description{
-\code{tidyped} function checks, sorts, traces, and returns a trimmed pedigree.
+The \code{tidyped} function checks, sorts, traces, and returns a trimmed pedigree.
 }
 \details{
-This function takes a pedigree, checks duplicated, bisexual individuals, detects pedigree loop, adds missing founders, sorts the pedigree, and traces the pedigree of the candidates. If the parameter \emph{cand} contains individuals's IDs, then only these individuals and their ancestors or descendants will be kept in the pedigree. The tracing direction and tracing generation number can be provided when the parameters \emph{trace} and \emph{tracegen} are not NULL. Individual virtual generation will be infered and assigned when the parameter \emph{addgen} is TRUE. Numeric pedigree will be generated when the parameter \emph{addnum} is TRUE. All individuals' sex will be inferred if there is not sexual information in the pedigee. If the pedigree includes the column \strong{Sex}, then individuals' sexes need to be recoded as "male", "female", or NA (unknown sex). Missing sexes will be identified from the pedigree structure and be added if possible.
+This function takes a pedigree, checks for duplicate and bisexual individuals, detects pedigree loops, adds missing founders, sorts the pedigree, and traces the pedigree of specified candidates. If the \code{cand} parameter contains individual IDs, only those individuals and their ancestors or descendants are retained. Tracing direction and the number of generations can be specified using the \code{trace} and \code{tracegen} parameters. Virtual generations are inferred and assigned when \code{addgen = TRUE}. A numeric pedigree is generated when \code{addnum = TRUE}. Sex will be inferred for all individuals if sex information is missing. If the pedigree includes a \strong{Sex} column, values should be coded as "male", "female", or NA (unknown). Missing sex information will be inferred from the pedigree structure where possible.
 }
 \examples{
-require(visPedigree)
-require(data.table)
-simple_ped
+library(visPedigree)
+library(data.table)
+
+# Tidy a simple pedigree
 tidy_ped <- tidyped(simple_ped)
-tidy_ped
+head(tidy_ped)
+
 # Calculate inbreeding coefficients
 tidy_ped_inbreed <- tidyped(simple_ped, inbreed = TRUE)
-tidy_ped_inbreed
-# The pedigree of individual J5X804 to ancestors is pruned,
-# and the column Cand is added and returned
-tidy_ped_J5X804 <- tidyped(simple_ped,cand="J5X804")
-tidy_ped_J5X804
-# The pedigree of individual J5X804 to parents and grandparents is pruned
-tidy_ped_J5X804_up_2 <- tidyped(simple_ped,cand="J5X804",trace="up",tracegen=2)
+head(tidy_ped_inbreed)
+
+# Trace ancestors of a specific individual
+tidy_ped_J5X804 <- tidyped(simple_ped, cand = "J5X804")
+head(tidy_ped_J5X804)
+
+# Trace ancestors back two generations
+tidy_ped_J5X804_up_2 <- tidyped(simple_ped, cand = "J5X804", trace = "up", tracegen = 2)
 tidy_ped_J5X804_up_2
-# The pedigree of individual J5X804 to offspring is pruned
-tidy_ped_J0Z990_down <- tidyped(simple_ped,cand="J0Z990",trace="down")
+
+# Trace descendants of a specific individual
+tidy_ped_J0Z990_down <- tidyped(simple_ped, cand = "J0Z990", trace = "down")
 tidy_ped_J0Z990_down
-# The pedigree of individual J0Z990 to child and grandchild is pruned
-tidy_ped_J0Z990_down_2 <- tidyped(simple_ped,cand="J0Z990",trace="down",tracegen=2)
+
+# Trace descendants down two generations
+tidy_ped_J0Z990_down_2 <- tidyped(simple_ped, cand = "J0Z990", trace = "down", tracegen = 2)
 tidy_ped_J0Z990_down_2
 
 }

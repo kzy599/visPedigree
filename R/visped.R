@@ -2,16 +2,16 @@
 #'
 #' \code{visped} function draws a graph of a full or compact pedigree.
 #'
-#' This function takes a pedigree tidied by the \code{\link{tidyped}} function, outputs a hierarchical graph for all individuals in the pedigree. The graph can be shown on the defaulted graphic device and be saved in a pdf file. The graph in the pdf file is a vector drawing, is legible and isn't overlapped. It is especially useful when the number of individuals is big and the width of individual label is long in one generation. This function can draw the graph of a very large pedigree (> 10,000 individuals per generation) by compacting the full-sib individuals. It is very effective for drawing the pedigree of aquatic animal, which usually including many full-sib families per generation in the nucleus breeding population. The outline of a pedigree without individuals' label is still shown if the width of a pedigree graph is longer than the maximum width (200 inches) of the pdf file.
+#' This function takes a pedigree tidied by the \code{\link{tidyped}} function and outputs a hierarchical graph for all individuals in the pedigree. The graph can be shown on the default graphic device or saved as a PDF file. The PDF output is a vector drawing that is legible and avoids overlapping labels. It is especially useful when the number of individuals is large and individual labels are long. This function can draw the graph of a very large pedigree (> 10,000 individuals per generation) by compacting full-sib individuals. It is highly effective for aquatic animal pedigrees, which usually include many full-sib families per generation in nucleus breeding populations. The outline of a pedigree without individual labels is still shown if the width of a pedigree graph exceeds the maximum width (200 inches) of the PDF file.
 #'
-#' In the graph, two shapes and three colors are used. Circle is for individual, square is for family. Dark sky blue means male, dark golden rod means female, dark olive green means unknown sex. For example, one circle with dark sky blue means a male individual; One square with dark golden rod means all female individuals in a full-sib family when \code{compact = TRUE}.
+#' In the graph, two shapes and three colors are used. Circles represent individuals, and squares represent families. Dark sky blue indicates males, dark goldenrod indicates females, and dark olive green indicates unknown sex. For example, a dark sky blue circle represents a male individual; a dark goldenrod square represents all female individuals in a full-sib family when \code{compact = TRUE}.
 #'
 #' @param ped A data.table including the pedigree tidied by the \code{\link{tidyped}} function with the parameter \code{addnum=TRUE}. It is recommended that the pedigree is tidied and pruned by candidates using the \code{\link{tidyped}} function with the non-null parameter \code{cand}.
-#' @param compact A logical value indicating whether IDs of full-sib individuals in one generation will be deleted and replaced with the number of full-sib individuals. For example, if there are 100 full-sib individuals in one generation, they will be deleted from the pedigree and be replaced with one individual label of "100" when \code{compact = TRUE}. The default value is FALSE
-#' @param outline A logical value indicating whether shapes without label will be shown. A graph of the pedigree without individuals' label is shown when setting \code{outline = TRUE}. It is very useful for viewing the outline of the pedigree and finding the immigrant individuals in each generation when the width of a pedigree graph is longer than the maximum width (200 inches) of the pdf file. The defaulted value is FALSE.
-#' @param cex NULL or a numeric value changing the size of individual label shown in the graph. \emph{cex} is an abbreviation of character expansion factor. \code{visped} function will try to guess (\code{cex=NULL}) the matched cex value and returned it in the messages. According to the returned cex of the last run, this parameter should be increased if the label's width is longer than that of the shape in the output pdf file; Contrariwise, this parameter should be decreased if the label's width is shorter than that of the shape in the output pdf file; then rerunning \code{visped} function. The default value is NULL.
-#' @param showgraph A logical value indicating whether a plot will be shown in the defaulted graphic device, such as the Plots panel of Rstudio. It is useful for quick viewing of the pedigree graph without opening the pdf file. However, the graph on the defaulted graphic device may be not legible, such as overlapped labels, aliasing lines due to the restricted width and height. It's a good choice to set \code{showgraph = FALSE} when the pedigree is large. The default value is TRUE.
-#' @param file NULL or a character value means whether the pedigree graph will be saved in a pdf file. The graph in the pdf file is a legible vector drawing, and labels don't overlap especially when the number of individuals is big and width of the individual label is long in one generation. It is recommended that saving a pedigree graph in the pdf file. The default value is NULL.
+#' @param compact A logical value indicating whether IDs of full-sib individuals in one generation will be removed and replaced with the number of full-sib individuals. For example, if there are 100 full-sib individuals in one generation, they will be replaced with a single label "100" when \code{compact = TRUE}. The default value is FALSE.
+#' @param outline A logical value indicating whether shapes without labels will be shown. A graph of the pedigree without individual labels is shown when setting \code{outline = TRUE}. This is useful for viewing the pedigree outline and identifying immigrant individuals in each generation when the graph width exceeds the maximum PDF width (200 inches). The default value is FALSE.
+#' @param cex NULL or a numeric value changing the size of individual labels shown in the graph. \emph{cex} is an abbreviation for 'character expansion factor'. The \code{visped} function will attempt to estimate (\code{cex=NULL}) the appropriate cex value and report it in the messages. Based on the reported cex from a previous run, this parameter should be increased if labels are wider than their shapes in the PDF; conversely, it should be decreased if labels are narrower than their shapes. The default value is NULL.
+#' @param showgraph A logical value indicating whether a plot will be shown in the default graphic device (e.g., the Plots panel in RStudio). This is useful for quick viewing without opening a PDF file. However, the graph on the default device may not be legible (e.g., overlapping labels or aliasing lines) due to size restrictions. It is recommended to set \code{showgraph = FALSE} for large pedigrees. The default value is TRUE.
+#' @param file NULL or a character value specifying whether the pedigree graph will be saved as a PDF file. The PDF output is a legible vector drawing where labels do not overlap, even with many individuals or long labels. It is recommended to save the pedigree graph as a PDF file. The default value is NULL.
 #' @param highlight NULL, a character vector of individual IDs, or a list specifying individuals to highlight. If a character vector is provided, individuals will be highlighted with the default color scheme (purple border and light purple fill). If a list is provided, it should contain: \code{ids} (required, character vector of individual IDs), \code{frame.color} (optional, hex color for border), and \code{color} (optional, hex color for fill). For example: \code{c("A", "B")} or \code{list(ids = c("A", "B"), frame.color = "#9c27b0", color = "#ce93d8")}. The function will check if the specified individuals exist in the pedigree and issue a warning for any missing IDs. The default value is NULL.
 #' @param showf A logical value indicating whether inbreeding coefficients will be shown in the graph. If \code{showf = TRUE} and the column \strong{f} exists in the pedigree, the inbreeding coefficient will be appended to the individual label, e.g., "ID (0.05)". The default value is FALSE.
 #' @return No returned values. The graph will be plotted directly on graphic devices.
@@ -28,19 +28,22 @@
 #' simple_ped_J5X804_tidy <- tidyped(simple_ped,cand=c("J5X804"))
 #' visped(simple_ped_J5X804_tidy)
 #' # Drawing the graph in the pdf file
-#' visped(simple_ped_J5X804_tidy,file="output.pdf")
+#' visped(simple_ped_J5X804_tidy, file = tempfile(fileext = ".pdf"))
 #' # Highlighting specific individuals with default colors
 #' visped(simple_ped_tidy, highlight = c("Y", "Z1", "Z2"))
 #' # Highlighting specific individuals with custom colors
-#' visped(simple_ped_tidy, highlight = list(ids = c("Y", "Z1"), frame.color = "#4caf50", color = "#81c784"))
+#' visped(simple_ped_tidy, 
+#'        highlight = list(ids = c("Y", "Z1"), frame.color = "#4caf50", color = "#81c784"))
 #' # Drawing a compact pedigree
 #' # The candidates' labels in 2007
 #' cand_labels <- big_family_size_ped[(Year == 2007) & (substr(Ind,1,2) == "G8"),Ind]
-#' big_ped_tidy <- tidyped(big_family_size_ped,cand=cand_labels)
-#' visped(big_ped_tidy,compact=TRUE)
-#' visped(big_ped_tidy,compact=TRUE, file="output.pdf")
+#' big_ped_tidy <- tidyped(big_family_size_ped, cand = cand_labels)
+#' \donttest{
+#' visped(big_ped_tidy, compact = TRUE)
+#' visped(big_ped_tidy, compact = TRUE, file = tempfile(fileext = ".pdf"))
 #' # Individual labels are not shown
-#' visped(big_ped_tidy,compact=TRUE, outline=TRUE, file="output.pdf")
+#' visped(big_ped_tidy, compact = TRUE, outline = TRUE, file = tempfile(fileext = ".pdf"))
+#' }
 #'
 #' @import data.table
 #' @import igraph
@@ -50,10 +53,10 @@
 visped <- function(ped,
                    compact = FALSE, outline = FALSE, cex = NULL, showgraph = TRUE, file = NULL, highlight = NULL, showf = FALSE) {
   if (is.null(attributes(ped)$tidyped)) {
-    stop("The pedigree need to be firstly trimmed by the tidyped() function!")
+    stop("The pedigree must first be tidied using the tidyped() function!")
   } else {
     if (!attr(ped,"tidyped")) {
-     stop("The pedigree need to be firstly trimmed by the tidyped() function!")
+     stop("The pedigree must first be tidied using the tidyped() function!")
     }
   }
   ped_new <- copy(ped)
@@ -311,9 +314,9 @@ visped <- function(ped,
       layout = l,
       asp = 0
     )
-    message(paste("The vector drawing of the pedigree is saved in the ",
+    message(paste("The vector drawing of the pedigree has been saved to: ",
             getwd(),
-            "/",file," file",sep=""))
+            "/",file,sep=""))
   }
   if (!outline) {
     if (is.null(cex)) {
@@ -325,8 +328,8 @@ visped <- function(ped,
 
   }
   if (is.null(file)) {
-    message("It is recommended that the pedigree graph is saved in the pdf file using the parameter file")
-    message("The graph in the pdf file is a vector drawing: shapes, labels and lines are legible; shapes and labels aren't overlapped.")
+    message("It is recommended to save the pedigree graph as a PDF file using the 'file' parameter.")
+    message("The PDF output is a vector drawing: shapes, labels, and lines are legible and do not overlap.")
   }
   invisible(NULL)
 }
