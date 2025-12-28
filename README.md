@@ -46,8 +46,6 @@ data.table(
   tidyped(inbreed = TRUE) |>
   visped(highlight = c("E"), showf = TRUE)
 
-#采用 |>写法
-
 ```
 
 ## <a id="vignette">Vignette</a>
