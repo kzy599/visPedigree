@@ -14,9 +14,9 @@ Description: Provides tools for tidying and visualizing animal pedigrees. The
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
-Depends: R (>= 3.5.1)
-Imports: data.table (>= 1.11.4),
-    igraph (>= 1.2.2),
+Depends: R (>= 4.1.0)
+Imports: data.table (>= 1.14.0),
+    igraph (>= 1.3.0),
     nadiv (>= 2.18.0)
 RoxygenNote: 7.3.3
 Suggests: testthat,

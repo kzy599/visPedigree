@@ -28,23 +28,25 @@ devtools::install_github("luansheng/visPedigree")
 library(visPedigree)
 
 # Example 1: Tidy and visualize a small pedigree
-cands <- c("Y", "Z1", "Z2")
-tidy_small_ped <- tidyped(ped = small_ped, cand = cands)
-
 # Draw the pedigree, compacting full-sib individuals and highlighting candidates.
 # Note: the compacted candidates are also highlighted here.
-visped(tidy_small_ped, compact = TRUE, highlight = cands)
+cands <- c("Y", "Z1", "Z2")
+small_ped |>
+  tidyped(cand = cands) |>
+  visped(compact = TRUE, highlight = cands)
 
 # Example 2: Calculate and show inbreeding coefficients
 library(data.table)
-test_ped <- data.table(
+data.table(
   Ind = c("A", "B", "C", "D", "E"),
   Sire = c(NA, NA, "A", "C", "C"),
   Dam = c(NA, NA, "B", "B", "D"),
   Sex = c("male", "female", "male", "female", "male")
-)
-tidy_test <- tidyped(test_ped, inbreed = TRUE)
-visped(tidy_test, highlight = c("E"), showf = TRUE)
+) |>
+  tidyped(inbreed = TRUE) |>
+  visped(highlight = c("E"), showf = TRUE)
+
+#采用 |>写法
 
 ```
 
