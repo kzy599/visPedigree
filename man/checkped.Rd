@@ -4,12 +4,14 @@
 \alias{checkped}
 \title{Check a pedigree}
 \usage{
-checkped(ped, addgen = TRUE)
+checkped(ped, addgen = TRUE, ...)
 }
 \arguments{
 \item{ped}{A data.table or data frame with the pedigree, which includes the first three columns: \strong{individual}, \strong{sire} and \strong{dam} IDs. More columns, such as sex and generation can be included in the pedigree file. Names of the three columns can be assigned as you would like, but their orders must not be changed in the pedigree. Individual IDs should not be coded as "", " ", "0", "*", or "NA"; otherwise, these individuals will be removed from the pedigree. Missing parents should be denoted by either "NA", "0", or "*". Space and "" will also be recoded as missing parents, but are not recommended.}
 
 \item{addgen}{A logical value indicating whether the generation number of an individual will be generated. The default value is TRUE, then a new column named \strong{Gen} will be added to the returned data.table.}
+
+\item{...}{Additional arguments passed to \code{\link{sortped}}.}
 }
 \value{
 A data.table with the checked pedigree is returned. Individual, sire, and dam ID columns are renamed as \strong{Ind}, \strong{Sire} and \strong{Dam}. Missing parents are replaced with the default missing value \strong{NA}. The \strong{Sex} column contains the individual's sex (male, female, or NA for unknown). The \strong{Gen} column will be included when the parameter \emph{addgen} is TRUE. Ind, Sire, Dam, and Sex columns are character; The Gen column is an integer type.

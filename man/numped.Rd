@@ -4,10 +4,12 @@
 \alias{numped}
 \title{Number a pedigree}
 \usage{
-numped(ped)
+numped(ped, ...)
 }
 \arguments{
 \item{ped}{A data.table or data frame containing the pedigree, where the first three columns are \strong{Ind}, \strong{Sire}, and \strong{Dam}. Missing parents should be replaced with the default missing value \strong{NA}.}
+
+\item{...}{Additional arguments (currently ignored).}
 }
 \value{
 A data.table containing the pedigree with new integer columns (\strong{IndNum}, \strong{SireNum}, and \strong{DamNum}).

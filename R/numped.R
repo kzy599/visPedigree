@@ -5,11 +5,12 @@
 #' This function takes a pedigree and maps individual IDs to consecutive integers from 1 to n.
 #'
 #' @param ped A data.table or data frame containing the pedigree, where the first three columns are \strong{Ind}, \strong{Sire}, and \strong{Dam}. Missing parents should be replaced with the default missing value \strong{NA}.
+#' @param ... Additional arguments (currently ignored).
 #'
 #' @return A data.table containing the pedigree with new integer columns (\strong{IndNum}, \strong{SireNum}, and \strong{DamNum}).
 #' @keywords internal
 #' @import data.table
-numped <- function(ped) {
+numped <- function(ped, ...) {
   ped_new <- copy(ped)
   ped_is_DT <- "data.table" %in% class(ped_new)
   if (!ped_is_DT) {

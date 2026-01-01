@@ -11,7 +11,8 @@ tidyped(
   tracegen = NULL,
   addgen = TRUE,
   addnum = TRUE,
-  inbreed = FALSE
+  inbreed = FALSE,
+  ...
 )
 }
 \arguments{
@@ -28,9 +29,11 @@ tidyped(
 \item{addnum}{A logical value indicating whether to generate a numeric pedigree. Default is TRUE, which adds \strong{IndNum}, \strong{SireNum}, and \strong{DamNum} columns to the output.}
 
 \item{inbreed}{A logical value indicating whether to calculate inbreeding coefficients. Default is FALSE. If TRUE, an \strong{f} column is added to the output.}
+
+\item{...}{Additional arguments passed to internal methods such as \code{\link{checkped}}, \code{\link{numped}}, and \code{\link{inbreed}}.}
 }
 \value{
-A data.table containing the tidied pedigree. Individual, sire, and dam ID columns are renamed to \strong{Ind}, \strong{Sire}, and \strong{Dam}. Missing parents are replaced with \strong{NA}. The \strong{Sex} column contains "male", "female", or NA. The \strong{Cand} column is included if \code{cand} is not NULL. The \strong{Gen} column is included if \code{addgen} is TRUE. The \strong{IndNum}, \strong{SireNum}, and \strong{DamNum} columns are included if \code{addnum} is TRUE. The \strong{f} column is included if \code{inbreed} is TRUE. \strong{Ind}, \strong{Sire}, \strong{Dam}, and \strong{Sex} are character columns; \strong{Cand} is logical; \strong{Gen}, \strong{IndNum}, \strong{SireNum}, and \strong{DamNum} are integer.
+A \code{tidyped} object (which inherits from \code{data.table}). Individual, sire, and dam ID columns are renamed to \strong{Ind}, \strong{Sire}, and \strong{Dam}. Missing parents are replaced with \strong{NA}. The \strong{Sex} column contains "male", "female", or NA. The \strong{Cand} column is included if \code{cand} is not NULL. The \strong{Gen} column is included if \code{addgen} is TRUE. The \strong{IndNum}, \strong{SireNum}, and \strong{DamNum} columns are included if \code{addnum} is TRUE. The \strong{f} column is included if \code{inbreed} is TRUE. \strong{Ind}, \strong{Sire}, \strong{Dam}, and \strong{Sex} are character columns; \strong{Cand} is logical; \strong{Gen}, \strong{IndNum}, \strong{SireNum}, and \strong{DamNum} are integer.
 }
 \description{
 The \code{tidyped} function checks, sorts, traces, and returns a trimmed pedigree.
@@ -66,4 +69,7 @@ tidy_ped_J0Z990_down
 tidy_ped_J0Z990_down_2 <- tidyped(simple_ped, cand = "J0Z990", trace = "down", tracegen = 2)
 tidy_ped_J0Z990_down_2
 
+}
+\seealso{
+\code{\link{summary.tidyped}} for summarizing the pedigree.
 }

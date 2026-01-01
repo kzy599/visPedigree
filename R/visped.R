@@ -25,6 +25,7 @@
 #' @param showf A logical value indicating whether inbreeding coefficients will be shown in the graph. If \code{showf = TRUE} and the column \strong{f} exists in the pedigree, the inbreeding coefficient will be appended to the individual label, e.g., "ID (0.05)". The default value is FALSE.
 #' @param ... Additional arguments passed to \code{\link[igraph:plot.igraph]{plot.igraph}}.
 #' @return No returned values. The graph will be plotted directly on graphic devices.
+#' @note Isolated individuals (those with no parents and no progeny, assigned Gen 0) are automatically filtered out and not shown in the plot. A warning will be issued if any such individuals are removed.
 #'
 #' @examples
 #' library(data.table)
@@ -66,6 +67,11 @@ visped <- function(ped,
                    compact = FALSE, outline = FALSE, cex = NULL, showgraph = TRUE, file = NULL, 
                    highlight = NULL, trace = FALSE, showf = FALSE, ...) {
   validate_tidyped(ped)
+
+  if (showf && !"f" %in% colnames(ped)) {
+    warning("Inbreeding coefficients ('f' column) not found in pedigree. Please run tidyped(..., inbreed = TRUE) to calculate them.")
+    showf <- FALSE
+  }
 
   if (!isFALSE(trace)) {
     if (isTRUE(trace)) {
@@ -129,7 +135,6 @@ visped <- function(ped,
 #' @inheritParams visped
 #' @return A list containing the igraph object, layout, and canvas dimensions.
 #' @keywords internal
-#' @export
 prepare_ped_graph <- function(ped, compact = FALSE, outline = FALSE, cex = NULL, 
                               highlight = NULL, trace = FALSE, showf = FALSE, ...) {
   ped_new <- copy(ped)
@@ -152,6 +157,22 @@ prepare_ped_graph <- function(ped, compact = FALSE, outline = FALSE, cex = NULL,
   ped_igraph_data <- ped2igraph(ped_new, compact, highlight, trace, showf)
   ped_igraph <- ped_igraph_data
   real_node <- ped_igraph$node[nodetype %in% c("real", "compact")]
+  
+  # Filter out isolated individuals (Gen == 0)
+  if (any(real_node$gen == 0)) {
+    n_isolated <- sum(real_node$gen == 0)
+    warning(sprintf("Removed %d isolated individuals (no parents, no progeny) from the plot.", n_isolated))
+    
+    # Remove from real_node
+    real_node <- real_node[gen != 0]
+    
+    # Remove from ped_igraph$node
+    ped_igraph$node <- ped_igraph$node[gen != 0]
+    
+    # Remove from ped_igraph$edge
+    valid_ids <- ped_igraph$node$id
+    ped_igraph$edge <- ped_igraph$edge[from %in% valid_ids & to %in% valid_ids]
+  }
   
   if (nrow(real_node) == 0) {
     stop("Pedigree contains no individuals to plot.")
@@ -393,19 +414,44 @@ ped2igraph <- function(ped, compact = FALSE, highlight = NULL, trace = FALSE, sh
       edge = data.table(from = integer(), to = integer())
     ))
   }
-  ped_new <- copy(ped)
-  ped_col_names <- colnames(ped_new)
+  
+  # 1. Inject missing parents (for subsetted pedigrees)
+  ped_new <- inject_missing_parents(ped)
+  
+  # 2. Resolve highlight IDs and relatives
+  highlight_info <- get_highlight_ids(ped_new, highlight, trace)
+  h_ids <- highlight_info$all_ids
+  
+  # 3. Prepare initial node table
+  ped_node <- prepare_initial_nodes(ped_new)
+  
+  # 4. Compact pedigree (if requested)
+  ped_node <- compact_pedigree(ped_node, compact, h_ids)
+  
+  # 5. Generate edges and virtual nodes
+  graph_struct <- generate_graph_structure(ped_node, h_ids)
+  ped_node <- graph_struct$node
+  ped_edge <- graph_struct$edge
+  
+  # 6. Apply styles (colors, shapes, highlighting)
+  ped_node <- apply_node_styles(ped_node, highlight_info)
+  
+  # 7. Finalize graph (reindex IDs, set edge colors)
+  result <- finalize_graph(ped_node, ped_edge, h_ids, showf)
+  
+  return(result)
+}
 
-  # Check for missing parents (referenced but not in IndNum)
-  # This handles subsets where parents were filtered out
+# --- Helper Functions ---
+
+inject_missing_parents <- function(ped) {
+  ped_new <- copy(ped)
   all_ind_nums <- ped_new$IndNum
   
   # Find missing Sires
   missing_sire_nums <- setdiff(unique(ped_new$SireNum), c(0, NA, all_ind_nums))
   if (length(missing_sire_nums) > 0) {
-    # Get labels
     sire_info <- unique(ped_new[SireNum %in% missing_sire_nums, .(SireNum, Sire)])
-    # Create rows
     new_sires <- data.table(
       Ind = sire_info$Sire,
       Sire = NA_character_,
@@ -416,11 +462,8 @@ ped2igraph <- function(ped, compact = FALSE, highlight = NULL, trace = FALSE, sh
       SireNum = 0L,
       DamNum = 0L
     )
-    # Add other columns if they exist (fill with NA)
     extra_cols <- setdiff(names(ped_new), names(new_sires))
-    if (length(extra_cols) > 0) {
-      new_sires[, (extra_cols) := NA]
-    }
+    if (length(extra_cols) > 0) new_sires[, (extra_cols) := NA]
     ped_new <- rbind(ped_new, new_sires, fill = TRUE)
   }
 
@@ -439,358 +482,305 @@ ped2igraph <- function(ped, compact = FALSE, highlight = NULL, trace = FALSE, sh
       DamNum = 0L
     )
     extra_cols <- setdiff(names(ped_new), names(new_dams))
-    if (length(extra_cols) > 0) {
-      new_dams[, (extra_cols) := NA]
-    }
+    if (length(extra_cols) > 0) new_dams[, (extra_cols) := NA]
     ped_new <- rbind(ped_new, new_dams, fill = TRUE)
   }
+  
+  return(ped_new)
+}
 
-  # 1. Expand highlight IDs if trace is active
-  # This must happen BEFORE compaction so relatives are not compacted
+get_highlight_ids <- function(ped, highlight, trace) {
   focal_ids <- NULL
   relative_ids <- NULL
-  h_frame_color <- "#9c27b0" # default purple for focal
-  h_color <- "#ce93d8"       # default light purple for focal
   
-  # Default colors for relatives (slightly lighter than focal but still visible)
-  r_frame_color <- "#ab47bc" # purple 400
-  r_color <- "#e1bee7"       # purple 100
+  # Default colors
+  colors <- list(
+    focal_frame = "#9c27b0",
+    focal_fill = NULL,      # Default: keep original sex-based color
+    rel_frame = "#ab47bc",
+    rel_fill = NULL         # Default: keep original sex-based color
+  )
   
   if (!is.null(highlight)) {
     if (is.list(highlight)) {
       focal_ids <- highlight$ids
-      if (!is.null(highlight$frame.color)) h_frame_color <- highlight$frame.color
-      if (!is.null(highlight$color)) h_color <- highlight$color
-      # Allow custom colors for relatives
-      if (!is.null(highlight$rel.frame.color)) r_frame_color <- highlight$rel.frame.color
-      if (!is.null(highlight$rel.color)) r_color <- highlight$rel.color
+      if (!is.null(highlight$frame.color)) colors$focal_frame <- highlight$frame.color
+      if (!is.null(highlight$color)) colors$focal_fill <- highlight$color
+      if (!is.null(highlight$rel.frame.color)) colors$rel_frame <- highlight$rel.frame.color
+      if (!is.null(highlight$rel.color)) colors$rel_fill <- highlight$rel.color
     } else {
       focal_ids <- highlight
     }
     
-    # Validate focal_ids against the pedigree
-    all_inds <- ped_new$Ind
+    # Validate focal_ids
+    all_inds <- ped$Ind
     missing_ids <- setdiff(focal_ids, all_inds)
     if (length(missing_ids) > 0) {
       warning("The following highlight IDs were not found in the pedigree: ", paste(missing_ids, collapse = ", "))
     }
     focal_ids <- intersect(focal_ids, all_inds)
     
-    # Handle trace parameter (TRUE/FALSE or "up"/"down"/"all")
+    # Handle trace
     if (!isFALSE(trace) && length(focal_ids) > 0) {
       trace_dir <- if (isTRUE(trace)) "all" else trace
-      # Use tidyped's tracing logic to find all relatives
-      # Suppress warnings here because we are re-running tidyped on an already tidied pedigree
-      relatives_ped <- suppressWarnings(tidyped(ped_new, cand = focal_ids, trace = trace_dir))
+      relatives_ped <- suppressWarnings(tidyped(ped, cand = focal_ids, trace = trace_dir))
       all_ids <- unique(relatives_ped$Ind)
-      # Distinguish between focal and relatives
       relative_ids <- setdiff(all_ids, focal_ids)
     }
   }
+  
+  list(
+    focal = focal_ids,
+    relatives = relative_ids,
+    all_ids = c(focal_ids, relative_ids),
+    colors = colors
+  )
+}
 
-  # Combine for compaction check
-  h_ids <- c(focal_ids, relative_ids)
-
-  # There is the Cand column in the pedigree if it is traced by the tidyped function
-  if (c("Cand") %in% ped_col_names) {
-    ped_node <-
-      ped_new[, .(
-        id = IndNum,
-        label = Ind,
-        sirenum = SireNum,
-        damnum = DamNum,
-        sirelabel = Sire,
-        damlabel = Dam,
-        cand = Cand,
-        sex = Sex,
-        gen = Gen
-      )]
-  } else {
-    ped_node <-
-      ped_new[, .(
-        id = IndNum,
-        label = Ind,
-        sirenum = SireNum,
-        damnum = DamNum,
-        sirelabel = Sire,
-        damlabel = Dam,
-        sex = Sex,
-        gen = Gen
-      )]
-  }
-
-  if ("f" %in% ped_col_names) {
-    ped_node[, f := ped_new$f]
-  }
-
+prepare_initial_nodes <- function(ped) {
+  cols <- c("IndNum", "Ind", "SireNum", "DamNum", "Sire", "Dam", "Sex", "Gen")
+  if ("Cand" %in% colnames(ped)) cols <- c(cols, "Cand")
+  if ("f" %in% colnames(ped)) cols <- c(cols, "f")
+  
+  ped_node <- ped[, ..cols]
+  setnames(ped_node, 
+           old = c("IndNum", "Ind", "SireNum", "DamNum", "Sire", "Dam", "Sex", "Gen"),
+           new = c("id", "label", "sirenum", "damnum", "sirelabel", "damlabel", "sex", "gen"))
+  
+  if ("Cand" %in% colnames(ped)) setnames(ped_node, "Cand", "cand")
+  
+  # Add family info
   max_id <- max(ped_node$id, na.rm = TRUE)
-
-  # Adding two new columns family label (column name: familylabel) and it's numeric id
-  # (column name: familynum) in the ped_node
-  familylabel = NULL # due to NSE notes in R CMD check
+  familylabel = NULL
   ped_node[!(is.na(sirelabel) & is.na(damlabel)),
            familylabel := paste(sirelabel, damlabel, sep = "")]
   
-  # Use .GRP to assign family numbers directly (more efficient than merge)
   ped_node[!is.na(familylabel), 
            familynum := .GRP + max_id, 
            by = familylabel]
   ped_node[is.na(familynum), familynum := 0]
-
-  # There will be three node types in the ped_note, including real, compact, and virtual.
-  # Real nodes are all individuals in the pedigree.
-  # Compact nodes are full-sib individuals with parents, but without progeny,
-  # they exist only when the "compact" parameter is TRUE
-  nodetype = NULL # due to NSE notes in R CMD check
+  
+  nodetype = NULL
   ped_node[, nodetype := "real"]
+  
+  return(ped_node)
+}
 
-  #=== Compact the pedigree============================================================
-  # Full-sib individuals with parents but without progeny will be deleted from ped_note.
-  # count individuals by family and sex as a number of node replace full-sib individuals
-  if (compact) {
-    # Only compact individuals who are not parents of anyone
-    sire_dam_label <- unique(c(ped_node$sirelabel, ped_node$damlabel))
-    sire_dam_label <- sire_dam_label[!is.na(sire_dam_label)]
-    # Require individuals to have known parents (familylabel not NA) and no progeny
-    ped_node_1 <- ped_node[!(label %in% sire_dam_label) & !is.na(familylabel)]
-
-    # Exclude highlighted individuals (and their relatives if requested) from being compacted
-    if (!is.null(h_ids)) {
-      ped_node_1 <- ped_node_1[!(label %in% h_ids)]
-    }
-
-    # Moreover, finding full-sib individuals
-    if (nrow(ped_node_1) > 0) {
-      familysize <- NULL
-      ped_node_1[, familysize := .N, by = .(familylabel)]
+compact_pedigree <- function(ped_node, compact, h_ids) {
+  if (!compact) return(ped_node)
+  
+  # Only compact individuals who are not parents of anyone
+  sire_dam_label <- unique(c(ped_node$sirelabel, ped_node$damlabel))
+  sire_dam_label <- sire_dam_label[!is.na(sire_dam_label)]
+  
+  ped_node_1 <- ped_node[!(label %in% sire_dam_label) & !is.na(familylabel)]
+  
+  if (!is.null(h_ids)) {
+    ped_node_1 <- ped_node_1[!(label %in% h_ids)]
+  }
+  
+  if (nrow(ped_node_1) > 0) {
+    familysize <- NULL
+    ped_node_1[, familysize := .N, by = .(familylabel)]
+    fullsib_id_DT <- ped_node_1[familysize >= 2]
+    
+    if (nrow(fullsib_id_DT) > 0) {
+      compact_family <- unique(fullsib_id_DT, by = c("familylabel"))
+      compact_family[, `:=`(
+        label = as.character(familysize),
+        nodetype = "compact",
+        sex = NA_character_
+      )]
       
-      # The full-sib individuals in a family will be compacted if the family size >= 2
-      fullsib_id_DT <- ped_node_1[familysize >= 2]
+      next_id <- max(ped_node$id, na.rm = TRUE)
+      compact_family[, id := seq.int(next_id + 1, length.out = .N)]
       
-      if (nrow(fullsib_id_DT) > 0) {
-        # Create compact nodes: one per family
-        compact_family <- unique(fullsib_id_DT, by = c("familylabel"))
-        compact_family[, `:=`(
-          label = as.character(familysize),
-          nodetype = "compact",
-          sex = NA_character_
-        )]
-
-        # Assign new unique IDs for compact nodes
-        next_id <- max(ped_node$id, na.rm = TRUE)
-        compact_family[, id := seq.int(next_id + 1, length.out = .N)]
-
-        # Map original full-sib IDs to their compact node IDs
-        map_dt <- fullsib_id_DT[, .(from_id = id, familylabel)]
-        map_dt <- compact_family[map_dt, on = .(familylabel), .(from_id, to_id = id, to_label = label, familylabel)]
-        
-        # Remove original full-sibs and add compact nodes
-        ped_node <- ped_node[!(id %in% fullsib_id_DT$id)]
-
-        # Redirect parent references to the compact node
-        if (nrow(map_dt) > 0) {
-          ped_node[map_dt, on = .(sirenum = from_id), `:=`(sirenum = to_id, sirelabel = to_label)]
-          ped_node[map_dt, on = .(damnum = from_id), `:=`(damnum = to_id, damlabel = to_label)]
-        }
-
-        ped_node <- rbind(ped_node, compact_family, fill = TRUE)
-
-        # Fix any remaining parent references pointing to removed ids by using family-level compact nodes
-        compact_lookup <- ped_node[nodetype == "compact", .(compact_id = id, compact_label = label, familylabel)]
-        invalid_ids <- setdiff(unique(c(ped_node$sirenum, ped_node$damnum)), ped_node$id)
-        invalid_ids <- invalid_ids[invalid_ids != 0 & !is.na(invalid_ids)]
-        if (length(invalid_ids) > 0 && nrow(compact_lookup) > 0) {
-          ped_node[!(sirenum %in% ped_node$id) & !is.na(familylabel), c("sirenum", "sirelabel") := {
-            cid <- compact_lookup[.SD, on = .(familylabel), compact_id]
-            clab <- compact_lookup[.SD, on = .(familylabel), compact_label]
-            list(cid, clab)
-          }]
-          ped_node[!(damnum %in% ped_node$id) & !is.na(familylabel), c("damnum", "damlabel") := {
-            cid <- compact_lookup[.SD, on = .(familylabel), compact_id]
-            clab <- compact_lookup[.SD, on = .(familylabel), compact_label]
-            list(cid, clab)
-          }]
-        }
-
-        # Recalculate familynum to avoid collision with compact node IDs
-        max_id <- max(ped_node$id, na.rm = TRUE)
-        ped_node[!is.na(familylabel), 
-                 familynum := .GRP + max_id, 
-                 by = familylabel]
-        ped_node[is.na(familynum), familynum := 0]
+      map_dt <- fullsib_id_DT[, .(from_id = id, familylabel)]
+      map_dt <- compact_family[map_dt, on = .(familylabel), .(from_id, to_id = id, to_label = label, familylabel)]
+      
+      ped_node <- ped_node[!(id %in% fullsib_id_DT$id)]
+      
+      if (nrow(map_dt) > 0) {
+        ped_node[map_dt, on = .(sirenum = from_id), `:=`(sirenum = to_id, sirelabel = to_label)]
+        ped_node[map_dt, on = .(damnum = from_id), `:=`(damnum = to_id, damlabel = to_label)]
       }
+      
+      ped_node <- rbind(ped_node, compact_family, fill = TRUE)
+      
+      # Fix parent references
+      compact_lookup <- ped_node[nodetype == "compact", .(compact_id = id, compact_label = label, familylabel)]
+      invalid_ids <- setdiff(unique(c(ped_node$sirenum, ped_node$damnum)), ped_node$id)
+      invalid_ids <- invalid_ids[invalid_ids != 0 & !is.na(invalid_ids)]
+      
+      if (length(invalid_ids) > 0 && nrow(compact_lookup) > 0) {
+        ped_node[!(sirenum %in% ped_node$id) & !is.na(familylabel), c("sirenum", "sirelabel") := {
+          cid <- compact_lookup[.SD, on = .(familylabel), compact_id]
+          clab <- compact_lookup[.SD, on = .(familylabel), compact_label]
+          list(cid, clab)
+        }]
+        ped_node[!(damnum %in% ped_node$id) & !is.na(familylabel), c("damnum", "damlabel") := {
+          cid <- compact_lookup[.SD, on = .(familylabel), compact_id]
+          clab <- compact_lookup[.SD, on = .(familylabel), compact_label]
+          list(cid, clab)
+        }]
+      }
+      
+      # Recalculate familynum
+      max_id <- max(ped_node$id, na.rm = TRUE)
+      ped_node[!is.na(familylabel), 
+               familynum := .GRP + max_id, 
+               by = familylabel]
+      ped_node[is.na(familynum), familynum := 0]
     }
   }
+  return(ped_node)
+}
 
-  #=== Add virtual nodes between parents and progrenies================================
-  # Add id to familynum and familynum to sirenum and damnum as new virtual edges
-  ped_edge <-
-    rbind(ped_node[, .(from = id, to = familynum)],
-          ped_node[, .(from = familynum, to = sirenum)],
-          ped_node[, .(from = familynum, to = damnum)])
+generate_graph_structure <- function(ped_node, h_ids) {
+  # Create edges
+  ped_edge <- rbind(
+    ped_node[, .(from = id, to = familynum)],
+    ped_node[, .(from = familynum, to = sirenum)],
+    ped_node[, .(from = familynum, to = damnum)]
+  )
   ped_edge <- ped_edge[!(to == 0)]
-  # Delete duplicated edges from familynum to parents
   ped_edge <- unique(ped_edge)
   ped_edge <- ped_edge[order(from, to)]
-  width = arrow.size = arrow.width = color = curved = NULL # due to NSE notes in R CMD check
-  # Set edge colors - currently using dark grey
-  # If highlighting is active, start with a faded edge color
-  edge_default_color <- "#333333"
-  if (length(h_ids) > 0) edge_default_color <- "#3333334D"
   
-  ped_edge[, ":="(width = 1, arrow.size = 1, arrow.width = 1, arrow.mode = 2, color = edge_default_color, curved = 0.10)]
-  # Add familynum as new virtual nodes
-  ped_node <-
-    rbind(ped_node, unique(ped_node[familynum > 0, .(
-      id = familynum,
-      familylabel,
-      label = familylabel,
-      sirenum,
-      damnum,
-      sirelabel,
-      damlabel,
-      gen,
-      familynum,
-      highlighted = FALSE
-    )]), fill = TRUE)
+  width = arrow.size = arrow.width = color = curved = NULL
+  edge_default_color <- if (length(h_ids) > 0) "#3333334D" else "#333333"
+  
+  ped_edge[, ":="(width = 1, arrow.size = 1, arrow.width = 1, arrow.mode = 2, 
+                  color = edge_default_color, curved = 0.10)]
+  
+  # Create virtual nodes
+  virtual_nodes <- unique(ped_node[familynum > 0, .(
+    id = familynum,
+    familylabel,
+    label = familylabel,
+    sirenum,
+    damnum,
+    sirelabel,
+    damlabel,
+    gen,
+    familynum,
+    highlighted = FALSE
+  )])
+  
+  ped_node <- rbind(ped_node, virtual_nodes, fill = TRUE)
   ped_node[is.na(nodetype), nodetype := "virtual"]
   
-  layer = NULL # due to NSE notes in R CMD check
+  layer = NULL
   ped_node[nodetype %in% c("real", "compact"), layer := 2 * gen - 1]
   ped_node[nodetype %in% c("virtual"), layer := 2 * (gen - 1)]
+  
+  list(node = ped_node, edge = ped_edge)
+}
 
-
-  #=== Set default shape, size and color for male and female===========================
-  # Setting the default attributes of nodes
-  # Notes: size = 15 means the width of a circle node accounts for 15% of the whole width
-  # of the graph
+apply_node_styles <- function(ped_node, highlight_info) {
   shape = frame.color = color = size = label.color = frame.width = label.font = NULL
+  
+  # Default styles
   ped_node[, ":="(shape = "circle", frame.color = "#7fae59", color = "#9cb383", size = 15, 
                   label.color = "#0d0312", frame.width = 0.2, label.font = 1)]
-  ped_node[nodetype %in% c("compact"), ":="(shape = "square")]
-  # Setting male and female's color (No frame for default nodes)
-  ped_node[sex %in% c("male"), ":="(frame.color = "#119ecc", color = "#119ecc")]
-  ped_node[sex %in% c("female"), ":="(frame.color = "#f4b131", color = "#f4b131")]
+  ped_node[nodetype == "compact", shape := "square"]
+  
+  ped_node[sex == "male", ":="(frame.color = "#119ecc", color = "#119ecc")]
+  ped_node[sex == "female", ":="(frame.color = "#f4b131", color = "#f4b131")]
   ped_node[is.na(sex) | sex == "unknown", ":="(frame.color = "#9cb383", color = "#9cb383")]
   
-  # Setting virtual size of nodes to 0 and making them invisible
-  ped_node[nodetype == "virtual", ":="(shape = "none", label = "", size = 0, frame.width = 0, color = "#FFFFFF00", frame.color = "#FFFFFF00")]
+  ped_node[nodetype == "virtual", ":="(shape = "none", label = "", size = 0, 
+                                       frame.width = 0, color = "#FFFFFF00", frame.color = "#FFFFFF00")]
   
-  # Initialize highlighted flag for all nodes
   ped_node[, highlighted := FALSE]
   
-  # Apply highlight colors if specified
+  # Apply highlighting
+  h_ids <- highlight_info$all_ids
   if (length(h_ids) > 0) {
-    # Check which IDs exist in the pedigree
-    existing_ids <- ped_node[nodetype %in% c("real"), unique(label)]
-    valid_focal <- focal_ids[focal_ids %in% existing_ids]
-    valid_relatives <- relative_ids[relative_ids %in% existing_ids]
+    focal <- highlight_info$focal
+    relatives <- highlight_info$relatives
+    colors <- highlight_info$colors
     
-    if (length(valid_focal) > 0) {
-      # 1. Mark focal and relatives as highlighted FIRST
-      if (length(valid_relatives) > 0) {
-        ped_node[label %in% valid_relatives & nodetype %in% c("real"), highlighted := TRUE]
-      }
-      ped_node[label %in% valid_focal & nodetype %in% c("real"), highlighted := TRUE]
-
-      # 2. Mark virtual nodes as highlighted if they have any highlighted children
-      h_familynums <- ped_node[highlighted == TRUE, unique(familynum)]
-      ped_node[id %in% h_familynums & nodetype == "virtual", highlighted := TRUE]
-
-      # 3. Fade all non-highlighted nodes (add transparency: 30% alpha = "4D")
-      ped_node[highlighted == FALSE & nodetype %in% c("real", "compact"), ":="(
-        color = paste0(substr(color, 1, 7), "4D"),
-        frame.color = paste0(substr(frame.color, 1, 7), "4D"),
-        label.color = paste0(substr(label.color, 1, 7), "4D")
-      )]
-
-      # 4. Apply colors to relatives (restore full opacity + purple border)
-      if (length(valid_relatives) > 0) {
-        ped_node[label %in% valid_relatives & nodetype %in% c("real"), 
-                 ":="(frame.color = r_frame_color, 
-                      color = substr(color, 1, 7),
-                      label.color = substr(label.color, 1, 7),
-                      frame.width = 0.5)]
-        # Only overwrite color if explicitly provided in a list
-        if (is.list(highlight) && !is.null(highlight$rel.color)) {
-          ped_node[label %in% valid_relatives & nodetype %in% c("real"), color := highlight$rel.color]
-        }
-      }
-      
-      # 5. Apply colors to focal IDs (restore full opacity + purple border + bold label)
-      if (length(valid_focal) > 0) {
-        ped_node[label %in% valid_focal & nodetype %in% c("real"), 
-                 ":="(frame.color = h_frame_color, 
-                      color = substr(color, 1, 7),
-                      label.color = substr(label.color, 1, 7),
-                      frame.width = 1,
-                      label.font = 2)]
-        # Only overwrite color if explicitly provided in a list
-        if (is.list(highlight) && !is.null(highlight$color)) {
-          ped_node[label %in% valid_focal & nodetype %in% c("real"), color := highlight$color]
-        }
-      }
+    # Mark highlighted nodes
+    if (length(relatives) > 0) {
+      ped_node[label %in% relatives & nodetype == "real", highlighted := TRUE]
     }
-
-    # Fade non-highlighted real/compact nodes
-    fade_cols <- function(x) {
-      ifelse(nchar(x) == 7, paste0(x, "4D"), x)
-    }
+    ped_node[label %in% focal & nodetype == "real", highlighted := TRUE]
+    
+    h_familynums <- ped_node[highlighted == TRUE, unique(familynum)]
+    ped_node[id %in% h_familynums & nodetype == "virtual", highlighted := TRUE]
+    
+    # Fade non-highlighted nodes
+    fade_cols <- function(x) ifelse(nchar(x) == 7, paste0(x, "4D"), x)
+    
     ped_node[highlighted == FALSE & nodetype %in% c("real", "compact"), `:=`(
       color = fade_cols(color),
       frame.color = fade_cols(frame.color),
-      label.color = fade_cols(label.color),
-      frame.width = 0.2
+      label.color = fade_cols(label.color)
     )]
+    
+    # Apply specific colors to highlighted nodes
+    if (length(relatives) > 0) {
+      ped_node[label %in% relatives & nodetype == "real", 
+               ":="(frame.color = colors$rel_frame, 
+                    frame.width = 0.5)]
+      if (!is.null(colors$rel_fill)) {
+        ped_node[label %in% relatives & nodetype == "real", color := colors$rel_fill]
+      }
+    }
+    
+    if (length(focal) > 0) {
+      ped_node[label %in% focal & nodetype == "real", 
+               ":="(frame.color = colors$focal_frame, 
+                    frame.width = 1,
+                    label.font = 2)]
+      if (!is.null(colors$focal_fill)) {
+        ped_node[label %in% focal & nodetype == "real", color := colors$focal_fill]
+      }
+    }
   }
   
+  return(ped_node)
+}
 
-  # Reindex node IDs to ensure uniqueness and update edges accordingly
+finalize_graph <- function(ped_node, ped_edge, h_ids, showf) {
+  # Reindex IDs
   old_ids <- ped_node$id
   ped_node[, id := seq_len(.N)]
   ped_edge[, from := ped_node$id[match(from, old_ids)]]
   ped_edge[, to := ped_node$id[match(to, old_ids)]]
+  
   real_max <- max(ped_node[nodetype %in% c("real", "compact")]$id, na.rm = TRUE)
-
-  # The edge color is same with the frame.color of the it's "to" node.
-  # Use a join for efficiency
-  tonodecolor = i.frame.color = i.highlighted = from_highlighted = NULL # due to NSE notes in R CMD check
+  
+  # Set edge colors
+  tonodecolor = i.frame.color = i.highlighted = from_highlighted = NULL
   ped_edge[ped_node, ":="(tonodecolor = i.frame.color, to_highlighted = i.highlighted), on = .(to = id)]
   ped_edge[ped_node, from_highlighted := i.highlighted, on = .(from = id)]
-
+  
   if (length(h_ids) > 0) {
     ped_edge[from_highlighted == TRUE | to_highlighted == TRUE, color := "#333333"]
   }
-
-  # If it's a family-to-child edge (from > real_max), use the child's frame color
-  ped_edge[from > real_max, ":="(color = tonodecolor)]
-  # If it's a parent-to-family edge (from <= real_max) and the parent is highlighted, make it opaque
+  
+  ped_edge[from > real_max, color := tonodecolor]
   ped_edge[from <= real_max & from_highlighted == TRUE, color := "#333333"]
   
-  # If it's a child-to-family edge (from <= real_max), use curved = 0 and remove arrow
-  # This prevents "black dots" (arrow heads) at virtual nodes, especially in outline mode
+  # Style child-to-family edges
   ped_edge[from <= real_max, ":="(curved = 0, arrow.size = 0, arrow.width = 0, arrow.mode = 0)]
-
-
-  # Sorting the "from" and "to" columns as the first two columns in the ped_edge
-  old_names <- colnames(ped_edge)
-  new_names <- c(c("from", "to"), old_names[!(old_names %in% c("from", "to", "tonodecolor"))])
-  ped_edge <- ped_edge[, ..new_names]
-  ped_edge <- ped_edge[order(from, to)]
-
-  # Sorting the "id" column as the first column in the ped_node
-  old_names <- colnames(ped_node)
-  new_names <- c("id", old_names[!(old_names %in% c("id"))])
-  ped_node <- ped_node[, ..new_names]
-  ped_node <- ped_node[order(layer, id)]
-
+  
+  # Sort
+  new_names_edge <- c(c("from", "to"), setdiff(colnames(ped_edge), c("from", "to", "tonodecolor")))
+  ped_edge <- ped_edge[, ..new_names_edge][order(from, to)]
+  
+  new_names_node <- c("id", setdiff(colnames(ped_node), "id"))
+  ped_node <- ped_node[, ..new_names_node][order(layer, id)]
+  
+  # Add inbreeding info
   if (showf && "f" %in% colnames(ped_node)) {
     ped_node[nodetype %in% c("real", "compact") & !is.na(f) & f > 0, 
              label := paste0(label, "\n[", round(f, 4), "]")]
   }
-
-  return(list(node = ped_node, edge = ped_edge))
-
+  
+  list(node = ped_node, edge = ped_edge)
 }
 
 `:=` = function(...) NULL

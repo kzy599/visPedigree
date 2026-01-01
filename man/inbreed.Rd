@@ -4,13 +4,15 @@
 \alias{inbreed}
 \title{Calculate inbreeding coefficients}
 \usage{
-inbreed(ped)
+inbreed(ped, ...)
 }
 \arguments{
-\item{ped}{A data.table including the pedigree tidied by the \code{\link{tidyped}} function.}
+\item{ped}{A \code{tidyped} object.}
+
+\item{...}{Additional arguments passed to \code{\link[nadiv:makeDiiF]{makeDiiF}}.}
 }
 \value{
-A data.table with an additional column \strong{f}.
+A \code{tidyped} object with an additional column \strong{f}.
 }
 \description{
 \code{inbreed} function calculates the inbreeding coefficients for all individuals in a tidied pedigree.

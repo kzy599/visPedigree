@@ -4,15 +4,14 @@
 #'
 #' This function takes a pedigree tidied by the \code{\link{tidyped}} function and calculates the inbreeding coefficients using the \code{makeDiiF} function from the \strong{nadiv} package. It prefers using numeric columns (\strong{IndNum}, \strong{SireNum}, \strong{DamNum}) if available, which is faster and more robust.
 #'
-#' @param ped A data.table including the pedigree tidied by the \code{\link{tidyped}} function.
-#' @return A data.table with an additional column \strong{f}.
+#' @param ped A \code{tidyped} object.
+#' @param ... Additional arguments passed to \code{\link[nadiv:makeDiiF]{makeDiiF}}.
+#' @return A \code{tidyped} object with an additional column \strong{f}.
 #' @export
 #' @import data.table
 #' @importFrom nadiv makeDiiF
-inbreed <- function(ped) {
-  if (is.null(attributes(ped)$tidyped)) {
-    stop("The pedigree must first be tidied using the tidyped() function!")
-  }
+inbreed <- function(ped, ...) {
+  validate_tidyped(ped)
 
   if (!requireNamespace("nadiv", quietly = TRUE)) {
     stop("The 'nadiv' package is required for inbreeding calculations. Please install it.")
@@ -41,7 +40,8 @@ inbreed <- function(ped) {
   # Calculate inbreeding coefficients
   # Convert to data.frame to avoid data.table indexing issues in nadiv
   # nadiv::makeDiiF returns a list with 'f' vector matching the input ID column order
-  res <- nadiv::makeDiiF(as.data.frame(nadiv_ped))
+  # Suppress warnings from nadiv::numPed which redundantly warn about 0 as missing parent
+  res <- suppressWarnings(nadiv::makeDiiF(as.data.frame(nadiv_ped), ...))
   
   # Create a mapping table to ensure correct order when joining back
   f_map <- data.table(id = nadiv_ped[[1]], f_val = res$f)
@@ -55,5 +55,5 @@ inbreed <- function(ped) {
     ped_new[f_map, f := i.f_val, on = .(Ind = id)]
   }
   
-  return(ped_new)
+  return(new_tidyped(ped_new))
 }

@@ -12,11 +12,13 @@ visped(
   showgraph = TRUE,
   file = NULL,
   highlight = NULL,
-  showf = FALSE
+  trace = FALSE,
+  showf = FALSE,
+  ...
 )
 }
 \arguments{
-\item{ped}{A data.table including the pedigree tidied by the \code{\link{tidyped}} function with the parameter \code{addnum=TRUE}. It is recommended that the pedigree is tidied and pruned by candidates using the \code{\link{tidyped}} function with the non-null parameter \code{cand}.}
+\item{ped}{A \code{tidyped} object (which inherits from \code{data.table}). It is recommended that the pedigree is tidied and pruned by candidates using the \code{\link{tidyped}} function with the non-null parameter \code{cand}.}
 
 \item{compact}{A logical value indicating whether IDs of full-sib individuals in one generation will be removed and replaced with the number of full-sib individuals. For example, if there are 100 full-sib individuals in one generation, they will be replaced with a single label "100" when \code{compact = TRUE}. The default value is FALSE.}
 
@@ -28,9 +30,21 @@ visped(
 
 \item{file}{NULL or a character value specifying whether the pedigree graph will be saved as a PDF file. The PDF output is a legible vector drawing where labels do not overlap, even with many individuals or long labels. It is recommended to save the pedigree graph as a PDF file. The default value is NULL.}
 
-\item{highlight}{NULL, a character vector of individual IDs, or a list specifying individuals to highlight. If a character vector is provided, individuals will be highlighted with the default color scheme (purple border and light purple fill). If a list is provided, it should contain: \code{ids} (required, character vector of individual IDs), \code{frame.color} (optional, hex color for border), and \code{color} (optional, hex color for fill). For example: \code{c("A", "B")} or \code{list(ids = c("A", "B"), frame.color = "#9c27b0", color = "#ce93d8")}. The function will check if the specified individuals exist in the pedigree and issue a warning for any missing IDs. The default value is NULL.}
+\item{highlight}{NULL, a character vector of individual IDs, or a list specifying individuals to highlight. If a character vector is provided, individuals will be highlighted with a purple border while preserving their sex-based fill color. If a list is provided, it should contain:
+\itemize{
+  \item \code{ids}: (required) character vector of individual IDs to highlight.
+  \item \code{frame.color}: (optional) hex color for the border of focal individuals.
+  \item \code{color}: (optional) hex color for the fill of focal individuals.
+  \item \code{rel.frame.color}: (optional) hex color for the border of relatives (used when \code{trace} is not NULL).
+  \item \code{rel.color}: (optional) hex color for the fill of relatives (used when \code{trace} is not NULL).
+}
+For example: \code{c("A", "B")} or \code{list(ids = c("A", "B"), frame.color = "#9c27b0")}. The function will check if the specified individuals exist in the pedigree and issue a warning for any missing IDs. The default value is NULL.}
+
+\item{trace}{A logical value or a character string. If TRUE, all ancestors and descendants of the individuals specified in \code{highlight} will be highlighted. If a character string, it specifies the tracing direction: "\strong{up}" (ancestors), "\strong{down}" (descendants), or "\strong{all}" (both). This is useful for focusing on specific families within a large pedigree. The default value is FALSE.}
 
 \item{showf}{A logical value indicating whether inbreeding coefficients will be shown in the graph. If \code{showf = TRUE} and the column \strong{f} exists in the pedigree, the inbreeding coefficient will be appended to the individual label, e.g., "ID (0.05)". The default value is FALSE.}
+
+\item{...}{Additional arguments passed to \code{\link[igraph:plot.igraph]{plot.igraph}}.}
 }
 \value{
 No returned values. The graph will be plotted directly on graphic devices.
@@ -43,12 +57,17 @@ This function takes a pedigree tidied by the \code{\link{tidyped}} function and 
 
 In the graph, two shapes and three colors are used. Circles represent individuals, and squares represent families. Dark sky blue indicates males, dark goldenrod indicates females, and dark olive green indicates unknown sex. For example, a dark sky blue circle represents a male individual; a dark goldenrod square represents all female individuals in a full-sib family when \code{compact = TRUE}.
 }
+\note{
+Isolated individuals (those with no parents and no progeny, assigned Gen 0) are automatically filtered out and not shown in the plot. A warning will be issued if any such individuals are removed.
+}
 \examples{
 library(data.table)
 # Drawing a simple pedigree
 simple_ped
 simple_ped_tidy <- tidyped(simple_ped)
 visped(simple_ped_tidy)
+# Highlighting an individual and its relatives
+visped(simple_ped_tidy, highlight = "J5X804", trace = TRUE)
 # Showing inbreeding coefficients in the graph
 visped(simple_ped_tidy, showf = TRUE)
 # Drawing a simple pedigree of a individual with id of J5X804

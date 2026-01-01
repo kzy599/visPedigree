@@ -1,16 +1,18 @@
 Package: visPedigree
 Type: Package
 Title: Tidying and Visualizing Animal Pedigrees
-Version: 0.5.0
+Version: 0.6.2
 Authors@R: person("Sheng","Luan", email="luansheng@foxmail.com", role = c("aut","cre"))
-Description: Provides tools for tidying and visualizing animal pedigrees. The
-    package performs pedigree checks for duplicated and bisexual individuals,
-    detects pedigree loops, adds missing founders, sorts the pedigree, and
-    traces the ancestry of candidates. It generates hierarchical graphs for
-    all individuals and can handle large pedigrees (over 10,000 individuals
-    per generation) by compacting full-sib groups. It is particularly
-    effective for aquatic animal pedigrees, which often feature numerous
-    full-sib families within nucleus breeding populations.
+Description: Provides a comprehensive suite of tools for tidying, pruning, and 
+    visualizing animal pedigrees. Leveraging the 'data.table' package for 
+    high-performance data manipulation and 'igraph' for sophisticated 
+    hierarchical layouts, it supports S3 classes for seamless integration 
+    into R workflows. Key features include pedigree validation, loop 
+    detection, ancestry tracing (upward, downward, or both), and the 
+    generation of legible vector-based PDF graphs. A unique compaction 
+    algorithm allows for the visualization of extremely large pedigrees 
+    (e.g., nucleus breeding populations in aquaculture) by grouping 
+    full-sib families without losing structural information.
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
@@ -19,10 +21,12 @@ Imports: data.table (>= 1.14.0),
     igraph (>= 1.3.0),
     nadiv (>= 2.18.0)
 RoxygenNote: 7.3.3
-Suggests: testthat,
+Suggests: 
+    testthat (>= 3.0.0),
     knitr,
     rmarkdown,
     devtools
 URL: https://github.com/luansheng/visPedigree
 BugReports: https://github.com/luansheng/visPedigree/issues
 VignetteBuilder: knitr
+Config/testthat/edition: 3

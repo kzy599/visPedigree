@@ -1,3 +1,21 @@
+# Changes in version 0.6.2 released on 01 Jan 2026
+## New features
+1. Added `summary()` method for `tidyped` objects to provide quick pedigree statistics (number of individuals, founders, sex distribution, etc.).
+
+## Bug fixes
+1. Fixed an issue where `tidyped(..., inbreed=TRUE)` failed due to incorrect class assignment order.
+2. Fixed `visped(..., showf=TRUE)` to gracefully handle missing `f` columns by warning the user instead of erroring.
+3. Fixed broken internal navigation links in package vignettes.
+
+# Changes in version 0.6.1 released on 30 Dec 2025
+## New features
+1. Implemented opaque highlighting effects for better visualization clarity.
+2. Added `trace` option to `visped()` to control ancestry tracing direction.
+
+# Changes in version 0.6.0 released on 28 Dec 2025
+## New features
+1. Implemented strict S3 class structure for `tidyped` objects with `new_tidyped()` constructor and `validate_tidyped()` validator to ensure data integrity.
+
 # Changes in version 0.5.0 released on 26 Dec 2025
 ## New features
 1. Added `highlight` parameter to `visped()` function. Users can now highlight specific individuals using a character vector of IDs or a list for custom colors.

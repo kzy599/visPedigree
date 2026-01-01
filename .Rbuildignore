@@ -5,3 +5,5 @@
 ^doc$
 ^Meta$
 ^DEVELOPMENT\.md$
+^cran-comments\.md$
+^todo\.md$

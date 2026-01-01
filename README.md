@@ -46,6 +46,13 @@ data.table(
   tidyped(inbreed = TRUE) |>
   visped(highlight = c("E"), showf = TRUE)
 
+# Example 3: Summarize pedigree statistics
+# Get a quick overview of the pedigree structure
+small_ped |>
+  tidyped() |>
+  summary()
+
+
 ```
 
 ## <a id="vignette">Vignette</a>

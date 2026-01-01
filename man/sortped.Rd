@@ -4,12 +4,14 @@
 \alias{sortped}
 \title{Sort a pedigree}
 \usage{
-sortped(ped, addgen = TRUE)
+sortped(ped, addgen = TRUE, ...)
 }
 \arguments{
 \item{ped}{A data.table or data frame containing the pedigree, where the first three columns are \strong{Ind}, \strong{Sire}, and \strong{Dam}. Missing parents should be replaced with the default missing value \strong{NA}.}
 
 \item{addgen}{A logical value indicating whether the individual generation number will be inferred. Default is TRUE, which adds a \strong{Gen} column to the output.}
+
+\item{...}{Additional arguments (currently ignored).}
 }
 \value{
 A data.table containing the sorted pedigree. Individual generations are inferred and a new column \strong{Gen} is added when \code{addgen = TRUE}. The \strong{Gen} column is an integer.

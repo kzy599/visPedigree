@@ -17,7 +17,7 @@ knitr::opts_chunk$set(
 library(visPedigree)
 ```
 
-Pedigrees play an important role in animal selective breeding programs. On the one hand, pedigree information can improve the accuracy of estimated breeding values. On the other hand, it helps control inbreeding and avoid inbreeding depression. Therefore, reliable and accurate pedigree records are essential for any selective breeding program. In addition, pedigrees are typically stored in a three-column format (individual, sire, and dam), which makes it difficult to visualize ancestors and descendants. Consequently, visualizing individual pedigrees is highly beneficial. For the Windows platform, Professor Yang Da's team at the University of Minnesota developed [pedigraph](https://animalgene.umn.edu/pedigraph), a software for displaying individual pedigrees. It can handle pedigrees containing many individuals. While powerful, it requires configuration via a parameter file. Professor Brian Kinghorn at the University of New England developed [pedigree viewer](https://bkinghor.une.edu.au/pedigree.htm), which can trim, prune, and visually display pedigrees in a windowed interface. However, if the number of individuals is very large, they may overlap. Thus, pedigree visualization functions require further optimization. In the R environment, packages like `pedigree`, `nadiv`, and `optiSel` provide pedigree preparation functions. Packages such as `kinship2` and `synbreed` can also be used to draw pedigree trees. However, these trees often suffer from significant overlapping when the number of individuals is large.
+Pedigrees play an important role in animal selective breeding programs. On the one hand, pedigree information can improve the accuracy of estimated breeding values. On the other hand, it helps control inbreeding and avoid inbreeding depression. Therefore, reliable and accurate pedigree records are essential for any selective breeding program. In addition, pedigrees are typically stored in a three-column format (individual, sire, and dam), which makes it difficult to visualize ancestors and descendants. Consequently, visualizing individual pedigrees is highly beneficial. For the Windows platform, Professor Yang Da's team at the University of Minnesota developed pedigraph, a software for displaying individual pedigrees. It can handle pedigrees containing many individuals. While powerful, it requires configuration via a parameter file. Professor Brian Kinghorn at the University of New England developed [pedigree viewer](https://bkinghor.une.edu.au/pedigree.htm), which can trim, prune, and visually display pedigrees in a windowed interface. However, if the number of individuals is very large, they may overlap. Thus, pedigree visualization functions require further optimization. In the R environment, packages like `pedigree`, `nadiv`, and `optiSel` provide pedigree preparation functions. Packages such as `kinship2` and `synbreed` can also be used to draw pedigree trees. However, these trees often suffer from significant overlapping when the number of individuals is large.
 
 To address this, we developed the [visPedigree](https://github.com/luansheng/visPedigree) package. Built on `data.table` and `igraph`, it offers robust data cleaning and social network visualization capabilities, significantly enhancing pedigree tidying and visualization. With this package, users can trace and prune ancestors and descendants across multiple generations. It automatically optimizes the pedigree tree layout and can quickly display pedigrees with over 10,000 individuals per generation by compacting full-sib groups and using outlined displays. The main contents of this guide are as follows:
 
@@ -27,9 +27,10 @@ To address this, we developed the [visPedigree](https://github.com/luansheng/vis
 3.1 [Introduction](#3.1)   
 3.2 [Tracing the pedigree of a specific individual](#3.2)   
 3.3 [Creating an integer pedigree](#3.3)   
-3.4 [Calculating inbreeding coefficients](#3.4)
+3.4 [Calculating inbreeding coefficients](#3.4)   
+3.5 [Summarizing the pedigree](#3.5)
 
-## <a id="1">1. Installation of the visPedigree package</a>
+## 1. Installation of the visPedigree package {#1}
 
 The visPedigree package can be installed from CRAN:
 ```r
@@ -42,12 +43,12 @@ Or from GitHub:
 devtools::install_github("luansheng/visPedigree")
 ```
 
-## <a id="2">2. Pedigree format specification</a>
+## 2. Pedigree format specification {#2}
 The first three columns of pedigree data must be in the order of individual, sire, and dam IDs. The column names can be customized, but their order must remain unchanged. Individual IDs should not be coded as `""`, `" "`, `"0"`, `*`, or `NA`; otherwise, they will be removed from the pedigree. Missing parents should be denoted by `NA`, `0`, or `*`. Spaces and empty strings (`""`) will also be treated as missing parents, though this is not recommended. Additional columns, such as sex and generation, can also be included.
 
-## <a id="3">3. Checking and tidying pedigree</a>
+## 3. Checking and tidying pedigree {#3}
 
-### <a id="3.1">3.1 Introduction</a>
+### 3.1 Introduction {#3.1}
 The pedigree can be checked and tidied through the `tidyped()` function.
 
 This function takes a pedigree, checks for duplicates and bisexual individuals, detects loops, adds missing founders, sorts the pedigree, and traces candidate pedigrees. 
@@ -116,7 +117,7 @@ data.table::fwrite(
 )
 ```
 
-### <a id="3.2">3.2 Tracing the pedigree of a specific individual</a>
+### 3.2 Tracing the pedigree of a specific individual {#3.2}
 
 To trace the pedigree of specific individuals, use the `cand` parameter. This adds a `Cand` column where `TRUE` identifies the specified candidates. If `cand` is provided, only the candidates and their ancestors/descendants are retained.
 ```{r}
@@ -151,7 +152,7 @@ tidy_simple_ped_J0Z990_offspring <-
 ```
 Tracing the descendants of `J0Z990` reveals a total of 5 individuals.
 
-### <a id="3.3">3.3 Creating an integer pedigree</a>
+### 3.3 Creating an integer pedigree {#3.3}
 Certain genetic evaluation programs require integer-coded pedigrees, where individuals are numbered consecutively to facilitate the calculation of the additive genetic relationship matrix.
 
 By default, `tidyped()` adds `IndNum`, `SireNum`, and `DamNum` columns. This can be disabled with `addnum = FALSE`.
@@ -162,7 +163,7 @@ head(tidy_simple_ped_with_int)
 ```
 
 
-#### <a id="3.4">3.4 Calculating inbreeding coefficients</a>
+#### 3.4 Calculating inbreeding coefficients {#3.4}
 The inbreeding coefficient (F) of each individual can be calculated using tidyped() or inbreed() functions. There are two options to add the inbreeding coefficients to a tidied pedigree:
 
 1. Set `inbreed = TRUE` in the `tidyped()` function. This will calculate the inbreeding coefficients using the `nadiv` package and add an `f` column to the tidied pedigree.
@@ -183,4 +184,12 @@ head(tidy_test)
 
 # Option 2: Calculate after tidying
 tidy_test <- inbreed(tidyped(test_ped))
+```
+
+### 3.5 Summarizing the pedigree {#3.5}
+The `summary()` method provides a quick overview of the pedigree statistics, including the number of individuals, sex distribution, founders, and isolated individuals.
+
+```{r summary}
+# Summarize the tidied pedigree
+summary(tidy_simple_ped)
 ```

@@ -14,6 +14,7 @@
 #' @param ... Additional arguments passed to internal methods such as \code{\link{checkped}}, \code{\link{numped}}, and \code{\link{inbreed}}.
 #'
 #' @return A \code{tidyped} object (which inherits from \code{data.table}). Individual, sire, and dam ID columns are renamed to \strong{Ind}, \strong{Sire}, and \strong{Dam}. Missing parents are replaced with \strong{NA}. The \strong{Sex} column contains "male", "female", or NA. The \strong{Cand} column is included if \code{cand} is not NULL. The \strong{Gen} column is included if \code{addgen} is TRUE. The \strong{IndNum}, \strong{SireNum}, and \strong{DamNum} columns are included if \code{addnum} is TRUE. The \strong{f} column is included if \code{inbreed} is TRUE. \strong{Ind}, \strong{Sire}, \strong{Dam}, and \strong{Sex} are character columns; \strong{Cand} is logical; \strong{Gen}, \strong{IndNum}, \strong{SireNum}, and \strong{DamNum} are integer.
+#' @seealso \code{\link{summary.tidyped}} for summarizing the pedigree.
 #'
 #' @examples
 #' library(visPedigree)
@@ -62,12 +63,14 @@ tidyped <-
     }
     attr(ped_inter, "tidyped") <- FALSE
 
-    if (is.character(trace)) {
-      if (!trace %in% c("up", "down", "all")) {
+    if (!is.null(cand)) {
+      if (is.character(trace)) {
+        if (!trace %in% c("up", "down", "all")) {
+          stop("The trace parameter only is assigned using \"up\", \"down\" or \"all\"!")
+        }
+      } else {
         stop("The trace parameter only is assigned using \"up\", \"down\" or \"all\"!")
       }
-    } else {
-      stop("The trace parameter only is assigned using \"up\", \"down\" or \"all\"!")
     }
 
     if (!is.null(tracegen)) {
@@ -214,13 +217,14 @@ tidyped <-
       ped_inter[, Cand := Ind %in% cand]
     }
     
-    attr(ped_inter, "tidyped") <- TRUE
+    # Convert to tidyped object
+    ped_inter <- new_tidyped(ped_inter)
 
     # Calculate inbreeding coefficients using inbreed() function
     if (inbreed) {
       ped_inter <- inbreed(ped_inter, ...)
     }
 
-    return(new_tidyped(ped_inter))
+    return(ped_inter)
   }
 

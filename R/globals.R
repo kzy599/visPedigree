@@ -42,7 +42,23 @@ if (getRversion() >= "2.15.1") {
       "meanspace",
       "range",
       "familylabelsex",
-      "familysize"
+      "familysize",
+      "highlighted",
+      "color",
+      "frame.color",
+      "label.color",
+      "frame.width",
+      "label.font",
+      "to_highlighted",
+      "from_highlighted",
+      "compact_id",
+      "compact_label",
+      "from_id",
+      "to_id",
+      "to_label",
+      "..cols",
+      "..new_names_edge",
+      "..new_names_node"
     )
   )
 }
