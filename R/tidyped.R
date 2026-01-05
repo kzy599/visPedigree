@@ -37,12 +37,12 @@
 #' tidy_ped_J5X804_up_2
 #'
 #' # Trace descendants of a specific individual
-#' tidy_ped_J0Z990_down <- tidyped(simple_ped, cand = "J0Z990", trace = "down")
-#' tidy_ped_J0Z990_down
+#' tidy_ped_J3Y620_down <- tidyped(simple_ped, cand = "J3Y620", trace = "down")
+#' tidy_ped_J3Y620_down
 #'
 #' # Trace descendants down two generations
-#' tidy_ped_J0Z990_down_2 <- tidyped(simple_ped, cand = "J0Z990", trace = "down", tracegen = 2)
-#' tidy_ped_J0Z990_down_2
+#' tidy_ped_J3Y620_down_2 <- tidyped(simple_ped, cand = "J3Y620", trace = "down", tracegen = 2)
+#' tidy_ped_J3Y620_down_2
 #'
 #' @import data.table
 #' @export
