@@ -47,15 +47,16 @@ validate_tidyped <- function(x) {
 
 #' Print method for tidyped pedigree
 #' @param x A tidyped object
-#' @param ... Additional arguments (ignored)
-#' @importFrom utils head
+#' @param ... Additional arguments passed to the data.table print method
 #' @export
 print.tidyped <- function(x, ...) {
   cat("Tidy Pedigree Object\n")
-  print(head(as.data.frame(x), 10))
-  if (nrow(x) > 10) {
-    cat("... with", nrow(x) - 10, "more rows\n")
-  }
+  # Temporarily remove tidyped class to use data.table's print method
+  cl <- class(x)
+  class(x) <- setdiff(cl, "tidyped")
+  print(x, ...)
+  # Restore the class
+  class(x) <- cl
   invisible(x)
 }
 
@@ -102,7 +103,28 @@ summary.tidyped <- function(object, ...) {
   } else {
     res$n_cand <- NA
   }
-  
+
+  # Inbreeding coefficients statistics
+  if ("f" %in% names(x)) {
+    res$f_stats <- list(
+      min = min(x$f, na.rm = TRUE),
+      max = max(x$f, na.rm = TRUE),
+      mean = mean(x$f, na.rm = TRUE)
+    )
+
+    # Stats for candidates if present
+    if (!is.na(res$n_cand) && res$n_cand > 0) {
+      cand_f <- x[x$Cand == TRUE, f]
+      if (any(!is.na(cand_f))) {
+        res$cand_f_stats <- list(
+          min = min(cand_f, na.rm = TRUE),
+          max = max(cand_f, na.rm = TRUE),
+          mean = mean(cand_f, na.rm = TRUE)
+        )
+      }
+    }
+  }
+
   class(res) <- "summary.tidyped"
   res
 }
@@ -135,6 +157,17 @@ print.summary.tidyped <- function(x, ...) {
   if (!is.na(x$n_cand)) {
     cat("Candidates Traced: ", x$n_cand, "\n")
   }
-  
+
+  if (!is.null(x$f_stats)) {
+    cat("\nInbreeding coefficients:\n")
+    cat(sprintf("  - All:        Mean=%.4f, Min=%.4f, Max=%.4f\n",
+                x$f_stats$mean, x$f_stats$min, x$f_stats$max))
+    if (!is.null(x$cand_f_stats)) {
+      cat(sprintf("  - Candidates: Mean=%.4f, Min=%.4f, Max=%.4f\n",
+                  x$cand_f_stats$mean, x$cand_f_stats$min, x$cand_f_stats$max))
+    }
+  }
+
+  cat("\n")
   invisible(x)
 }

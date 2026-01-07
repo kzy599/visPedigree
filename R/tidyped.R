@@ -152,16 +152,24 @@ tidyped <-
         cand <- as.character(cand)
       }
 
-      if (!any(cand %in% ped_inter$Ind)) {
-        stop("No candidates are in the pedigree!")
-      } else {
-        ped_inter[Ind %chin% cand, Cand := TRUE]
-        ped_inter[!(Ind %chin% cand), Cand := FALSE]
+      valid_cand <- cand[cand %in% ped_inter$Ind]
+      missing_cand <- setdiff(cand, valid_cand)
+
+      if (length(missing_cand) > 0) {
+        if (length(valid_cand) == 0) {
+          stop("None of the specified candidates were found in the pedigree.")
+        } else {
+          message(sprintf("Note: %d candidate(s) were not found in the pedigree and will be ignored: %s", 
+                          length(missing_cand), paste(missing_cand, collapse = ", ")))
+        }
       }
+
+      ped_inter[Ind %chin% valid_cand, Cand := TRUE]
+      ped_inter[!(Ind %chin% valid_cand), Cand := FALSE]
       
       # Use numped internally for tracing
       ped_num <- numped(ped_inter, ...)
-      cand_num <- match(cand, ped_num$Ind, nomatch = 0)
+      cand_num <- match(valid_cand, ped_num$Ind, nomatch = 0)
       
       keep_ind <- c()
       
