@@ -2,7 +2,7 @@ Package: visPedigree
 Type: Package
 Title: Tidying and Visualizing Animal Pedigrees
 Version: 0.6.2
-Authors@R: person("Sheng","Luan", email="luansheng@foxmail.com", role = c("aut","cre"))
+Authors@R: person("Sheng","Luan", email="luansheng@gmail.com", role = c("aut","cre"))
 Description: Built on graph theory and the high-performance 'data.table' framework, 
     this package provides a comprehensive suite of tools for tidying, pruning, 
     and visualizing animal pedigrees. By modeling pedigrees as directed acyclic 
