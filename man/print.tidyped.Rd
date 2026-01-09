@@ -9,7 +9,7 @@
 \arguments{
 \item{x}{A tidyped object}
 
-\item{...}{Additional arguments (ignored)}
+\item{...}{Additional arguments passed to the data.table print method}
 }
 \description{
 Print method for tidyped pedigree

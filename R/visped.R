@@ -67,6 +67,14 @@
 visped <- function(ped,
                    compact = FALSE, outline = FALSE, cex = NULL, showgraph = TRUE, file = NULL, 
                    highlight = NULL, trace = FALSE, showf = FALSE, ...) {
+  # Automatically convert raw data to tidyped object if needed
+  if (!inherits(ped, "tidyped") || !"Gen" %in% colnames(ped)) {
+    # If not a tidyped object, or if it is but lacks Gen/Num columns (e.g. from older creation),
+    # process it with tidyped to ensure calculation and class structure.
+    # Note: tidyped() handles validation of raw columns.
+    ped <- tidyped(ped, addgen = TRUE, addnum = TRUE)
+  }
+
   validate_tidyped(ped)
 
   if (showf && !"f" %in% colnames(ped)) {
@@ -141,11 +149,10 @@ prepare_ped_graph <- function(ped, compact = FALSE, outline = FALSE, cex = NULL,
   ped_new <- copy(ped)
 
   # Ensure required columns for plotting exist
-  if (!"Gen" %in% colnames(ped_new)) {
-    ped_new <- sortped(ped_new, addgen = TRUE, ...)
-  }
-  if (!all(c("IndNum", "SireNum", "DamNum") %in% colnames(ped_new))) {
-    ped_new <- numped(ped_new, ...)
+  if (!"Gen" %in% colnames(ped_new) || !all(c("IndNum", "SireNum", "DamNum") %in% colnames(ped_new))) {
+    # Use tidyped to fill in missing columns (Gen, IndNum, etc.) if they are missing
+    # tidyped will handle calculation efficiently using the new graph-based logic
+    ped_new <- tidyped(ped_new, addgen = TRUE, addnum = TRUE)
   }
 
   # Reserved digits

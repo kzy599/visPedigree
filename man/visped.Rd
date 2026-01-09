@@ -69,17 +69,18 @@ visped(simple_ped_tidy)
 # Highlighting an individual and its relatives
 visped(simple_ped_tidy, highlight = "J5X804", trace = TRUE)
 # Showing inbreeding coefficients in the graph
-visped(simple_ped_tidy, showf = TRUE)
+simple_ped_tidy_inbreed <- tidyped(simple_ped, inbreed = TRUE)
+visped(simple_ped_tidy_inbreed, showf = TRUE)
 # Drawing a simple pedigree of a individual with id of J5X804
 simple_ped_J5X804_tidy <- tidyped(simple_ped,cand=c("J5X804"))
 visped(simple_ped_J5X804_tidy)
 # Drawing the graph in the pdf file
 visped(simple_ped_J5X804_tidy, file = tempfile(fileext = ".pdf"))
 # Highlighting specific individuals with default colors
-visped(simple_ped_tidy, highlight = c("Y", "Z1", "Z2"))
+visped(simple_ped_tidy, highlight = c("J3Y620", "J1X971"))
 # Highlighting specific individuals with custom colors
 visped(simple_ped_tidy, 
-       highlight = list(ids = c("Y", "Z1"), frame.color = "#4caf50", color = "#81c784"))
+       highlight = list(ids = c("J3Y620", "J1X971"), frame.color = "#4caf50", color = "#81c784"))
 # Drawing a compact pedigree
 # The candidates' labels in 2007
 cand_labels <- big_family_size_ped[(Year == 2007) & (substr(Ind,1,2) == "G8"),Ind]

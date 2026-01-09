@@ -2,7 +2,7 @@
 % Please edit documentation in R/tidyped.R
 \name{tidyped}
 \alias{tidyped}
-\title{Tidy and prepare a pedigree}
+\title{Tidy and prepare a pedigree using graph theory}
 \usage{
 tidyped(
   ped,
@@ -30,16 +30,16 @@ tidyped(
 
 \item{inbreed}{A logical value indicating whether to calculate inbreeding coefficients. Default is FALSE. If TRUE, an \strong{f} column is added to the output.}
 
-\item{...}{Additional arguments passed to internal methods such as \code{\link{checkped}}, \code{\link{numped}}, and \code{\link{inbreed}}.}
+\item{...}{Additional arguments.}
 }
 \value{
-A \code{tidyped} object (which inherits from \code{data.table}). Individual, sire, and dam ID columns are renamed to \strong{Ind}, \strong{Sire}, and \strong{Dam}. Missing parents are replaced with \strong{NA}. The \strong{Sex} column contains "male", "female", or NA. The \strong{Cand} column is included if \code{cand} is not NULL. The \strong{Gen} column is included if \code{addgen} is TRUE. The \strong{IndNum}, \strong{SireNum}, and \strong{DamNum} columns are included if \code{addnum} is TRUE. The \strong{f} column is included if \code{inbreed} is TRUE. \strong{Ind}, \strong{Sire}, \strong{Dam}, and \strong{Sex} are character columns; \strong{Cand} is logical; \strong{Gen}, \strong{IndNum}, \strong{SireNum}, and \strong{DamNum} are integer.
+A \code{tidyped} object (which inherits from \code{data.table}). Individual, sire, and dam ID columns are renamed to \strong{Ind}, \strong{Sire}, and \strong{Dam}. Missing parents are replaced with \strong{NA}. The \strong{Sex} column contains "male", "female", or NA. The \strong{Cand} column is included if \code{cand} is not NULL. The \strong{Gen} column is included if \code{addgen} is TRUE. The \strong{IndNum}, \strong{SireNum}, and \strong{DamNum} columns are included if \code{addnum} is TRUE. The \strong{f} column is included if \code{inbreed} is TRUE.
 }
 \description{
-The \code{tidyped} function checks, sorts, traces, and returns a trimmed pedigree.
+This function takes a pedigree, checks for duplicate and bisexual individuals, detects pedigree loops using graph theory, adds missing founders, assigns generation numbers, sorts the pedigree, and traces the pedigree of specified candidates. If the \code{cand} parameter contains individual IDs, only those individuals and their ancestors or descendants are retained. Tracing direction and the number of generations can be specified using the \code{trace} and \code{tracegen} parameters.
 }
 \details{
-This function takes a pedigree, checks for duplicate and bisexual individuals, detects pedigree loops, adds missing founders, sorts the pedigree, and traces the pedigree of specified candidates. If the \code{cand} parameter contains individual IDs, only those individuals and their ancestors or descendants are retained. Tracing direction and the number of generations can be specified using the \code{trace} and \code{tracegen} parameters. Virtual generations are inferred and assigned when \code{addgen = TRUE}. A numeric pedigree is generated when \code{addnum = TRUE}. Sex will be inferred for all individuals if sex information is missing. If the pedigree includes a \strong{Sex} column, values should be coded as "male", "female", or NA (unknown). Missing sex information will be inferred from the pedigree structure where possible.
+Compared to the legacy version, this function handles cyclic pedigrees more robustly by detecting and reporting loops, and it is generally faster for large pedagogies due to the use of sparse graph algorithms from the \code{igraph} package.
 }
 \examples{
 library(visPedigree)
@@ -49,27 +49,14 @@ library(data.table)
 tidy_ped <- tidyped(simple_ped)
 head(tidy_ped)
 
-# Calculate inbreeding coefficients
-tidy_ped_inbreed <- tidyped(simple_ped, inbreed = TRUE)
-head(tidy_ped_inbreed)
-
 # Trace ancestors of a specific individual
-tidy_ped_J5X804 <- tidyped(simple_ped, cand = "J5X804")
-head(tidy_ped_J5X804)
+tidy_ped_trace <- tidyped(simple_ped, cand = "J5X804", trace = "up")
+head(tidy_ped_trace)
 
-# Trace ancestors back two generations
-tidy_ped_J5X804_up_2 <- tidyped(simple_ped, cand = "J5X804", trace = "up", tracegen = 2)
-tidy_ped_J5X804_up_2
-
-# Trace descendants of a specific individual
-tidy_ped_J0Z990_down <- tidyped(simple_ped, cand = "J0Z990", trace = "down")
-tidy_ped_J0Z990_down
-
-# Trace descendants down two generations
-tidy_ped_J0Z990_down_2 <- tidyped(simple_ped, cand = "J0Z990", trace = "down", tracegen = 2)
-tidy_ped_J0Z990_down_2
+# Check for loops (will error if loops exist)
+# tidyped(loop_ped)
 
 }
 \seealso{
-\code{\link{summary.tidyped}} for summarizing the pedigree.
+\code{\link{summary.tidyped}}
 }
