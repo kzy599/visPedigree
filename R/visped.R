@@ -32,19 +32,22 @@
 #' @param maxiter An integer specifying the maximum number of iterations for the Sugiyama layout algorithm to minimize edge crossings. Higher values (e.g., 2000 or 5000) may result in fewer crossed lines for complex pedigrees but will increase computation time. The default value is 1000.
 #' @param ... Additional arguments passed to \code{\link[igraph:plot.igraph]{plot.igraph}}.
 #' @return No returned values. The graph will be plotted directly on graphic devices.
-#' @note Isolated individuals (those with no parents and no progeny, assigned Gen 0) are automatically filtered out and not shown in the plot. A warning will be issued if any such individuals are removed.
+#' @note Isolated individuals (those with no parents and no progeny, assigned Gen 0) are automatically filtered out and not shown in the plot. A message will be issued if any such individuals are removed.
 #'
 #' @examples
+#' library(visPedigree)
 #' library(data.table)
 #' # Drawing a simple pedigree
 #' simple_ped
 #' simple_ped_tidy <- tidyped(simple_ped)
 #' visped(simple_ped_tidy)
-#' # Highlighting an individual and its relatives
-#' visped(simple_ped_tidy, highlight = "J5X804", trace = TRUE)
+#' # Highlighting an individual and its ancestors and descendants
+#' visped(simple_ped_tidy, highlight = "J5X804", trace = "all")
 #' # Showing inbreeding coefficients in the graph
 #' simple_ped_tidy_inbreed <- tidyped(simple_ped, inbreed = TRUE)
 #' visped(simple_ped_tidy_inbreed, showf = TRUE)
+#' # Adjusting page width and symbol size for better whitespace
+#' visped(simple_ped_tidy, pagewidth = 100, symbolsize = 1.2)
 #' # Drawing a simple pedigree of a individual with id of J5X804
 #' simple_ped_J5X804_tidy <- tidyped(simple_ped,cand=c("J5X804"))
 #' visped(simple_ped_J5X804_tidy)

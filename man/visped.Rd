@@ -71,19 +71,22 @@ This function can draw the graph of a very large pedigree (> 10,000 individuals 
 In the graph, two shapes and three colors are used. Circles represent individuals, and squares represent families. Dark sky blue indicates males, dark goldenrod indicates females, and dark olive green indicates unknown sex. For example, a dark sky blue circle represents a male individual; a dark goldenrod square represents all female individuals in a full-sib family when \code{compact = TRUE}.
 }
 \note{
-Isolated individuals (those with no parents and no progeny, assigned Gen 0) are automatically filtered out and not shown in the plot. A warning will be issued if any such individuals are removed.
+Isolated individuals (those with no parents and no progeny, assigned Gen 0) are automatically filtered out and not shown in the plot. A message will be issued if any such individuals are removed.
 }
 \examples{
+library(visPedigree)
 library(data.table)
 # Drawing a simple pedigree
 simple_ped
 simple_ped_tidy <- tidyped(simple_ped)
 visped(simple_ped_tidy)
-# Highlighting an individual and its relatives
-visped(simple_ped_tidy, highlight = "J5X804", trace = TRUE)
+# Highlighting an individual and its ancestors and descendants
+visped(simple_ped_tidy, highlight = "J5X804", trace = "all")
 # Showing inbreeding coefficients in the graph
 simple_ped_tidy_inbreed <- tidyped(simple_ped, inbreed = TRUE)
 visped(simple_ped_tidy_inbreed, showf = TRUE)
+# Adjusting page width and symbol size for better whitespace
+visped(simple_ped_tidy, pagewidth = 100, symbolsize = 1.2)
 # Drawing a simple pedigree of a individual with id of J5X804
 simple_ped_J5X804_tidy <- tidyped(simple_ped,cand=c("J5X804"))
 visped(simple_ped_J5X804_tidy)

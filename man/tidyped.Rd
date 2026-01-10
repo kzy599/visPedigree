@@ -49,9 +49,9 @@ library(data.table)
 tidy_ped <- tidyped(simple_ped)
 head(tidy_ped)
 
-# Trace ancestors of a specific individual
-tidy_ped_trace <- tidyped(simple_ped, cand = "J5X804", trace = "up")
-head(tidy_ped_trace)
+# Trace ancestors of a specific individual within 2 generations
+tidy_ped_tracegen <- tidyped(simple_ped, cand = "J5X804", trace = "up", tracegen = 2)
+head(tidy_ped_tracegen)
 
 # Check for loops (will error if loops exist)
 # tidyped(loop_ped)
