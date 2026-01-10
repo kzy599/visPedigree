@@ -1,3 +1,11 @@
+# Changes in version 0.7.1 released on 10 Jan 2026
+## Performance optimizations
+1. **Large Pedigree Performance**: Optimized `visped` performance for displaying large pedigrees through efficient attribute handling and vectorized rendering. Computation time for 100k+ individuals reduced significantly by avoiding redundant `igraph` attribute lookups.
+2. **Early Filtering**: Implemented unified early filtering of isolated individuals (Gen 0) in `prepare_ped_graph` to streamline downstream graph conversion and layout algorithms.
+
+## Improvements
+1. **User Feedback**: Standardized filtering notifications. The message "Note: Removed N isolated individuals..." now appears consistently for all pedigree sizes when Gen 0 individuals are present.
+
 # Changes in version 0.7.0 released on 10 Jan 2026
 ## Breaking changes & Major Refactoring
 1. **Graph-based `tidyped` Core**: Reimplemented the pedigree tidying engine using formal graph theory principles (Directed Acyclic Graphs). Improved loop detection and generation inference accuracy using topological sorting.
