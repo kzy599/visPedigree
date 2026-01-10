@@ -68,6 +68,12 @@ You can provide a character vector of individual IDs to use the default highligh
 visped(tidyped(small_ped), highlight = c("Y", "Z1"))
 ```
 
+You can also highlight an individual and its relatives (ancestors and descendants) by setting `trace = TRUE`:
+```{r highlight_trace, fig.width=6.5, fig.height=6.5}
+# Highlight individual "Y" and all its ancestors and descendants
+visped(tidyped(small_ped), highlight = "Y", trace = TRUE)
+```
+
 Alternatively, you can customize the colors by providing a list with **ids**, **frame.color**, and **color**:
 ```{r highlight2, fig.width=6.5, fig.height=6.5}
 visped(tidyped(small_ped), 

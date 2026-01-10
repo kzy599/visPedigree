@@ -2,7 +2,7 @@
 #'
 #' This function takes a pedigree, checks for duplicate and bisexual individuals, detects pedigree loops using graph theory, adds missing founders, assigns generation numbers, sorts the pedigree, and traces the pedigree of specified candidates. If the \code{cand} parameter contains individual IDs, only those individuals and their ancestors or descendants are retained. Tracing direction and the number of generations can be specified using the \code{trace} and \code{tracegen} parameters.
 #' 
-#' Compared to the legacy version, this function handles cyclic pedigrees more robustly by detecting and reporting loops, and it is generally faster for large pedagogies due to the use of sparse graph algorithms from the \code{igraph} package.
+#' Compared to the legacy version, this function handles cyclic pedigrees more robustly by detecting and reporting loops, and it is generally faster for large pedigrees due to the use of sparse graph algorithms from the \code{igraph} package. Generation assignment is performed using a topological sorting-based algorithm that ensures parents are always placed in a generation strictly above their offspring (TGI algorithm).
 #'
 #' @param ped A data.table or data frame containing the pedigree. The first three columns must be \strong{individual}, \strong{sire}, and \strong{dam} IDs. Additional columns, such as sex or generation, can be included. Column names can be customized, but their order must remain unchanged. Individual IDs should not be coded as "", " ", "0", "*", or "NA"; otherwise, they will be removed. Missing parents should be denoted by "NA", "0", or "*". Spaces and empty strings ("") are also treated as missing parents but are not recommended.
 #' @param cand A character vector of individual IDs, or NULL. If provided, only the candidates and their ancestors/descendants are retained.
@@ -11,7 +11,7 @@
 #' @param addgen A logical value indicating whether to generate generation numbers. Default is TRUE, which adds a \strong{Gen} column to the output.
 #' @param addnum A logical value indicating whether to generate a numeric pedigree. Default is TRUE, which adds \strong{IndNum}, \strong{SireNum}, and \strong{DamNum} columns to the output.
 #' @param inbreed A logical value indicating whether to calculate inbreeding coefficients. Default is FALSE. If TRUE, an \strong{f} column is added to the output.
-#' @param ... Additional arguments.
+#' @param ... Additional arguments passed to \code{\link{inbreed}}.
 #' 
 #' @return A \code{tidyped} object (which inherits from \code{data.table}). Individual, sire, and dam ID columns are renamed to \strong{Ind}, \strong{Sire}, and \strong{Dam}. Missing parents are replaced with \strong{NA}. The \strong{Sex} column contains "male", "female", or NA. The \strong{Cand} column is included if \code{cand} is not NULL. The \strong{Gen} column is included if \code{addgen} is TRUE. The \strong{IndNum}, \strong{SireNum}, and \strong{DamNum} columns are included if \code{addnum} is TRUE. The \strong{f} column is included if \code{inbreed} is TRUE.
 #' 
@@ -298,7 +298,12 @@ trace_ped_candidates <- function(g, ped_dt, cand, trace, tracegen) {
   return(ped_dt)
 }
 
-#' Assign Generation Numbers with Alignment Logic
+#' Assigns individual generation numbers based on topological sorting and parentage.
+#'
+#' @param g An igraph object representing the pedigree.
+#' @param ped_dt A data.table containing the pedigree.
+#' @param topo_order Integer vector specifying the topological order of vertices.
+#' @return A data.table with a \strong{Gen} column added.
 #' @noRd
 assign_ped_generations <- function(g, ped_dt, topo_order) {
   # 1. Height Calculation (Bottom-Up Logic)

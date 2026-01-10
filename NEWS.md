@@ -1,3 +1,20 @@
+# Changes in version 0.7.0 released on 10 Jan 2026
+## Breaking changes & Major Refactoring
+1. **Graph-based `tidyped` Core**: Reimplemented the pedigree tidying engine using formal graph theory principles (Directed Acyclic Graphs). Improved loop detection and generation inference accuracy using topological sorting.
+2. **Modular Architecture**: Split the monolithic `visped.R` into functional modules: `visped_layout.R`, `visped_graph.R`, `visped_style.R`, and `visped_render.R` for better maintainability.
+
+## New features
+1. **New Parameters in `visped()`**: 
+    - `pagewidth`: Allows users to specify the PDF page width (default 200 inches) to accommodate different pedigree scales.
+    - `symbolsize`: A scaling factor (default 1) to adjust node sizes relative to label dimensions, providing finer control over whitespace.
+2. **Two-Pass Rendering Engine**: Introduced a two-pass strategy in `plot_ped_igraph()` to ensure edges connect exactly at node centers, eliminating visual gaps in vector PDF outputs.
+3. **Enhanced Highlighting**: Added support for real-time ancestry and descendant highlighting via the `trace` parameter in `visped()`.
+
+## Bug fixes
+1. Fixed rendering failure in `outline = TRUE` mode by correcting attribute indexing in the graph object.
+2. modernized the unit testing suite to `testthat` 3rd edition, removing all legacy `context()` warnings.
+3. Improved coordinate calculation precision to prevent overlapping in high-density generations.
+
 # Changes in version 0.6.2 released on 01 Jan 2026
 ## New features
 1. Added `summary()` method for `tidyped` objects to provide quick pedigree statistics (number of individuals, founders, sex distribution, etc.).

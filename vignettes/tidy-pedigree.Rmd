@@ -187,9 +187,12 @@ tidy_test <- inbreed(tidyped(test_ped))
 ```
 
 ### 3.5 Summarizing the pedigree {#3.5}
-The `summary()` method provides a quick overview of the pedigree statistics, including the number of individuals, sex distribution, founders, and isolated individuals.
+The `summary()` method provides a quick overview of the pedigree statistics, including the number of individuals, sex distribution, founders, and isolated individuals. If inbreeding coefficients have been calculated (column `f`), the summary will also include descriptive statistics of inbreeding.
 
 ```{r summary}
 # Summarize the tidied pedigree
 summary(tidy_simple_ped)
+
+# Summarize with inbreeding info
+summary(tidy_test)
 ```
