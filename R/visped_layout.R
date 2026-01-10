@@ -7,9 +7,18 @@ prepare_ped_graph <- function(ped, compact = FALSE, outline = FALSE, cex = NULL,
                               highlight = NULL, trace = FALSE, showf = FALSE, pagewidth = 200, symbolsize = 1, maxiter = 1000, ...) {
   ped_new <- copy(ped)
 
-  # Ensure required columns for plotting exist
+  # Check and tidyped if necessary
   if (!"Gen" %in% colnames(ped_new) || !all(c("IndNum", "SireNum", "DamNum") %in% colnames(ped_new))) {
     ped_new <- tidyped(ped_new, addgen = TRUE, addnum = TRUE)
+  }
+  
+  # Remove isolated individuals early to optimize performance and simplify graph conversion
+  if ("Gen" %in% colnames(ped_new)) {
+    n_iso <- sum(ped_new$Gen == 0, na.rm = TRUE)
+    if (n_iso > 0) {
+      message(sprintf("Note: Removed %d isolated individuals (no parents, no progeny) from the plot.", n_iso))
+      ped_new <- ped_new[Gen != 0]
+    }
   }
 
   # Reserved digits
@@ -21,15 +30,6 @@ prepare_ped_graph <- function(ped, compact = FALSE, outline = FALSE, cex = NULL,
   ped_igraph_data <- ped2igraph(ped_new, compact, highlight, trace, showf)
   ped_igraph <- ped_igraph_data
   real_node <- ped_igraph$node[nodetype %in% c("real", "compact")]
-  
-  if (any(real_node$gen == 0)) {
-    n_isolated <- sum(real_node$gen == 0)
-    warning(sprintf("Removed %d isolated individuals (no parents, no progeny) from the plot.", n_isolated))
-    real_node <- real_node[gen != 0]
-    ped_igraph$node <- ped_igraph$node[gen != 0]
-    valid_ids <- ped_igraph$node$id
-    ped_igraph$edge <- ped_igraph$edge[from %in% valid_ids & to %in% valid_ids]
-  }
   
   if (nrow(real_node) == 0) {
     stop("Pedigree contains no individuals to plot.")
@@ -72,13 +72,20 @@ prepare_ped_graph <- function(ped, compact = FALSE, outline = FALSE, cex = NULL,
   hgap <- round(1 / gen_max_size, 8)
   gen_num <- max(real_node$gen, na.rm = TRUE)
   max_layer <- max(ped_igraph$node$layer, na.rm = TRUE)
-  g <- graph_from_data_frame(ped_igraph$edge, directed = TRUE, ped_igraph$node)
   
-  layer_idx <- ped_igraph$node[match(V(g)$name, as.character(id)), layer]
+  # Create a minimal graph for layout calculation to save memory and time
+  g_layout <- graph_from_data_frame(ped_igraph$edge[, .(from, to)], directed = TRUE)
+  # match names to get layers - V(g_layout)$name exists by default from graph_from_data_frame
+  layer_idx <- ped_igraph$node$layer[match(v_names <- V(g_layout)$name, as.character(ped_igraph$node$id))]
   layer_idx <- max_layer - layer_idx + 1
-  l <- layout_with_sugiyama(g, layers = layer_idx, hgap = hgap, maxiter = maxiter, attributes = "all")$layout
+  
+  l <- layout_with_sugiyama(g_layout, layers = layer_idx, hgap = hgap, maxiter = maxiter, attributes = "all")$layout
   l <- norm_coords(l, xmin = 0, xmax = 1, ymin = 0, ymax = 1)
-  ped_igraph$node <- cbind(ped_igraph$node, x = l[, 1], y = l[, 2])
+  
+  # Map coordinates back to ped_igraph$node based on names
+  # The layout l corresponds to V(g_layout)
+  layout_dt <- data.table(id = as.integer(v_names), x = l[, 1], y = l[, 2])
+  ped_igraph$node[layout_dt, on = "id", `:=`(x = i.x, y = i.y)]
 
   real_node <- ped_igraph$node[nodetype %in% c("real", "compact")]
   for (i in 1:gen_num) {
@@ -187,37 +194,40 @@ prepare_ped_graph <- function(ped, compact = FALSE, outline = FALSE, cex = NULL,
   canvas_height <- gen_num * effective_layer_height + 3 * effective_layer_height
   canvas_height <- max(8, canvas_height, canvas_width_s * 0.618)
 
-  node_size <- round(node_width_s * 100 / canvas_width_s, 8)
-  V(g)[V(g)$nodetype %in% c("real", "compact")]$size <- node_size
-  V(g)$label.cex <- 1
+  # Prepare final attributes in data.table BEFORE creating the graph
+  ped_igraph$node[, `:=`(size = 0.001, label.cex = 1.0)]
+  
+  node_size_val <- round(node_width_s * 100 / canvas_width_s, 8)
+  current_cex <- if (is.null(cex)) best_cex else cex
   
   if (outline) {
-    node_size <- 0.0001
-    V(g)[V(g)$nodetype %in% c("real", "compact")]$size <- node_size
-    # Ensure highlighted is logical and handle NAs
-    is_h <- !is.na(V(g)$highlighted) & V(g)$highlighted
-    V(g)[!is_h]$label <- ""
+    # Outline mode: icons are tiny, no labels except highlighted
+    ped_igraph$node[nodetype %in% c("real", "compact"), size := 0.0001]
+    is_h <- !is.na(ped_igraph$node$highlighted) & ped_igraph$node$highlighted
+    ped_igraph$node[!is_h, label := ""]
     
     if (any(is_h)) {
       highlight_node_size <- round(label_max_width * 100 / canvas_width_s, 8)
-      V(g)[is_h & V(g)$nodetype %in% c("real", "compact")]$size <- highlight_node_size
-      
-      h_cex <- if (is.null(cex)) {
-        if (best_cex > 0) best_cex else 0.6
-      } else {
-        cex
-      }
-      V(g)[is_h & V(g)$nodetype %in% c("real", "compact")]$label.cex <- h_cex
+      ped_igraph$node[is_h & nodetype %in% c("real", "compact"), `:=`(
+        size = highlight_node_size,
+        label.cex = if (is.null(cex)) (if (best_cex > 0) best_cex else 0.6) else cex
+      )]
     }
   } else {
-    V(g)[V(g)$nodetype %in% c("real", "compact")]$label.cex <- if (is.null(cex)) best_cex else cex
+    ped_igraph$node[nodetype %in% c("real", "compact"), `:=`(
+      size = node_size_val,
+      label.cex = current_cex
+    )]
   }
   
-  max_node_size <- max(V(g)$size, na.rm = TRUE)
+  # Final graph creation with all attributes
+  # Ensure the order of columns in edge and node are correct for igraph
+  g <- graph_from_data_frame(ped_igraph$edge, directed = TRUE, ped_igraph$node)
+  max_node_size <- max(ped_igraph$node$size, na.rm = TRUE)
 
   return(list(
     g = g,
-    layout = l,
+    layout = as.matrix(ped_igraph$node[, .(x, y)]),
     canvas_width = canvas_width_s,
     canvas_height = canvas_height,
     node_size = max_node_size,

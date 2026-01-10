@@ -1,81 +1,105 @@
 #' Render pedigree graph using Two-Pass strategy
-#' @importFrom igraph V E plot.igraph
+#' @importFrom igraph V E plot.igraph vertex_attr edge_attr
 #' @importFrom utils modifyList
 #' @keywords internal
 plot_ped_igraph <- function(g, l, node_size, ...) {
   # ============================================================================
   # SCALING LOGIC FOR RENDERING
   # ============================================================================
-  # In 'outline' mode, node_size can be extremely small (e.g., 0.0001).
-  # We use a 'scaling_ref' to ensure edges and arrows remain visible.
-  # For normal pedigrees, node_size is typically 2-10.
   scaling_ref <- max(node_size, 1.5)
   
+  # Access attributes as lists/vectors ONCE to avoid repeated V(g)/E(g) lookups
+  # Using vertex_attr/edge_attr is generally more stable for large graphs
+  v_attrs <- igraph::vertex_attr(g)
+  e_attrs <- igraph::edge_attr(g)
+  
   # Scale frame width
-  v_frame_width <- if (!is.null(V(g)$frame.width)) V(g)$frame.width else 0.2
-  # frame.width should be smaller for tiny nodes but not vanish
+  v_frame_width_base <- if (!is.null(v_attrs$frame.width)) v_attrs$frame.width else 0.2
   lwd_scale <- if (scaling_ref < 2.5) scaling_ref / 2.5 else 1
-  V(g)$frame.width <- v_frame_width * lwd_scale
+  v_frame_width <- v_frame_width_base * lwd_scale
   
   # Scale edge width
-  e_width_base <- if (!is.null(E(g)$width)) E(g)$width else 1
-  E(g)$width <- pmax(e_width_base * (scaling_ref * 0.15), 0.001)
+  e_width_base <- if (!is.null(e_attrs$width)) e_attrs$width else 1
+  e_width <- pmax(e_width_base * (scaling_ref * 0.15), 0.001)
   
   # Scale arrows
-  e_arrow_size_base <- if (!is.null(E(g)$arrow.size)) E(g)$arrow.size else 1
+  e_arrow_size_base <- if (!is.null(e_attrs$arrow.size)) e_attrs$arrow.size else 1
   calc_arrow_size <- e_arrow_size_base * (scaling_ref * 0.005)
   
-  if (median(calc_arrow_size, na.rm = TRUE) < 0.005) { # Lower threshold for tiny plots
-    E(g)$arrow.size <- 0
-    E(g)$arrow.width <- 0
-    E(g)$arrow.mode <- 0
+  e_arrow_size <- calc_arrow_size
+  e_arrow_width <- if (!is.null(e_attrs$arrow.width)) e_attrs$arrow.width else 1
+  e_arrow_mode <- if (!is.null(e_attrs$arrow.mode)) e_attrs$arrow.mode else 2
+  
+  if (median(calc_arrow_size, na.rm = TRUE) < 0.005) {
+    e_arrow_size <- 0
+    e_arrow_width <- 0
+    e_arrow_mode <- 0
   } else {
-    E(g)$arrow.size <- calc_arrow_size
-    e_arrow_width_base <- if (!is.null(E(g)$arrow.width)) E(g)$arrow.width else 1
-    E(g)$arrow.width <- e_arrow_width_base * (scaling_ref * 0.015)
-    if (is.null(E(g)$arrow.mode)) E(g)$arrow.mode <- 2
+    e_arrow_width <- e_arrow_width * (scaling_ref * 0.015)
   }
   
   user_args <- list(...)
-  # Margin should be at least large enough to show a bit of the grid
   margin <- max(node_size / 100, 0.02)
   
   # PASS 1: Draw EDGES ONLY
-  g_edges <- g
-  original_sizes <- V(g_edges)$size
-  V(g_edges)$size <- 0.001
-  V(g_edges)$color <- NA
-  V(g_edges)$frame.color <- NA
-  V(g_edges)$frame.width <- 0
-  V(g_edges)$label <- NA
-  
+  # Instead of modifying g, we pass visual attributes directly to plot.igraph
   plot_args_edges <- list(
-    x = g_edges, rescale = FALSE,
+    x = g, rescale = FALSE,
     xlim = c(-margin, 1 + margin), ylim = c(1 + margin, -margin),
-    layout = l, asp = 0, add = FALSE, vertex.label = NA
+    layout = l, asp = 0, add = FALSE,
+    # Edge styles
+    edge.width = e_width,
+    edge.color = if (!is.null(e_attrs$color)) e_attrs$color else "#333333",
+    edge.curved = if (!is.null(e_attrs$curved)) e_attrs$curved else 0.1,
+    edge.arrow.size = e_arrow_size,
+    edge.arrow.width = e_arrow_width,
+    edge.arrow.mode = e_arrow_mode,
+    # Hide nodes
+    vertex.size = 0,
+    vertex.label = NA,
+    vertex.color = NA,
+    vertex.frame.color = NA,
+    vertex.frame.width = 0
   )
   
   if (length(user_args) > 0) {
-    safe_args <- user_args[!grepl("^vertex\\.", names(user_args))]
-    plot_args_edges <- utils::modifyList(plot_args_edges, safe_args)
+    # Filter out user vertex args from edge pass
+    safe_user_args <- user_args[!grepl("^(vertex|label)\\.", names(user_args))]
+    plot_args_edges <- utils::modifyList(plot_args_edges, safe_user_args)
+    # Re-enforce node hiding for pass 1
+    plot_args_edges$vertex.size <- 0
     plot_args_edges$vertex.label <- NA
-    plot_args_edges$vertex.size <- 0.001
   }
+  
   suppressWarnings(do.call(igraph::plot.igraph, plot_args_edges))
   
   # PASS 2: Draw NODES AND LABELS ONLY
-  g_nodes <- g
-  V(g_nodes)$size <- original_sizes
-  E(g_nodes)$color <- "#FFFFFF00"
-  E(g_nodes)$width <- 0
-  E(g_nodes)$arrow.size <- 0
-  E(g_nodes)$arrow.mode <- 0
-  
+  # We reuse the same graph object but hide edges
   plot_args_nodes <- list(
-    x = g_nodes, rescale = FALSE,
+    x = g, rescale = FALSE,
     xlim = c(-margin, 1 + margin), ylim = c(1 + margin, -margin),
-    layout = l, asp = 0, add = TRUE
+    layout = l, asp = 0, add = TRUE,
+    # Node styles
+    vertex.size = if (!is.null(v_attrs$size)) v_attrs$size else 15,
+    vertex.shape = if (!is.null(v_attrs$shape)) v_attrs$shape else "circle",
+    vertex.color = if (!is.null(v_attrs$color)) v_attrs$color else "#9cb383",
+    vertex.frame.color = if (!is.null(v_attrs$frame.color)) v_attrs$frame.color else "#7fae59",
+    vertex.frame.width = v_frame_width,
+    vertex.label = if (!is.null(v_attrs$label)) v_attrs$label else v_attrs$name,
+    vertex.label.cex = if (!is.null(v_attrs$label.cex)) v_attrs$label.cex else 1,
+    vertex.label.color = if (!is.null(v_attrs$label.color)) v_attrs$label.color else "#0d0312",
+    vertex.label.font = if (!is.null(v_attrs$label.font)) v_attrs$label.font else 1,
+    # Hide edges
+    edge.color = "#FFFFFF00",
+    edge.width = 0,
+    edge.arrow.size = 0,
+    edge.arrow.mode = 0
   )
-  if (length(user_args) > 0) plot_args_nodes <- utils::modifyList(plot_args_nodes, user_args)
+  
+  if (length(user_args) > 0) {
+    plot_args_nodes <- utils::modifyList(plot_args_nodes, user_args)
+  }
+  
   suppressWarnings(do.call(igraph::plot.igraph, plot_args_nodes))
 }
+

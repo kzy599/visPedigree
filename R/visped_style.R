@@ -43,18 +43,33 @@ get_highlight_ids <- function(ped, highlight, trace) {
 apply_node_styles <- function(ped_node, highlight_info) {
   shape = frame.color = color = size = label.color = frame.width = label.font = highlighted = NULL
   
-  # Default styles
-  ped_node[, ":="(shape = "circle", frame.color = "#7fae59", color = "#9cb383", size = 15, 
-                  label.color = "#0d0312", frame.width = 0.2, label.font = 1, highlighted = FALSE)]
-  ped_node[nodetype == "compact", shape := "square"]
+  # Default styles (set all at once)
+  ped_node[, `:=`(
+    shape = "circle", 
+    frame.color = "#7fae59", 
+    color = "#9cb383", 
+    size = 15, 
+    label.color = "#0d0312", 
+    frame.width = 0.2, 
+    label.font = 1, 
+    highlighted = FALSE
+  )]
   
-  ped_node[sex == "male", ":="(frame.color = "#119ecc", color = "#119ecc")]
-  ped_node[sex == "female", ":="(frame.color = "#f4b131", color = "#f4b131")]
-  ped_node[is.na(sex) | sex == "unknown", ":="(frame.color = "#9cb383", color = "#9cb383")]
+  # Using sub-selections is faster than multiple := lines
+  ped_node[nodetype == "compact", shape := "square"]
+  ped_node[sex == "male", `:=`(frame.color = "#119ecc", color = "#119ecc")]
+  ped_node[sex == "female", `:=`(frame.color = "#f4b131", color = "#f4b131")]
+  ped_node[is.na(sex) | sex == "unknown", `:=`(frame.color = "#9cb383", color = "#9cb383")]
   
   # Virtual nodes: circle with tiny size and transparency to fix edge gaps
-  ped_node[nodetype == "virtual", ":="(shape = "circle", label = "", size = 0.001, 
-                                       frame.width = 0, color = "#FFFFFF00", frame.color = "#FFFFFF00")]
+  ped_node[nodetype == "virtual", `:=`(
+    shape = "circle", 
+    label = "", 
+    size = 0.001, 
+    frame.width = 0, 
+    color = "#FFFFFF00", 
+    frame.color = "#FFFFFF00"
+  )]
   
   # Apply highlighting
   h_ids <- highlight_info$all_ids
@@ -63,27 +78,42 @@ apply_node_styles <- function(ped_node, highlight_info) {
     relatives <- highlight_info$relatives
     colors <- highlight_info$colors
     
-    if (length(relatives) > 0) ped_node[label %in% relatives & nodetype == "real", highlighted := TRUE]
-    ped_node[label %in% focal & nodetype == "real", highlighted := TRUE]
+    # Use binary search / keys for matching if many ids
+    if (length(relatives) > 0) {
+      ped_node[label %in% relatives & nodetype == "real", highlighted := TRUE]
+    }
+    if (length(focal) > 0) {
+      ped_node[label %in% focal & nodetype == "real", highlighted := TRUE]
+    }
     
     h_familynums <- ped_node[highlighted == TRUE, unique(familynum)]
     ped_node[id %in% h_familynums & nodetype == "virtual", highlighted := TRUE]
     
+    # Fade non-highlighted nodes
     fade_cols <- function(x) ifelse(nchar(x) == 7, paste0(x, "4D"), x)
+    # Batch update non-highlighted
     ped_node[highlighted == FALSE & nodetype %in% c("real", "compact"), `:=`(
       color = fade_cols(color), 
       frame.color = fade_cols(frame.color), 
       label.color = fade_cols(label.color)
     )]
     
+    # Highlighted styles
     if (length(relatives) > 0) {
-      ped_node[label %in% relatives & nodetype == "real", ":="(frame.color = colors$rel_frame, frame.width = 0.5)]
-      if (!is.null(colors$rel_fill)) ped_node[label %in% relatives & nodetype == "real", color := colors$rel_fill]
+      ped_node[label %in% relatives & nodetype == "real", `:=`(
+        frame.color = colors$rel_frame, 
+        frame.width = 0.5,
+        color = if (!is.null(colors$rel_fill)) colors$rel_fill else color
+      )]
     }
     
     if (length(focal) > 0) {
-      ped_node[label %in% focal & nodetype == "real", ":="(frame.color = colors$focal_frame, frame.width = 1, label.font = 2)]
-      if (!is.null(colors$focal_fill)) ped_node[label %in% focal & nodetype == "real", color := colors$focal_fill]
+      ped_node[label %in% focal & nodetype == "real", `:=`(
+        frame.color = colors$focal_frame, 
+        frame.width = 1, 
+        label.font = 2,
+        color = if (!is.null(colors$focal_fill)) colors$focal_fill else color
+      )]
     }
   }
   return(ped_node)

@@ -41,10 +41,14 @@ ped2igraph <- function(ped, compact = FALSE, highlight = NULL, trace = FALSE, sh
 #' @keywords internal
 inject_missing_parents <- function(ped) {
   ped_new <- copy(ped)
+  # Ensure keys for fast matching
+  setkey(ped_new, IndNum)
   all_ind_nums <- ped_new$IndNum
   
   # Find missing Sires
-  missing_sire_nums <- setdiff(unique(ped_new$SireNum), c(0, NA, all_ind_nums))
+  s_nums <- ped_new$SireNum
+  missing_sire_nums <- unique(s_nums[s_nums != 0 & !is.na(s_nums) & !(s_nums %in% all_ind_nums)])
+  
   if (length(missing_sire_nums) > 0) {
     sire_info <- unique(ped_new[SireNum %in% missing_sire_nums, .(SireNum, Sire)])
     new_sires <- data.table(
@@ -60,10 +64,14 @@ inject_missing_parents <- function(ped) {
     extra_cols <- setdiff(names(ped_new), names(new_sires))
     if (length(extra_cols) > 0) new_sires[, (extra_cols) := NA]
     ped_new <- rbind(ped_new, new_sires, fill = TRUE)
+    setkey(ped_new, IndNum)
+    all_ind_nums <- ped_new$IndNum
   }
 
   # Find missing Dams
-  missing_dam_nums <- setdiff(unique(ped_new$DamNum), c(0, NA, all_ind_nums))
+  d_nums <- ped_new$DamNum
+  missing_dam_nums <- unique(d_nums[d_nums != 0 & !is.na(d_nums) & !(d_nums %in% all_ind_nums)])
+  
   if (length(missing_dam_nums) > 0) {
     dam_info <- unique(ped_new[DamNum %in% missing_dam_nums, .(DamNum, Dam)])
     new_dams <- data.table(
@@ -123,21 +131,27 @@ prepare_initial_nodes <- function(ped) {
 compact_pedigree <- function(ped_node, compact, h_ids) {
   if (!compact) return(ped_node)
   
-  sire_dam_label <- unique(c(ped_node$sirelabel, ped_node$damlabel))
-  sire_dam_label <- sire_dam_label[!is.na(sire_dam_label)]
+  # Identify parents (individuals who appear in sirelabel or damlabel)
+  # Efficiently find unique parents
+  parents <- unique(c(ped_node$sirelabel, ped_node$damlabel))
+  parents <- parents[!is.na(parents)]
   
-  ped_node_1 <- ped_node[!(label %in% sire_dam_label) & !is.na(familylabel)]
+  # Candidates for compaction: NOT parents, HAS a family, and NOT highlighted
+  # Using %in% on unique labels is usually fast in data.table
+  ped_node_1 <- ped_node[!(label %in% parents) & !is.na(familylabel)]
   
-  if (!is.null(h_ids)) {
+  if (!is.null(h_ids) && length(h_ids) > 0) {
     ped_node_1 <- ped_node_1[!(label %in% h_ids)]
   }
   
   if (nrow(ped_node_1) > 0) {
     familysize <- NULL
+    # Efficiently count family sizes for eligible nodes
     ped_node_1[, familysize := .N, by = .(familylabel)]
     fullsib_id_DT <- ped_node_1[familysize >= 2]
     
     if (nrow(fullsib_id_DT) > 0) {
+      # Take one representative from each family
       compact_family <- unique(fullsib_id_DT, by = c("familylabel"))
       compact_family[, `:=`(
         label = as.character(familysize),
@@ -148,32 +162,24 @@ compact_pedigree <- function(ped_node, compact, h_ids) {
       next_id <- max(ped_node$id, na.rm = TRUE)
       compact_family[, id := seq.int(next_id + 1, length.out = .N)]
       
+      # Mapping from old individual IDs to new compact family node IDs
       map_dt <- fullsib_id_DT[, .(from_id = id, familylabel)]
-      map_dt <- compact_family[map_dt, on = .(familylabel), .(from_id, to_id = id, to_label = label, familylabel)]
+      map_dt <- compact_family[map_dt, on = .(familylabel), .(from_id, to_id = id, to_label = label)]
       
+      # Remove individuals that were compacted
       ped_node <- ped_node[!(id %in% fullsib_id_DT$id)]
       
+      # Update children of these individuals to point to the compact node instead
       if (nrow(map_dt) > 0) {
+        # Note: In practice, these individuals are NOT parents (vetted above),
+        # but we keep this for robustness if the logic ever changes.
         ped_node[map_dt, on = .(sirenum = from_id), `:=`(sirenum = to_id, sirelabel = to_label)]
         ped_node[map_dt, on = .(damnum = from_id), `:=`(damnum = to_id, damlabel = to_label)]
       }
       
       ped_node <- rbind(ped_node, compact_family, fill = TRUE)
       
-      compact_lookup <- ped_node[nodetype == "compact", .(compact_id = id, compact_label = label, familylabel)]
-      if (length(setdiff(unique(c(ped_node$sirenum, ped_node$damnum)), ped_node$id)) > 0 && nrow(compact_lookup) > 0) {
-        ped_node[!(sirenum %in% ped_node$id) & !is.na(familylabel), c("sirenum", "sirelabel") := {
-          cid <- compact_lookup[.SD, on = .(familylabel), compact_id]
-          clab <- compact_lookup[.SD, on = .(familylabel), compact_label]
-          list(cid, clab)
-        }]
-        ped_node[!(damnum %in% ped_node$id) & !is.na(familylabel), c("damnum", "damlabel") := {
-          cid <- compact_lookup[.SD, on = .(familylabel), compact_id]
-          clab <- compact_lookup[.SD, on = .(familylabel), compact_label]
-          list(cid, clab)
-        }]
-      }
-      
+      # Re-calculate family numbers to include new compact nodes
       max_id <- max(ped_node$id, na.rm = TRUE)
       ped_node[!is.na(familylabel), 
                familynum := .GRP + max_id, 
