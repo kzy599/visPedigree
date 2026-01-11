@@ -1,6 +1,7 @@
 #' Render pedigree graph using Two-Pass strategy
 #' @importFrom igraph V E plot.igraph vertex_attr edge_attr
 #' @importFrom utils modifyList
+#' @importFrom stats median
 #' @keywords internal
 plot_ped_igraph <- function(g, l, node_size, ...) {
   # ============================================================================

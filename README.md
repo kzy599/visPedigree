@@ -4,9 +4,7 @@ Tidying and visualization for animal pedigrees.
 
 The `visPedigree` package provides tools to check for duplicate and bisexual individuals, detect pedigree loops, add missing founders, sort parents before offspring, and trace the pedigrees of specified candidates. It generates hierarchical graphs for all individuals in a pedigree and can handle very large datasets (> 10,000 individuals per generation) by compacting full-sib groups. It is particularly effective for aquatic animal pedigrees, which often include numerous full-sib families per generation in nucleus breeding populations.
 
-![simple pedigree](https://luansheng.netlify.app/post/2018-11-09-vispedigree-use-guide_files/figure-html/smallped-1.png)
-
-More complex pedigree graphs can be found in the [vignettes](#vignettes).
+More complex pedigree graphs and usage examples can be found in the package vignettes.
 
 ## Installation
 
@@ -54,9 +52,6 @@ small_ped |>
 
 
 ```
-
-## <a id="vignette">Vignette</a>
-Drawing an animal pedigree using the visPedigree package [EN](https://luansheng.netlify.app/2018/11/09/vispedigree-use-guide/) [CN](https://luansheng.netlify.app/2018/09/24/the-first-package-vispedigree-0-1/)      
 
 ## Citation
 LUAN Sheng (2018). visPedigree: A package for tidying and drawing animal pedigree. URL https://github.com/luansheng/visPedigree.

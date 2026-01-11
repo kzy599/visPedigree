@@ -25,10 +25,11 @@ To address this, we developed the [visPedigree](https://github.com/luansheng/vis
 2. [The specification of pedigree format](#2)   
 3. [Checking and tidying pedigree](#3)   
 3.1 [Introduction](#3.1)   
-3.2 [Tracing the pedigree of a specific individual](#3.2)   
-3.3 [Creating an integer pedigree](#3.3)   
-3.4 [Calculating inbreeding coefficients](#3.4)   
-3.5 [Summarizing the pedigree](#3.5)
+3.2 [Pedigree loop detection](#3.2)   
+3.3 [Tracing the pedigree of a specific individual](#3.3)   
+3.4 [Creating an integer pedigree](#3.4)   
+3.5 [Calculating inbreeding coefficients](#3.5)   
+3.6 [Summarizing the pedigree](#3.6)
 
 ## 1. Installation of the visPedigree package {#1}
 
@@ -100,9 +101,20 @@ If the input dataset lacks a `Sex` column, it will be automatically added to the
 ```{r}
 tidy_simple_ped_no_gen_num <-
   tidyped(simple_ped, addgen = FALSE, addnum = FALSE)
-  head(tidy_simple_ped_no_gen_num)
+    head(tidy_simple_ped_no_gen_num)
 ```
 Once tidied, you can use `data.table::fwrite()` to export the pedigree for genetic evaluation software like ASReml.
+
+### 3.2 Pedigree loop detection {#3.2}
+A pedigree loop occurs when an individual is its own ancestor (e.g., A is the parent of B, B is the parent of C, and C is the parent of A). This is a biological impossibility and a serious error in pedigree records. The `tidyped()` function automatically detects these cycles using graph theory algorithms. If a loop is detected, the function will stop and provide information about the individuals involved in the loop.
+
+The following code demonstrates what happens when a pedigree with loops is processed:
+```{r loop_detection, error=TRUE}
+# loop_ped contains cycles (e.g., V -> T -> R -> P -> M -> V)
+# Attempting to tidy it will result in an error
+try(tidyped(loop_ped))
+```
+Detecting loops early is crucial for ensuring the integrity of genetic evaluations.
 
 When saving the pedigree, missing parents should typically be replaced with `0`. 
 ```{r writeped,eval=FALSE}
@@ -117,7 +129,7 @@ data.table::fwrite(
 )
 ```
 
-### 3.2 Tracing the pedigree of a specific individual {#3.2}
+### 3.3 Tracing the pedigree of a specific individual {#3.3}
 
 To trace the pedigree of specific individuals, use the `cand` parameter. This adds a `Cand` column where `TRUE` identifies the specified candidates. If `cand` is provided, only the candidates and their ancestors/descendants are retained.
 ```{r}
@@ -152,7 +164,7 @@ tidy_simple_ped_J0Z990_offspring <-
 ```
 Tracing the descendants of `J0Z990` reveals a total of 5 individuals.
 
-### 3.3 Creating an integer pedigree {#3.3}
+### 3.4 Creating an integer pedigree {#3.4}
 Certain genetic evaluation programs require integer-coded pedigrees, where individuals are numbered consecutively to facilitate the calculation of the additive genetic relationship matrix.
 
 By default, `tidyped()` adds `IndNum`, `SireNum`, and `DamNum` columns. This can be disabled with `addnum = FALSE`.
@@ -163,7 +175,7 @@ head(tidy_simple_ped_with_int)
 ```
 
 
-#### 3.4 Calculating inbreeding coefficients {#3.4}
+### 3.5 Calculating inbreeding coefficients {#3.5}
 The inbreeding coefficient (F) of each individual can be calculated using tidyped() or inbreed() functions. There are two options to add the inbreeding coefficients to a tidied pedigree:
 
 1. Set `inbreed = TRUE` in the `tidyped()` function. This will calculate the inbreeding coefficients using the `nadiv` package and add an `f` column to the tidied pedigree.
@@ -186,7 +198,7 @@ head(tidy_test)
 tidy_test <- inbreed(tidyped(test_ped))
 ```
 
-### 3.5 Summarizing the pedigree {#3.5}
+### 3.6 Summarizing the pedigree {#3.6}
 The `summary()` method provides a quick overview of the pedigree statistics, including the number of individuals, sex distribution, founders, and isolated individuals. If inbreeding coefficients have been calculated (column `f`), the summary will also include descriptive statistics of inbreeding.
 
 ```{r summary}
