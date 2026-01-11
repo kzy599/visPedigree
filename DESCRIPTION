@@ -6,7 +6,7 @@ Authors@R: person("Sheng","Luan", email="luansheng@gmail.com", role = c("aut","c
 Description: Built on graph theory and the high-performance 'data.table' framework, 
     this package provides a comprehensive suite of tools for tidying, pruning, 
     and visualizing animal pedigrees. By modeling pedigrees as directed acyclic 
-    graphs (DAGs) using 'igraph', it ensures robust loop detection, efficient 
+    graphs using 'igraph', it ensures robust loop detection, efficient 
     generation assignment, and sophisticated hierarchical layouts. Key features 
     include standardizing pedigree formats, flexible ancestry tracing, and 
     generating legible vector-based PDF graphs. A unique compaction algorithm 
