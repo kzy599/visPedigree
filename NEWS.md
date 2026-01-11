@@ -1,10 +1,12 @@
-# Changes in version 0.7.1 released on 10 Jan 2026
+# Changes in version 0.7.1 released on 11 Jan 2026
 ## Performance optimizations
 1. **Large Pedigree Performance**: Optimized `visped` performance for displaying large pedigrees through efficient attribute handling and vectorized rendering. Computation time for 100k+ individuals reduced significantly by avoiding redundant `igraph` attribute lookups.
-2. **Early Filtering**: Implemented unified early filtering of isolated individuals (Gen 0) in `prepare_ped_graph` to streamline downstream graph conversion and layout algorithms.
+2. **Vectorized Tracing**: Refactored `trace_ped_candidates` in `tidyped` to use vectorized `igraph::neighborhood` calls, achieving ~150x speedup for large candidate lists (e.g., 37k candidates in a 178k individual pedigree traced in ~1.2s).
+3. **Early Filtering**: Implemented unified early filtering of isolated individuals (Gen 0) in `prepare_ped_graph` to streamline downstream graph conversion and layout algorithms.
 
 ## Improvements
 1. **User Feedback**: Standardized filtering notifications. The message "Note: Removed N isolated individuals..." now appears consistently for all pedigree sizes when Gen 0 individuals are present.
+2. **Refined Tracing**: Corrected `trace = "all"` logic in both `tidyped` and `visped`. It now correctly retrieves the union of ancestors and descendants ("up" + "down") instead of the entire connected component (undirected search).
 
 # Changes in version 0.7.0 released on 10 Jan 2026
 ## Breaking changes & Major Refactoring

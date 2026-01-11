@@ -20,7 +20,7 @@ tidyped(
 
 \item{cand}{A character vector of individual IDs, or NULL. If provided, only the candidates and their ancestors/descendants are retained.}
 
-\item{trace}{A character value specifying the tracing direction: "\strong{up}", "\strong{down}", or "\strong{all}". "up" traces ancestors; "down" traces descendants; "all" traces both simultaneously. This parameter is only used if \code{cand} is not NULL. Default is "up".}
+\item{trace}{A character value specifying the tracing direction: "\strong{up}", "\strong{down}", or "\strong{all}". "up" traces ancestors; "down" traces descendants; "all" traces the union of ancestors and descendants. This parameter is only used if \code{cand} is not NULL. Default is "up".}
 
 \item{tracegen}{An integer specifying the number of generations to trace. This parameter is only used if \code{trace} is not NULL. If NULL or 0, all available generations are traced.}
 
@@ -53,8 +53,20 @@ head(tidy_ped)
 tidy_ped_tracegen <- tidyped(simple_ped, cand = "J5X804", trace = "up", tracegen = 2)
 head(tidy_ped_tracegen)
 
+# Trace both ancestors and descendants for multiple candidates
+# This is highly optimized and works quickly even on 100k+ individuals
+cand_list <- c("J5X804", "J3Y620")
+tidy_ped_all <- tidyped(simple_ped, cand = cand_list, trace = "all")
+
 # Check for loops (will error if loops exist)
 # tidyped(loop_ped)
+
+# Example with a large pedigree: extract 2 generations of ancestors for 2007 candidates
+cand_2007 <- big_family_size_ped[Year == 2007, Ind]
+\donttest{
+tidy_big <- tidyped(big_family_size_ped, cand = cand_2007, trace = "up", tracegen = 2)
+summary(tidy_big)
+}
 
 }
 \seealso{

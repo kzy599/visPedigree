@@ -6,7 +6,7 @@
 #'
 #' @param ped A data.table or data frame containing the pedigree. The first three columns must be \strong{individual}, \strong{sire}, and \strong{dam} IDs. Additional columns, such as sex or generation, can be included. Column names can be customized, but their order must remain unchanged. Individual IDs should not be coded as "", " ", "0", "*", or "NA"; otherwise, they will be removed. Missing parents should be denoted by "NA", "0", or "*". Spaces and empty strings ("") are also treated as missing parents but are not recommended.
 #' @param cand A character vector of individual IDs, or NULL. If provided, only the candidates and their ancestors/descendants are retained.
-#' @param trace A character value specifying the tracing direction: "\strong{up}", "\strong{down}", or "\strong{all}". "up" traces ancestors; "down" traces descendants; "all" traces both simultaneously. This parameter is only used if \code{cand} is not NULL. Default is "up".
+#' @param trace A character value specifying the tracing direction: "\strong{up}", "\strong{down}", or "\strong{all}". "up" traces ancestors; "down" traces descendants; "all" traces the union of ancestors and descendants. This parameter is only used if \code{cand} is not NULL. Default is "up".
 #' @param tracegen An integer specifying the number of generations to trace. This parameter is only used if \code{trace} is not NULL. If NULL or 0, all available generations are traced.
 #' @param addgen A logical value indicating whether to generate generation numbers. Default is TRUE, which adds a \strong{Gen} column to the output.
 #' @param addnum A logical value indicating whether to generate a numeric pedigree. Default is TRUE, which adds \strong{IndNum}, \strong{SireNum}, and \strong{DamNum} columns to the output.
@@ -29,11 +29,25 @@
 #' tidy_ped_tracegen <- tidyped(simple_ped, cand = "J5X804", trace = "up", tracegen = 2)
 #' head(tidy_ped_tracegen)
 #' 
+#' # Trace both ancestors and descendants for multiple candidates
+#' # This is highly optimized and works quickly even on 100k+ individuals
+#' cand_list <- c("J5X804", "J3Y620")
+#' tidy_ped_all <- tidyped(simple_ped, cand = cand_list, trace = "all")
+#' 
 #' # Check for loops (will error if loops exist)
 #' # tidyped(loop_ped)
+#' 
+#' # Example with a large pedigree: extract 2 generations of ancestors for 2007 candidates
+#' cand_2007 <- big_family_size_ped[Year == 2007, Ind]
+#' \donttest{
+#' tidy_big <- tidyped(big_family_size_ped, cand = cand_2007, trace = "up", tracegen = 2)
+#' summary(tidy_big)
+#' }
 #'
 #' @import data.table
-#' @importFrom igraph graph_from_data_frame is_dag topo_sort components subcomponent distances ego degree as_adj_list vcount add_vertices neighbors shortest_paths
+#' @importFrom igraph graph_from_data_frame is_dag topo_sort components subcomponent distances ego degree as_adj_list vcount add_vertices neighbors shortest_paths which_loop ends graph_from_edgelist neighborhood
+#' @importFrom stats setNames
+#' @importFrom utils head
 #' @export
 tidyped <- function(ped,
                           cand = NULL,
@@ -65,9 +79,10 @@ tidyped <- function(ped,
   }
   
   if (!is.null(tracegen)) {
-    if (!is.numeric(tracegen) || length(tracegen) != 1) {
-       stop("The tracegen parameter must be a single numeric value.")
+    if (!is.numeric(tracegen) || length(tracegen) != 1 || is.na(tracegen) || !is.finite(tracegen)) {
+      stop("The tracegen parameter must be a single numeric value")
     }
+    tracegen <- as.integer(tracegen)
   }
 
   # 2. Data Preparation
@@ -227,23 +242,47 @@ build_ped_graph <- function(ped_dt) {
 #' @noRd
 check_ped_loops <- function(g) {
   if (!is_dag(g)) {
-    scc <- components(g, mode = "strong")
-    cyclic_nodes <- which(scc$csize > 1)
+    # 1. Check for self-loops (A -> A)
+    # which_loop returns TRUE for edges that are self-loops
+    loop_edges <- which(which_loop(g))
+    self_loops <- character()
+    if (length(loop_edges) > 0) {
+      # ends() returns the vertex IDs of edge endpoints
+      self_loops <- unique(V(g)[ends(g, loop_edges)[, 1]]$name)
+    }
     
-    cycle_reports <- sapply(cyclic_nodes, function(i) {
-      nodes_in_scc <- names(which(scc$membership == i))
-      v_start <- nodes_in_scc[1]
-      successors <- intersect(names(neighbors(g, v_start, mode = "out")), nodes_in_scc)
-      
-      if (length(successors) > 0) {
-        v_next <- successors[1]
-        p <- shortest_paths(g, from = v_next, to = v_start, mode = "out")$vpath[[1]]
-        path_names <- c(v_start, names(p))
-        paste(path_names, collapse = " -> ")
-      } else {
-        paste(nodes_in_scc, collapse = ", ")
-      }
-    })
+    # 2. Check for larger cycles via SCC
+    scc <- components(g, mode = "strong")
+    cyclic_nodes_idx <- which(scc$csize > 1)
+    
+    cycle_reports <- character()
+    
+    if (length(self_loops) > 0) {
+      cycle_reports <- c(cycle_reports, paste(self_loops, "->", self_loops, "(self-loop)"))
+    }
+    
+    if (length(cyclic_nodes_idx) > 0) {
+      scc_reports <- sapply(cyclic_nodes_idx, function(i) {
+        nodes_in_scc <- names(which(scc$membership == i))
+        v_start <- nodes_in_scc[1]
+        successors <- intersect(names(neighbors(g, v_start, mode = "out")), nodes_in_scc)
+        
+        if (length(successors) > 0) {
+          v_next <- successors[1]
+          p <- shortest_paths(g, from = v_next, to = v_start, mode = "out")$vpath[[1]]
+          path_names <- c(v_start, names(p))
+          paste(path_names, collapse = " -> ")
+        } else {
+          paste(nodes_in_scc, collapse = ", ")
+        }
+      })
+      cycle_reports <- c(cycle_reports, scc_reports)
+    }
+    
+    # Fallback
+    if (length(cycle_reports) == 0) {
+      cycle_reports <- "Complex cycle structure detected (try checking strong components)."
+    }
     
     stop(paste("Pedigree error! Pedigree loops detected:\n", 
                paste(cycle_reports, collapse = "\n")), call. = FALSE)
@@ -253,42 +292,48 @@ check_ped_loops <- function(g) {
 #' Trace Candidates and Subset Pedigree
 #' @noRd
 trace_ped_candidates <- function(g, ped_dt, cand, trace, tracegen) {
-  valid_cand <- cand[cand %in% ped_dt$Ind]
+  # Drop NAs and empty strings from input
+  cand_clean <- as.character(cand[!is.na(cand) & cand != "" & cand != " "])
+  
+  if (length(cand_clean) == 0) {
+    stop("The cand parameter contains no valid individual IDs.")
+  }
+
+  valid_cand <- cand_clean[cand_clean %in% ped_dt$Ind]
   if (length(valid_cand) == 0) {
     stop("None of the specified candidates were found in the pedigree.")
   }
-  
-  keep_inds <- character(0)
-  
-  if (trace == "up") {
-    for (c in valid_cand) {
-      anc <- subcomponent(g, c, mode = "in")
-      if (!is.null(tracegen) && tracegen > 0) {
-        dists <- distances(g, v = c, to = anc, mode = "in")
-        anc <- anc[as.vector(dists) <= tracegen]
-      }
-      keep_inds <- union(keep_inds, names(anc))
-    }
-  } else if (trace == "down") {
-    for (c in valid_cand) {
-      des <- subcomponent(g, c, mode = "out")
-      if (!is.null(tracegen) && tracegen > 0) {
-        dists <- distances(g, v = c, to = des, mode = "out")
-        des <- des[as.vector(dists) <= tracegen]
-      }
-      keep_inds <- union(keep_inds, names(des))
-    }
-  } else if (trace == "all") {
-    for (c in valid_cand) {
-      anc <- subcomponent(g, c, mode = "in")
-      des <- subcomponent(g, c, mode = "out")
-      if (!is.null(tracegen) && tracegen > 0) {
-        anc <- anc[as.vector(distances(g, v = c, to = anc, mode = "in")) <= tracegen]
-        des <- des[as.vector(distances(g, v = c, to = des, mode = "out")) <= tracegen]
-      }
-      keep_inds <- union(keep_inds, union(names(anc), names(des)))
-    }
+
+  if (length(valid_cand) < length(cand_clean)) {
+    missing_cands <- setdiff(cand_clean, valid_cand)
+    warning(sprintf("The following %d candidates were not found in the pedigree: %s", 
+                    length(missing_cands), 
+                    paste(head(missing_cands, 5), collapse = ", ")))
   }
+  
+  # Determine recursion depth
+  # order must be numeric and >= 0 for neighborhood()
+  order <- if (is.null(tracegen) || tracegen <= 0) vcount(g) else as.integer(tracegen)
+  
+  # For mode "all", we want the union of ancestors (in) and descendants (out).
+  # We should NOT use igraph's mode="all" which is undirected search (connected component).
+  if (trace == "all") {
+    rel_in <- neighborhood(g, order = order, nodes = valid_cand, mode = "in")
+    rel_out <- neighborhood(g, order = order, nodes = valid_cand, mode = "out")
+    # Efficiently flatten and get unique IDs from both directions
+    keep_indices <- unique(c(
+      unlist(lapply(rel_in, as.integer)),
+      unlist(lapply(rel_out, as.integer))
+    ))
+  } else {
+    m <- if (trace == "up") "in" else "out"
+    reaching_nodes_list <- neighborhood(g, order = order, nodes = valid_cand, mode = m)
+    # Efficiently flatten and get unique IDs
+    # lapply(list, as.integer) converts vertex sequences to integer IDs
+    keep_indices <- unique(unlist(lapply(reaching_nodes_list, as.integer)))
+  }
+  
+  keep_inds <- V(g)$name[keep_indices]
   
   ped_dt <- ped_dt[Ind %in% keep_inds]
   # Update parents not in set after tracing

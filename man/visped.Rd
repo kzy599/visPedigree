@@ -43,7 +43,7 @@ visped(
 }
 For example: \code{c("A", "B")} or \code{list(ids = c("A", "B"), frame.color = "#9c27b0")}. The function will check if the specified individuals exist in the pedigree and issue a warning for any missing IDs. The default value is NULL.}
 
-\item{trace}{A logical value or a character string. If TRUE, all ancestors and descendants of the individuals specified in \code{highlight} will be highlighted. If a character string, it specifies the tracing direction: "\strong{up}" (ancestors), "\strong{down}" (descendants), or "\strong{all}" (both). This is useful for focusing on specific families within a large pedigree. The default value is FALSE.}
+\item{trace}{A logical value or a character string. If TRUE, all ancestors and descendants of the individuals specified in \code{highlight} will be highlighted. If a character string, it specifies the tracing direction: "\strong{up}" (ancestors), "\strong{down}" (descendants), or "\strong{all}" (union of ancestors and descendants). This is useful for focusing on specific families within a large pedigree. The default value is FALSE.}
 
 \item{showf}{A logical value indicating whether inbreeding coefficients will be shown in the graph. If \code{showf = TRUE} and the column \strong{f} exists in the pedigree, the inbreeding coefficient will be appended to the individual label, e.g., "ID (0.05)". The default value is FALSE.}
 
@@ -77,34 +77,36 @@ Isolated individuals (those with no parents and no progeny, assigned Gen 0) are 
 library(visPedigree)
 library(data.table)
 # Drawing a simple pedigree
-simple_ped
 simple_ped_tidy <- tidyped(simple_ped)
 visped(simple_ped_tidy)
+
 # Highlighting an individual and its ancestors and descendants
 visped(simple_ped_tidy, highlight = "J5X804", trace = "all")
+
 # Showing inbreeding coefficients in the graph
 simple_ped_tidy_inbreed <- tidyped(simple_ped, inbreed = TRUE)
 visped(simple_ped_tidy_inbreed, showf = TRUE)
-# Adjusting page width and symbol size for better whitespace
+
+# Adjusting page width and symbol size for better layout
+# Increase pagewidth to spread nodes horizontally
+# Increase symbolsize for more padding around individual labels
 visped(simple_ped_tidy, pagewidth = 100, symbolsize = 1.2)
-# Drawing a simple pedigree of a individual with id of J5X804
-simple_ped_J5X804_tidy <- tidyped(simple_ped,cand=c("J5X804"))
-visped(simple_ped_J5X804_tidy)
-# Drawing the graph in the pdf file
-visped(simple_ped_J5X804_tidy, file = tempfile(fileext = ".pdf"))
-# Highlighting specific individuals with default colors
-visped(simple_ped_tidy, highlight = c("J3Y620", "J1X971"))
-# Highlighting specific individuals with custom colors
+
+# Highlighting multiple individuals with custom colors
 visped(simple_ped_tidy, 
-       highlight = list(ids = c("J3Y620", "J1X971"), frame.color = "#4caf50", color = "#81c784"))
-# Drawing a compact pedigree
-# The candidates' labels in 2007
-cand_labels <- big_family_size_ped[(Year == 2007) & (substr(Ind,1,2) == "G8"),Ind]
-big_ped_tidy <- tidyped(big_family_size_ped, cand = cand_labels)
+       highlight = list(ids = c("J3Y620", "J1X971"), 
+                        frame.color = "#4caf50", 
+                        color = "#81c784"))
+
+# Handling large pedigrees: Saving to PDF is recommended for legibility
+# The 'trace' and 'tracegen' parameters in tidyped() help prune the graph
+cand_labels <- big_family_size_ped[(Year == 2007) & (substr(Ind,1,2) == "G8"), Ind]
 \donttest{
-visped(big_ped_tidy, compact = TRUE)
+big_ped_tidy <- tidyped(big_family_size_ped, cand = cand_labels, trace = "up", tracegen = 2)
+# Use compact = TRUE for large families
 visped(big_ped_tidy, compact = TRUE, file = tempfile(fileext = ".pdf"))
-# Individual labels are not shown
+
+# Use outline = TRUE if individual labels are not required
 visped(big_ped_tidy, compact = TRUE, outline = TRUE, file = tempfile(fileext = ".pdf"))
 }
 
