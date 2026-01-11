@@ -6,4 +6,11 @@
 ^Meta$
 ^DEVELOPMENT\.md$
 ^cran-comments\.md$
-^todo\.md$
+^todo.md$
+^todo$
+^\.github$
+^complex_100gen_ped\.rda$
+^manuscript\.md$
+^visPedigree_.*\.tar\.gz$
+^CRAN-SUBMISSION$
+^tar_contents\.txt$
