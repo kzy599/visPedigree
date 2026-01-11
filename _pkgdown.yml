@@ -1,0 +1,23 @@
+url: https://luansheng.github.io/visPedigree/
+template:
+  bootstrap: 5
+  bootswatch: litera
+reference:
+- title: Core Functions
+  desc: Main tools for processing and visualizing animal pedigrees.
+  contents:
+  - tidyped
+  - visped
+- title: Pedigree Analysis
+  desc: Functions for genealogical and genetic computations.
+  contents: inbreed
+- title: Datasets
+  desc: Built-in pedigree examples for testing and demonstration.
+  contents: ends_with("_ped")
+- title: S3 Methods
+  desc: Generic methods for 'tidyped' objects.
+  contents:
+  - starts_with("plot.")
+  - starts_with("summary.")
+  - starts_with("print.")
+
