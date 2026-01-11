@@ -14,3 +14,6 @@
 ^visPedigree_.*\.tar\.gz$
 ^CRAN-SUBMISSION$
 ^tar_contents\.txt$
+^_pkgdown\.yml$
+^docs$
+^pkgdown$
