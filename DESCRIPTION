@@ -26,7 +26,7 @@ Suggests:
     knitr,
     rmarkdown,
     devtools
-URL: https://github.com/luansheng/visPedigree
+URL: https://github.com/luansheng/visPedigree, https://luansheng.github.io/visPedigree/
 BugReports: https://github.com/luansheng/visPedigree/issues
 VignetteBuilder: knitr
 Config/testthat/edition: 3
