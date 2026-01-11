@@ -1,6 +1,6 @@
 # visPedigree
 
-Tidying and visualization for animal pedigrees.
+Tidying and Visualizing Animal Pedigrees
 
 The `visPedigree` package provides tools to check for duplicate and bisexual individuals, detect pedigree loops, add missing founders, sort parents before offspring, and trace the pedigrees of specified candidates. It generates hierarchical graphs for all individuals in a pedigree and can handle very large datasets (> 10,000 individuals per generation) by compacting full-sib groups. It is particularly effective for aquatic animal pedigrees, which often include numerous full-sib families per generation in nucleus breeding populations.
 
@@ -54,5 +54,5 @@ small_ped |>
 ```
 
 ## Citation
-LUAN Sheng (2018). visPedigree: A package for tidying and drawing animal pedigree. URL https://github.com/luansheng/visPedigree.
+LUAN Sheng (2018). visPedigree: A package for tidying and visualizing animal pedigrees. URL https://github.com/luansheng/visPedigree.
 
