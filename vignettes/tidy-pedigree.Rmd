@@ -29,7 +29,8 @@ To address this, we developed the [visPedigree](https://github.com/luansheng/vis
 3.3 [Tracing the pedigree of a specific individual](#3.3)   
 3.4 [Creating an integer pedigree](#3.4)   
 3.5 [Calculating inbreeding coefficients](#3.5)   
-3.6 [Summarizing the pedigree](#3.6)
+3.6 [Customizing generation assignment](#3.6)   
+3.7 [Summarizing the pedigree](#3.7)
 
 ## 1. Installation of the visPedigree package {#1}
 
@@ -198,7 +199,23 @@ head(tidy_test)
 tidy_test <- inbreed(tidyped(test_ped))
 ```
 
-### 3.6 Summarizing the pedigree {#3.6}
+### 3.6 Customizing generation assignment {#3.6}
+Generation inference is essential for pedigree visualization. `tidyped()` provides two methods for assigning generation numbers via the `genmethod` parameter:
+
+*   **"top" (default)**: Top-aligned (depth-based). Founders are assigned to Generation 1. This is the optimal scheme for most biological pedigrees as it ensures all founders start at the top, preventing them from "drifting" to lower generations if they have fewer descendants.
+*   **"bottom"**: Bottom-aligned (height-based). Generations are counted from the bottom up, aligning terminal nodes (offspring with no further descendants) at the highest generation number. This is useful when you want to show that all current populations are at the same level, or when introducing unrelated exogenous parents in later years.
+
+```{r genmethod}
+# Default behavior (Top-Down): J2Y434 is at Gen 3
+tidy_top <- tidyped(simple_ped, genmethod = "top")
+tidy_top[Ind == "J2Y434"]
+
+# Bottom-Up behavior: J2Y434 is at Gen 6
+tidy_bottom <- tidyped(simple_ped, genmethod = "bottom")
+tidy_bottom[Ind == "J2Y434"]
+```
+
+### 3.7 Summarizing the pedigree {#3.7}
 The `summary()` method provides a quick overview of the pedigree statistics, including the number of individuals, sex distribution, founders, and isolated individuals. If inbreeding coefficients have been calculated (column `f`), the summary will also include descriptive statistics of inbreeding.
 
 ```{r summary}

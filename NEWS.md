@@ -1,3 +1,14 @@
+# Changes in version 0.7.2 released on 12 Jan 2026
+## New features
+1. **Flexible Generation Assignment**: Added `genmethod` parameter to `tidyped()`. Users can now choose between `"top"` (top-aligned, default) and `"bottom"` (bottom-aligned) methods for generation inference. 
+    - The `"top"` method aligns founders at Generation 1, which is more appropriate for biological pedigrees and prevents "founder drift" in pedigrees with varying depths.
+    - The `"bottom"` method aligns terminal nodes at the bottom, useful for visualizing introductions of unrelated exogenous parents.
+
+## Improvements
+1. **Default Logic Change**: Switched the default generation assignment method to `"top"` (top-down) for more intuitive biological visualization.
+2. **Pkgdown Documentation**: Generated and published the official package website at [https://luansheng.github.io/visPedigree/](https://luansheng.github.io/visPedigree/).
+3. **Automated CI/CD**: Added GitHub Actions workflow for automatic documentation updates and deployment via GitHub Pages.
+
 # Changes in version 0.7.1 released on 11 Jan 2026
 ## Performance optimizations
 1. **Large Pedigree Performance**: Optimized `visped` performance for displaying large pedigrees through efficient attribute handling and vectorized rendering. Computation time for 100k+ individuals reduced significantly by avoiding redundant `igraph` attribute lookups.

@@ -2,7 +2,7 @@
 #'
 #' This function takes a pedigree, checks for duplicate and bisexual individuals, detects pedigree loops using graph theory, adds missing founders, assigns generation numbers, sorts the pedigree, and traces the pedigree of specified candidates. If the \code{cand} parameter contains individual IDs, only those individuals and their ancestors or descendants are retained. Tracing direction and the number of generations can be specified using the \code{trace} and \code{tracegen} parameters.
 #' 
-#' Compared to the legacy version, this function handles cyclic pedigrees more robustly by detecting and reporting loops, and it is generally faster for large pedigrees due to the use of sparse graph algorithms from the \code{igraph} package. Generation assignment is performed using a topological sorting-based algorithm that ensures parents are always placed in a generation strictly above their offspring (TGI algorithm).
+#' Compared to the legacy version, this function handles cyclic pedigrees more robustly by detecting and reporting loops, and it is generally faster for large pedigrees due to the use of sparse graph algorithms from the \code{igraph} package. Generation assignment can be performed using either a top-down approach (default, aligning founders at the top) or a bottom-up approach (aligning terminal nodes at the bottom).
 #'
 #' @param ped A data.table or data frame containing the pedigree. The first three columns must be \strong{individual}, \strong{sire}, and \strong{dam} IDs. Additional columns, such as sex or generation, can be included. Column names can be customized, but their order must remain unchanged. Individual IDs should not be coded as "", " ", "0", "*", or "NA"; otherwise, they will be removed. Missing parents should be denoted by "NA", "0", or "*". Spaces and empty strings ("") are also treated as missing parents but are not recommended.
 #' @param cand A character vector of individual IDs, or NULL. If provided, only the candidates and their ancestors/descendants are retained.
@@ -11,6 +11,7 @@
 #' @param addgen A logical value indicating whether to generate generation numbers. Default is TRUE, which adds a \strong{Gen} column to the output.
 #' @param addnum A logical value indicating whether to generate a numeric pedigree. Default is TRUE, which adds \strong{IndNum}, \strong{SireNum}, and \strong{DamNum} columns to the output.
 #' @param inbreed A logical value indicating whether to calculate inbreeding coefficients. Default is FALSE. If TRUE, an \strong{f} column is added to the output.
+#' @param genmethod A character value specifying the generation assignment method: "\strong{top}" or "\strong{bottom}". "top" (top-aligned) assigns generations from parents to offspring, starting founders at Gen 1. "bottom" (bottom-aligned) assigns generations from offspring to parents, aligning terminal nodes at the bottom. Default is "top".
 #' @param ... Additional arguments passed to \code{\link{inbreed}}.
 #' 
 #' @return A \code{tidyped} object (which inherits from \code{data.table}). Individual, sire, and dam ID columns are renamed to \strong{Ind}, \strong{Sire}, and \strong{Dam}. Missing parents are replaced with \strong{NA}. The \strong{Sex} column contains "male", "female", or NA. The \strong{Cand} column is included if \code{cand} is not NULL. The \strong{Gen} column is included if \code{addgen} is TRUE. The \strong{IndNum}, \strong{SireNum}, and \strong{DamNum} columns are included if \code{addnum} is TRUE. The \strong{f} column is included if \code{inbreed} is TRUE.
@@ -56,6 +57,7 @@ tidyped <- function(ped,
                           addgen = TRUE,
                           addnum = TRUE,
                           inbreed = FALSE,
+                          genmethod = "top",
                           ...) {
   # 1. Parameter Validation
   if (missing(ped) || is.null(ped)) {
@@ -76,6 +78,11 @@ tidyped <- function(ped,
   valid_trace <- c("up", "down", "all")
   if (length(trace) != 1 || !trace %in% valid_trace) {
     stop(sprintf("The trace parameter must be one of: %s", paste(valid_trace, collapse = ", ")))
+  }
+
+  valid_genmethod <- c("top", "bottom")
+  if (length(genmethod) != 1 || !genmethod %in% valid_genmethod) {
+    stop(sprintf("The genmethod parameter must be one of: %s", paste(valid_genmethod, collapse = ", ")))
   }
   
   if (!is.null(tracegen)) {
@@ -114,7 +121,7 @@ tidyped <- function(ped,
   topo_order <- as.integer(topo_sort(g))
   
   if (addgen) {
-    ped_dt <- assign_ped_generations(g, ped_dt, topo_order)
+    ped_dt <- assign_ped_generations(g, ped_dt, topo_order, genmethod)
   }
   
   # 7. Sex Inference and Check
@@ -348,108 +355,126 @@ trace_ped_candidates <- function(g, ped_dt, cand, trace, tracegen) {
 #' @param g An igraph object representing the pedigree.
 #' @param ped_dt A data.table containing the pedigree.
 #' @param topo_order Integer vector specifying the topological order of vertices.
+#' @param genmethod Character, "top" or "bottom".
 #' @return A data.table with a \strong{Gen} column added.
 #' @noRd
-assign_ped_generations <- function(g, ped_dt, topo_order) {
-  # 1. Height Calculation (Bottom-Up Logic)
-  
-  # Optimization: Skip nodes with no parents (In-Degree 0)
-  in_deg <- degree(g, mode = "in")
-  has_parents_mask <- in_deg[topo_order] > 0
-  
-  rev_topo_proc <- rev(topo_order[has_parents_mask])
-  
-  height_vec <- rep(0L, vcount(g))
-  adj_list_in <- as_adj_list(g, mode = "in")
-  
-  for (v_idx in rev_topo_proc) {
-    parents <- adj_list_in[[v_idx]]
-    p_indices <- as.integer(parents)
-    prior_h <- height_vec[p_indices]
-    new_h <- height_vec[v_idx] + 1L
-    height_vec[p_indices] <- pmax(prior_h, new_h)
-  }
-  
-  # 2. Align Full Siblings
-  # Identify individuals who have at least one parent
-  h_dt <- data.table(
-    Ind = V(g)$name,
-    Height = height_vec,
-    Sire = ped_dt$Sire[match(V(g)$name, ped_dt$Ind)],
-    Dam = ped_dt$Dam[match(V(g)$name, ped_dt$Ind)]
-  )
-  
-  non_orphans <- h_dt[!is.na(Sire) | !is.na(Dam)]
-  
-  if (nrow(non_orphans) > 0) {
-    non_orphans[, MaxH := max(Height), by = .(Sire, Dam)]
-    update_inds <- non_orphans[MaxH > Height]
-    if (nrow(update_inds) > 0) {
-      update_indices <- match(update_inds$Ind, V(g)$name)
-      height_vec[update_indices] <- update_inds$MaxH
-    }
-  }
-  
-  gen_map_height <- setNames(height_vec, V(g)$name)
-  founders <- names(which(degree(g, mode = "in") == 0))
-  
-  if (length(founders) > 0) {
-    pairs_dt <- unique(ped_dt[!is.na(Sire) & !is.na(Dam), .(Sire, Dam)])
+assign_ped_generations <- function(g, ped_dt, topo_order, genmethod) {
+  if (genmethod == "bottom") {
+    # 1. Height Calculation (Bottom-Up Logic)
     
-    if (nrow(pairs_dt) > 0) {
-      pairs_dt[, SireH := gen_map_height[Sire]]
-      pairs_dt[, DamH := gen_map_height[Dam]]
-      
-      updates <- list()
-      
-      fs_mask <- pairs_dt$Sire %in% founders & pairs_dt$SireH < pairs_dt$DamH
-      if (any(fs_mask)) {
-        updates$sires <- pairs_dt[fs_mask, .(MaxMateH = max(DamH)), by = Sire]
-      }
-      
-      fd_mask <- pairs_dt$Dam %in% founders & pairs_dt$DamH < pairs_dt$SireH
-      if (any(fd_mask)) {
-        updates$dams <- pairs_dt[fd_mask, .(MaxMateH = max(SireH)), by = Dam]
-      }
-      
-      if (!is.null(updates$sires)) {
-        gen_map_height[updates$sires$Sire] <- updates$sires$MaxMateH
-      }
-      if (!is.null(updates$dams)) {
-        gen_map_height[updates$dams$Dam] <- updates$dams$MaxMateH
-      }
-      
-      height_vec <- gen_map_height
-    }
-  }
-  
-  # 3. Propagate Height Down (Parent -> Child)
-  # Enforce Child H >= min(Parent H) - 1
-  topo_proc <- topo_order[has_parents_mask]
-  
-  for (v_idx in topo_proc) {
-    parents <- adj_list_in[[v_idx]]
-    p_indices <- as.integer(parents)
-    p_heights <- height_vec[p_indices]
+    # Optimization: Skip nodes with no parents (In-Degree 0)
+    in_deg <- degree(g, mode = "in")
+    has_parents_mask <- in_deg[topo_order] > 0
     
-    min_p_h <- min(p_heights)
-    if (min_p_h - 1L > height_vec[v_idx]) {
-      height_vec[v_idx] <- min_p_h - 1L
+    rev_topo_proc <- rev(topo_order[has_parents_mask])
+    
+    height_vec <- rep(0L, vcount(g))
+    adj_list_in <- as_adj_list(g, mode = "in")
+    
+    for (v_idx in rev_topo_proc) {
+      parents <- adj_list_in[[v_idx]]
+      p_indices <- as.integer(parents)
+      prior_h <- height_vec[p_indices]
+      new_h <- height_vec[v_idx] + 1L
+      height_vec[p_indices] <- pmax(prior_h, new_h)
     }
+    
+    # 2. Align Full Siblings
+    # Identify individuals who have at least one parent
+    h_dt <- data.table(
+      Ind = V(g)$name,
+      Height = height_vec,
+      Sire = ped_dt$Sire[match(V(g)$name, ped_dt$Ind)],
+      Dam = ped_dt$Dam[match(V(g)$name, ped_dt$Ind)]
+    )
+    
+    non_orphans <- h_dt[!is.na(Sire) | !is.na(Dam)]
+    
+    if (nrow(non_orphans) > 0) {
+      non_orphans[, MaxH := max(Height), by = .(Sire, Dam)]
+      update_inds <- non_orphans[MaxH > Height]
+      if (nrow(update_inds) > 0) {
+        update_indices <- match(update_inds$Ind, V(g)$name)
+        height_vec[update_indices] <- update_inds$MaxH
+      }
+    }
+    
+    gen_map_height <- setNames(height_vec, V(g)$name)
+    founders <- names(which(degree(g, mode = "in") == 0))
+    
+    if (length(founders) > 0) {
+      pairs_dt <- unique(ped_dt[!is.na(Sire) & !is.na(Dam), .(Sire, Dam)])
+      
+      if (nrow(pairs_dt) > 0) {
+        pairs_dt[, SireH := gen_map_height[Sire]]
+        pairs_dt[, DamH := gen_map_height[Dam]]
+        
+        updates <- list()
+        
+        fs_mask <- pairs_dt$Sire %in% founders & pairs_dt$SireH < pairs_dt$DamH
+        if (any(fs_mask)) {
+          updates$sires <- pairs_dt[fs_mask, .(MaxMateH = max(DamH)), by = Sire]
+        }
+        
+        fd_mask <- pairs_dt$Dam %in% founders & pairs_dt$DamH < pairs_dt$SireH
+        if (any(fd_mask)) {
+          updates$dams <- pairs_dt[fd_mask, .(MaxMateH = max(SireH)), by = Dam]
+        }
+        
+        if (!is.null(updates$sires)) {
+          gen_map_height[updates$sires$Sire] <- updates$sires$MaxMateH
+        }
+        if (!is.null(updates$dams)) {
+          gen_map_height[updates$dams$Dam] <- updates$dams$MaxMateH
+        }
+        
+        height_vec <- gen_map_height
+      }
+    }
+    
+    # 3. Propagate Height Down (Parent -> Child)
+    # Enforce Child H >= min(Parent H) - 1
+    topo_proc <- topo_order[has_parents_mask]
+    
+    for (v_idx in topo_proc) {
+      parents <- adj_list_in[[v_idx]]
+      p_indices <- as.integer(parents)
+      p_heights <- height_vec[p_indices]
+      
+      min_p_h <- min(p_heights)
+      if (min_p_h - 1L > height_vec[v_idx]) {
+        height_vec[v_idx] <- min_p_h - 1L
+      }
+    }
+    
+    gen_map_height <- setNames(height_vec, V(g)$name)
+    max_h <- if (length(gen_map_height) > 0) max(gen_map_height) else 0
+    final_gens_vec <- max_h - gen_map_height + 1L
+  } else {
+    # 1. Depth Calculation (Top-Down Logic)
+    in_deg <- degree(g, mode = "in")
+    has_parents_mask <- in_deg > 0
+    adj_list_in <- as_adj_list(g, mode = "in")
+    
+    gen_vec <- rep(1L, vcount(g))
+    
+    # Process in topological order
+    for (v_idx in topo_order) {
+      if (has_parents_mask[v_idx]) {
+        parents <- as.integer(adj_list_in[[v_idx]])
+        gen_vec[v_idx] <- max(gen_vec[parents]) + 1L
+      }
+    }
+    final_gens_vec <- setNames(gen_vec, V(g)$name)
   }
   
-  gen_map_height <- setNames(height_vec, V(g)$name)
-  max_h <- if (length(gen_map_height)>0) max(gen_map_height) else 0
-  final_gens <- max_h - gen_map_height + 1L
-  
-  # Identify isolated vertices (no parents, no offspring) and assign Gen 0
-  # This matches legacy behavior and allows visped to filter them out
+  # common post-processing: isolated vertices
   iso_nodes <- names(which(degree(g, mode = "all") == 0))
   if (length(iso_nodes) > 0) {
-    final_gens[iso_nodes] <- 0L
+    final_gens_vec[iso_nodes] <- 0L
   }
   
-  ped_dt[, Gen := final_gens[match(Ind, names(final_gens))]]
+  ped_dt[, Gen := as.integer(final_gens_vec[match(Ind, names(final_gens_vec))])]
   
   return(ped_dt)
 }
