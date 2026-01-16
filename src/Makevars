@@ -1,0 +1,26 @@
+# 使用 R 推荐的 OpenMP 标志
+PKG_CXXFLAGS = $(SHLIB_OPENMP_CXXFLAGS)
+PKG_LIBS = $(SHLIB_OPENMP_LIBS)
+
+# 针对 macOS (Darwin) 的特殊处理，以支持 Apple Clang + libomp
+ifeq ($(shell uname), Darwin)
+  # 探测顺序：官方路径 -> Homebrew (M1/M2) -> Homebrew (Intel)
+  # 必须检查主文件 omp.h 是否存在
+  ifeq ($(shell test -f /usr/local/include/omp.h && echo yes), yes)
+    OMP_PATH = /usr/local
+  else ifeq ($(shell test -f /opt/R/arm64/include/omp.h && echo yes), yes)
+    OMP_PATH = /opt/R/arm64
+  else ifeq ($(shell test -f /opt/homebrew/opt/libomp/include/omp.h && echo yes), yes)
+    OMP_PATH = /opt/homebrew/opt/libomp
+  else ifeq ($(shell test -f /usr/local/opt/libomp/include/omp.h && echo yes), yes)
+    OMP_PATH = /usr/local/opt/libomp
+  endif
+
+  ifneq ($(OMP_PATH),)
+    PKG_CXXFLAGS += -I$(OMP_PATH)/include -Xpreprocessor -fopenmp
+    PKG_LIBS += -L$(OMP_PATH)/lib -lomp
+  endif
+endif
+
+# 告诉 Armadillo 使用 OpenMP
+PKG_CXXFLAGS += -DARMA_USE_OPENMP

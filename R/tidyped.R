@@ -101,7 +101,6 @@ tidyped <- function(ped,
   # We need the graph for cycle detection and tracing
   graph_res <- build_ped_graph(ped_dt)
   g <- graph_res$g
-  node_map <- graph_res$node_map # Keep if needed for debugging or advanced mapping
   
   # 4. Cycle Detection
   check_ped_loops(g)
@@ -223,13 +222,15 @@ validate_and_prepare_ped <- function(ped) {
 #' @noRd
 build_ped_graph <- function(ped_dt) {
   node_names <- ped_dt$Ind
-  node_map <- setNames(seq_along(node_names), node_names)
   
-  # Edges
-  s_edges <- ped_dt[!is.na(Sire), .(from = node_map[Sire], to = node_map[Ind])]
-  d_edges <- ped_dt[!is.na(Dam), .(from = node_map[Dam], to = node_map[Ind])]
+  # Use match() instead of named vector lookup for speed
+  s_from <- match(ped_dt$Sire[!is.na(ped_dt$Sire)], node_names)
+  s_to <- which(!is.na(ped_dt$Sire))
   
-  edge_mat <- as.matrix(rbind(s_edges, d_edges))
+  d_from <- match(ped_dt$Dam[!is.na(ped_dt$Dam)], node_names)
+  d_to <- which(!is.na(ped_dt$Dam))
+  
+  edge_mat <- matrix(c(s_from, d_from, s_to, d_to), ncol = 2)
   
   # Using graph_from_edgelist is faster usually
   g <- graph_from_edgelist(edge_mat, directed = TRUE)
@@ -242,7 +243,7 @@ build_ped_graph <- function(ped_dt) {
   
   V(g)$name <- node_names
   
-  list(g = g, node_map = node_map)
+  list(g = g)
 }
 
 #' Check for Cycles/Loops in Pedigree
@@ -359,123 +360,32 @@ trace_ped_candidates <- function(g, ped_dt, cand, trace, tracegen) {
 #' @return A data.table with a \strong{Gen} column added.
 #' @noRd
 assign_ped_generations <- function(g, ped_dt, topo_order, genmethod) {
-  if (genmethod == "bottom") {
-    # 1. Height Calculation (Bottom-Up Logic)
-    
-    # Optimization: Skip nodes with no parents (In-Degree 0)
-    in_deg <- degree(g, mode = "in")
-    has_parents_mask <- in_deg[topo_order] > 0
-    
-    rev_topo_proc <- rev(topo_order[has_parents_mask])
-    
-    height_vec <- rep(0L, vcount(g))
-    adj_list_in <- as_adj_list(g, mode = "in")
-    
-    for (v_idx in rev_topo_proc) {
-      parents <- adj_list_in[[v_idx]]
-      p_indices <- as.integer(parents)
-      prior_h <- height_vec[p_indices]
-      new_h <- height_vec[v_idx] + 1L
-      height_vec[p_indices] <- pmax(prior_h, new_h)
-    }
-    
-    # 2. Align Full Siblings
-    # Identify individuals who have at least one parent
-    h_dt <- data.table(
-      Ind = V(g)$name,
-      Height = height_vec,
-      Sire = ped_dt$Sire[match(V(g)$name, ped_dt$Ind)],
-      Dam = ped_dt$Dam[match(V(g)$name, ped_dt$Ind)]
-    )
-    
-    non_orphans <- h_dt[!is.na(Sire) | !is.na(Dam)]
-    
-    if (nrow(non_orphans) > 0) {
-      non_orphans[, MaxH := max(Height), by = .(Sire, Dam)]
-      update_inds <- non_orphans[MaxH > Height]
-      if (nrow(update_inds) > 0) {
-        update_indices <- match(update_inds$Ind, V(g)$name)
-        height_vec[update_indices] <- update_inds$MaxH
-      }
-    }
-    
-    gen_map_height <- setNames(height_vec, V(g)$name)
-    founders <- names(which(degree(g, mode = "in") == 0))
-    
-    if (length(founders) > 0) {
-      pairs_dt <- unique(ped_dt[!is.na(Sire) & !is.na(Dam), .(Sire, Dam)])
-      
-      if (nrow(pairs_dt) > 0) {
-        pairs_dt[, SireH := gen_map_height[Sire]]
-        pairs_dt[, DamH := gen_map_height[Dam]]
-        
-        updates <- list()
-        
-        fs_mask <- pairs_dt$Sire %in% founders & pairs_dt$SireH < pairs_dt$DamH
-        if (any(fs_mask)) {
-          updates$sires <- pairs_dt[fs_mask, .(MaxMateH = max(DamH)), by = Sire]
-        }
-        
-        fd_mask <- pairs_dt$Dam %in% founders & pairs_dt$DamH < pairs_dt$SireH
-        if (any(fd_mask)) {
-          updates$dams <- pairs_dt[fd_mask, .(MaxMateH = max(SireH)), by = Dam]
-        }
-        
-        if (!is.null(updates$sires)) {
-          gen_map_height[updates$sires$Sire] <- updates$sires$MaxMateH
-        }
-        if (!is.null(updates$dams)) {
-          gen_map_height[updates$dams$Dam] <- updates$dams$MaxMateH
-        }
-        
-        height_vec <- gen_map_height
-      }
-    }
-    
-    # 3. Propagate Height Down (Parent -> Child)
-    # Enforce Child H >= min(Parent H) - 1
-    topo_proc <- topo_order[has_parents_mask]
-    
-    for (v_idx in topo_proc) {
-      parents <- adj_list_in[[v_idx]]
-      p_indices <- as.integer(parents)
-      p_heights <- height_vec[p_indices]
-      
-      min_p_h <- min(p_heights)
-      if (min_p_h - 1L > height_vec[v_idx]) {
-        height_vec[v_idx] <- min_p_h - 1L
-      }
-    }
-    
-    gen_map_height <- setNames(height_vec, V(g)$name)
-    max_h <- if (length(gen_map_height) > 0) max(gen_map_height) else 0
-    final_gens_vec <- max_h - gen_map_height + 1L
+  # Get numeric parents for C++ (1-based, 0 for missing)
+  # Pedigree is already complete (missing founders added)
+  inds <- ped_dt$Ind
+  sire_num <- match(ped_dt$Sire, inds, nomatch = 0)
+  dam_num <- match(ped_dt$Dam, inds, nomatch = 0)
+  
+  if (genmethod == "top") {
+    gen_vec <- cpp_assign_generations_top(sire_num, dam_num, as.integer(topo_order))
   } else {
-    # 1. Depth Calculation (Top-Down Logic)
-    in_deg <- degree(g, mode = "in")
-    has_parents_mask <- in_deg > 0
-    adj_list_in <- as_adj_list(g, mode = "in")
-    
-    gen_vec <- rep(1L, vcount(g))
-    
-    # Process in topological order
-    for (v_idx in topo_order) {
-      if (has_parents_mask[v_idx]) {
-        parents <- as.integer(adj_list_in[[v_idx]])
-        gen_vec[v_idx] <- max(gen_vec[parents]) + 1L
-      }
-    }
-    final_gens_vec <- setNames(gen_vec, V(g)$name)
+    gen_vec <- cpp_assign_generations_bottom(sire_num, dam_num, as.integer(topo_order))
   }
   
-  # common post-processing: isolated vertices
-  iso_nodes <- names(which(degree(g, mode = "all") == 0))
-  if (length(iso_nodes) > 0) {
-    final_gens_vec[iso_nodes] <- 0L
+  # Isolated nodes check
+  in_deg <- degree(g, mode = "in")
+  out_deg <- degree(g, mode = "out")
+  iso_mask <- (in_deg == 0) & (out_deg == 0)
+  if (any(iso_mask)) {
+    # Match iso_mask (which is in graph order) to ped_dt order
+    # topo_order is a permutation of 1:vcount(g)
+    # The C++ gen_vec is in the same order as sire_num/dam_num, which is ped_dt order
+    # BUT wait, the graph g was built from ped_dt. So V(g)$name is ped_dt$Ind.
+    # So vertex i in the graph corresponds to row i in ped_dt.
+    gen_vec[iso_mask] <- 0L
   }
   
-  ped_dt[, Gen := as.integer(final_gens_vec[match(Ind, names(final_gens_vec))])]
-  
+  ped_dt[, Gen := gen_vec]
   return(ped_dt)
 }
 

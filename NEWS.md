@@ -1,3 +1,18 @@
+# Changes in version 0.7.3 released on 13 Jan 2026
+## New behavior (BREAKING)
+1. **Simplified `pedmatrix()` return and single-method enforcement**: `pedmatrix()` now requires a single `method` argument (e.g., `method = "A").` When a single method is requested, the function returns the corresponding matrix or vector directly (not a named list). Requesting multiple methods in one call will now raise an error. Use repeated calls for multiple outputs.
+
+## New features
+1. **High-Performance Genetic Relationship Calculations**: Introduced `pedmatrix()` function implemented in Rcpp for efficient computation of:
+    - Additive relationship matrix (A) using the tabular recursive algorithm.
+    - Sparse inverse additive matrix (A-Inverse) using Henderson's rules.
+    - Dominance matrix (D) using the tabular approach.
+    - Inbreeding coefficients (f) using the Meuwissen & Luo (1992) path-tracing algorithm.
+
+## Improvements
+1. **Default Inbreeding Calculation Method**: The `inbreed()` function now uses the native Rcpp implementation by default, moving the `nadiv` package to `Suggests`.
+2. **Documentation and Website**: Updated package documentation and vignettes to reflect new features and improvements. The official package website is available at [https://luansheng.github.io/visPedigree/](https://luansheng.github.io/visPedigree/).
+
 # Changes in version 0.7.2 released on 12 Jan 2026
 ## New features
 1. **Flexible Generation Assignment**: Added `genmethod` parameter to `tidyped()`. Users can now choose between `"top"` (top-aligned, default) and `"bottom"` (bottom-aligned) methods for generation inference. 
