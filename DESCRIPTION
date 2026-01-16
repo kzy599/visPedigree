@@ -13,7 +13,7 @@ Description: Built on graph theory and the high-performance 'data.table' framewo
     enables the visualization of massive pedigrees (e.g., in aquaculture 
     selective breeding population) by grouping full-sib families, maintaining structural 
     clarity without overcrowding. Graph processing relies on 'igraph' (Csardi, G. and 
-    Nepusz, T. (2006) <https://api.semanticscholar.org/CorpusID:16923281>).
+    Nepusz, T. (2006) <https://www.semanticscholar.org/paper/1d2744b83519657f5f2610698a8ddd177ced4f5c>).
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
