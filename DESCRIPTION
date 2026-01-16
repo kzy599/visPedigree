@@ -12,7 +12,8 @@ Description: Built on graph theory and the high-performance 'data.table' framewo
     generating legible vector-based PDF graphs. A unique compaction algorithm 
     enables the visualization of massive pedigrees (e.g., in aquaculture 
     selective breeding population) by grouping full-sib families, maintaining structural 
-    clarity without overcrowding.
+    clarity without overcrowding. Graph processing relies on 'igraph' (Csardi, G. and 
+    Nepusz, T. (2006) <https://api.semanticscholar.org/CorpusID:16923281>).
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true

@@ -11,6 +11,9 @@
 
 \item{...}{Additional arguments passed to the data.table print method}
 }
+\value{
+The input object, invisibly.
+}
 \description{
 Print method for tidyped pedigree
 }
