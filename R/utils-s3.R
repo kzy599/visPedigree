@@ -48,6 +48,7 @@ validate_tidyped <- function(x) {
 #' Print method for tidyped pedigree
 #' @param x A tidyped object
 #' @param ... Additional arguments passed to the data.table print method
+#' @return The input object, invisibly.
 #' @export
 print.tidyped <- function(x, ...) {
   cat("Tidy Pedigree Object\n")
@@ -64,6 +65,9 @@ print.tidyped <- function(x, ...) {
 #'
 #' @param x A \code{tidyped} object.
 #' @param ... Additional arguments passed to \code{\link{visped}}.
+#' @return Invisibly returns a list of graph data from \code{\link{visped}} (node/edge
+#'   data and layout components) used to render the pedigree; the primary result is
+#'   the plot drawn on the current device.
 #' @export
 plot.tidyped <- function(x, ...) {
   validate_tidyped(x)
@@ -194,6 +198,7 @@ summary.tidyped <- function(object, ...) {
 #'
 #' @param x A summary.tidyped object.
 #' @param ... Additional arguments (ignored).
+#' @return The input object, invisibly.
 #' @export
 print.summary.tidyped <- function(x, ...) {
   cat("Pedigree Summary\n")

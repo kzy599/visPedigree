@@ -11,6 +11,11 @@
 
 \item{...}{Additional arguments passed to \code{\link{visped}}.}
 }
+\value{
+Invisibly returns a list of graph data from \code{\link{visped}} (node/edge
+  data and layout components) used to render the pedigree; the primary result is
+  the plot drawn on the current device.
+}
 \description{
 Plot a tidy pedigree
 }

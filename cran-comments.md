@@ -8,3 +8,10 @@
 
 * This is a new release.
 * The only remaining note is the standard "New submission" note. All other non-standard files and directories (.github, todo, etc.) have been added to .Rbuildignore.
+
+## Resubmission
+
+Responded to CRAN review comments:
+
+- Added missing \value tags for plot.tidyped, print.tidyped, and print.summary.tidyped.
+- Removed commented-out example line in tidyped by replacing it with an executable try() call.
