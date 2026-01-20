@@ -1,0 +1,10 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "printf": true,
+        "/^Rscript -e \"devtools::document\\(\\)\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "Rscript": true
+    }
+}

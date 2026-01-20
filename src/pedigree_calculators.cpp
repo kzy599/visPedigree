@@ -11,7 +11,7 @@
 
 using namespace Rcpp;
 
-//' Calculate Inbreeding and Dii using Meuwissen & Luo (1992)
+// Calculate Inbreeding and Dii using Meuwissen & Luo (1992)
 // [[Rcpp::export]]
 List cpp_calculate_inbreeding(IntegerVector sire, IntegerVector dam) {
     int n = sire.size();
@@ -98,7 +98,7 @@ List cpp_calculate_inbreeding(IntegerVector sire, IntegerVector dam) {
     );
 }
 
-//' Build A-Inverse Sparse Matrix Components (Henderson's Rules)
+// Build A-Inverse Sparse Matrix Components (Henderson's Rules)
 // [[Rcpp::export]]
 List cpp_build_ainv_triplets(IntegerVector sire, IntegerVector dam, NumericVector dii) {
     int n = sire.size();
@@ -228,7 +228,7 @@ List cpp_build_ainv_triplets(IntegerVector sire, IntegerVector dam, NumericVecto
     return List::create(Named("i") = final_row, Named("j") = final_col, Named("v") = final_val);
 }
 
-//' Calculate Additive Relationship Matrix (A) using Armadillo
+// Calculate Additive Relationship Matrix (A) using Armadillo
 // [[Rcpp::export]]
 arma::mat cpp_calculate_A(IntegerVector sire, IntegerVector dam) {
     int n = sire.size();
@@ -255,7 +255,7 @@ arma::mat cpp_calculate_A(IntegerVector sire, IntegerVector dam) {
     return A;
 }
 
-//' Calculate Dominance Matrix (D) using Armadillo
+// Calculate Dominance Matrix (D) using Armadillo
 // [[Rcpp::export]]
 arma::mat cpp_calculate_D(IntegerVector sire, IntegerVector dam, arma::mat A) {
     int n = sire.size();
@@ -286,29 +286,29 @@ arma::mat cpp_calculate_D(IntegerVector sire, IntegerVector dam, arma::mat A) {
     return D;
 }
 
-//' Hadamard Product
+// Hadamard Product
 // [[Rcpp::export]]
 arma::mat cpp_calculate_AA(arma::mat A) {
     return A % A;
 }
 
-//' Invert Dense Matrix (general purpose)
+// Invert Dense Matrix (general purpose)
 // [[Rcpp::export]]
 arma::mat cpp_invert_dense(arma::mat M) {
     return arma::inv(M);
 }
 
-//' Invert Symmetric Positive-Definite Matrix (optimized)
-//' Uses Cholesky decomposition, approximately 2x faster than general inversion
-//' for symmetric positive-definite matrices
+// Invert Symmetric Positive-Definite Matrix (optimized)
+// Uses Cholesky decomposition, approximately 2x faster than general inversion
+// for symmetric positive-definite matrices
 // [[Rcpp::export]]
 arma::mat cpp_invert_sympd(arma::mat M) {
     return arma::inv_sympd(M);
 }
 
-//' Auto-detect matrix type and use optimal inversion method
-//' Checks if matrix is symmetric, then tries Cholesky (for positive-definite)
-//' Falls back to general LU decomposition if Cholesky fails
+// Auto-detect matrix type and use optimal inversion method
+// Checks if matrix is symmetric, then tries Cholesky (for positive-definite)
+// Falls back to general LU decomposition if Cholesky fails
 // [[Rcpp::export]]
 arma::mat cpp_invert_auto(arma::mat M) {
     int n = M.n_rows;
@@ -339,7 +339,7 @@ arma::mat cpp_invert_auto(arma::mat M) {
     }
 }
 
-//' Solve A*x = b using Path Logic
+// Solve A*x = b using Path Logic
 // [[Rcpp::export]]
 arma::vec cpp_solve_A(IntegerVector sire, IntegerVector dam, NumericVector dii, arma::vec b) {
     int n = sire.size();
@@ -358,7 +358,7 @@ arma::vec cpp_solve_A(IntegerVector sire, IntegerVector dam, NumericVector dii, 
     return x;
 }
 
-//' Generations Top-down
+// Generations Top-down
 // [[Rcpp::export]]
 IntegerVector cpp_assign_generations_top(IntegerVector sire, IntegerVector dam, IntegerVector topo_order) {
     int n = sire.size();
@@ -373,7 +373,7 @@ IntegerVector cpp_assign_generations_top(IntegerVector sire, IntegerVector dam, 
     return gen;
 }
 
-//' Generations Bottom-up
+// Generations Bottom-up
 // [[Rcpp::export]]
 IntegerVector cpp_assign_generations_bottom(IntegerVector sire, IntegerVector dam, IntegerVector topo_order) {
     int n = sire.size();

@@ -32,6 +32,14 @@
 #' @param maxiter An integer specifying the maximum number of iterations for the Sugiyama layout algorithm to minimize edge crossings. Higher values (e.g., 2000 or 5000) may result in fewer crossed lines for complex pedigrees but will increase computation time. The default value is 1000.
 #' @param ... Additional arguments passed to \code{\link[igraph:plot.igraph]{plot.igraph}}.
 #' @return No returned values. The graph will be plotted directly on graphic devices.
+#'
+#' @seealso 
+#' \code{\link{tidyped}} for tidying pedigree data (required input)
+#' \code{\link{vismat}} for visualizing relationship matrices as heatmaps
+#' \code{\link{pedmatrix}} for computing relationship matrices
+#' \code{\link{splitped}} for splitting pedigree into connected components
+#' \code{\link[igraph:plot.igraph]{plot.igraph}} underlying plotting function
+#'
 #' @note Isolated individuals (those with no parents and no progeny, assigned Gen 0) are automatically filtered out and not shown in the plot. A message will be issued if any such individuals are removed.
 #'
 #' @examples

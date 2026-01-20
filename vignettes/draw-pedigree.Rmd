@@ -1,6 +1,6 @@
 ---
 title: "2. How to draw a pedigree"
-author: "Vignette Author"
+author: "Sheng Luan"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
 vignette: >
@@ -220,3 +220,8 @@ suppressMessages(
 ```
 
 In the above figure, 106 families are shown at bottom, the parents are shown in middle, and the grandparents are shown at top. It can be seen that the parents are composed of `r length(sire_label[!is.na(sire_label)])` sires and `r length(dam_label[!is.na(dam_label)])` dams. The parents are from `r length(fullsib_family_label)` full-sib families in the generation of grandparent. Approximately `r family_size$N[1]+family_size$N[2]` parents originate from just two full-sib families due to the application of optimum contribution theory, accounting for `r round((family_size$N[1]+family_size$N[2])/sum(family_size$N),4)*100`% of all parents.
+
+---
+**See Also:**
+- `vignette("tidy-pedigree", package = "visPedigree")`
+- `vignette("relationship-matrix", package = "visPedigree")`

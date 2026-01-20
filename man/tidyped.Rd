@@ -36,7 +36,7 @@ tidyped(
 \item{...}{Additional arguments passed to \code{\link{inbreed}}.}
 }
 \value{
-A \code{tidyped} object (which inherits from \code{data.table}). Individual, sire, and dam ID columns are renamed to \strong{Ind}, \strong{Sire}, and \strong{Dam}. Missing parents are replaced with \strong{NA}. The \strong{Sex} column contains "male", "female", or NA. The \strong{Cand} column is included if \code{cand} is not NULL. The \strong{Gen} column is included if \code{addgen} is TRUE. The \strong{IndNum}, \strong{SireNum}, and \strong{DamNum} columns are included if \code{addnum} is TRUE. The \strong{f} column is included if \code{inbreed} is TRUE.
+A \code{tidyped} object (which inherits from \code{data.table}). Individual, sire, and dam ID columns are renamed to \strong{Ind}, \strong{Sire}, and \strong{Dam}. Missing parents are replaced with \strong{NA}. The \strong{Sex} column contains "male", "female", or NA. The \strong{Cand} column is included if \code{cand} is not NULL. The \strong{Gen} column is included if \code{addgen} is TRUE. The \strong{IndNum}, \strong{SireNum}, and \strong{DamNum} columns are included if \code{addnum} is TRUE. The \strong{Family} and \strong{FamilySize} columns identify full-sibling families (e.g., "A x B" for offspring of sire A and dam B). The \strong{f} column is included if \code{inbreed} is TRUE.
 }
 \description{
 This function takes a pedigree, checks for duplicate and bisexual individuals, detects pedigree loops using graph theory, adds missing founders, assigns generation numbers, sorts the pedigree, and traces the pedigree of specified candidates. If the \code{cand} parameter contains individual IDs, only those individuals and their ancestors or descendants are retained. Tracing direction and the number of generations can be specified using the \code{trace} and \code{tracegen} parameters.
@@ -73,5 +73,10 @@ summary(tidy_big)
 
 }
 \seealso{
-\code{\link{summary.tidyped}}
+\code{\link{summary.tidyped}} for summarizing tidyped objects
+\code{\link{visped}} for visualizing pedigree structure
+\code{\link{pedmatrix}} for computing relationship matrices
+\code{\link{vismat}} for visualizing relationship matrices
+\code{\link{splitped}} for splitting pedigree into connected components
+\code{\link{inbreed}} for calculating inbreeding coefficients
 }

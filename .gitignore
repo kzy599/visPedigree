@@ -1,11 +1,30 @@
-packrat/lib*/
+# R 临时文件和编译产物
 .Rproj.user
-.bak
-packrat
-packrat/src/
-output.pdf
-tests
+.Rhistory
+.RData
+.Ruserdata
+.Rcheck/
 
-/doc/
-/Meta/
-docs
+# 动态链接库（C++ 编译产物）
+src/*.o
+src/*.so
+src/*.dll
+src/symbols.rds
+
+# Mac 系统文件
+.DS_Store
+
+# 文档生成产物 (Vignettes 生成的 HTML 通常不放源码库，除非用于展示)
+# doc/ 是 R build 生成的，源码都在 vignettes/
+doc/
+Meta/
+
+# 网站生成目录 (如果是 pkgdown 自动发布到 gh-pages 分支，主分支通常忽略 docs/)
+# 如果您手动维护 docs/ 并在 GitHub Pages 使用 /docs 目录，则保留这行注释
+docs/
+
+# 数据包管理
+packrat/
+
+# 临时测试 PDF
+*.pdf

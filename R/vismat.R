@@ -1,31 +1,202 @@
 #' Visualize Relationship Matrices
 #'
-#' @description \code{vismat} provides visualization tools for relationship 
-#' matrices (A, D, AA, etc.). It supports individual-level heatmaps and 
-#' relationship coefficient histograms.
+#' @description
+#' \code{vismat} provides visualization tools for relationship matrices (A, D, AA),
+#' supporting individual-level heatmaps and relationship coefficient histograms.
+#' This function is useful for exploring population genetic structure, identifying
+#' inbred individuals, and analyzing kinship between families.
 #'
-#' @param mat A relationship matrix (e.g., from \code{\link{pedmatrix}}), or a 
-#' named list containing matrices, or a \code{tidyped} object.
-#' @param ped Optional. A tidied pedigree object. Used for extracting labels 
-#' or grouping information.
-#' @param type Character, type of visualization. Supported:
+#' @param mat A relationship matrix. Can be one of the following types:
 #' \itemize{
-#'   \item "heatmap": Individual or group-level relationship heatmap (default).
-#'   \item "histogram": Histogram of relationship coefficients.
+#'   \item A \code{pedmatrix} object returned by \code{\link{pedmatrix}}
+#'   \item A named list containing matrices (preferring A, D, AA)
+#'   \item A \code{\link{tidyped}} object (automatically calculates additive relationship matrix A)
+#'   \item A standard \code{matrix} or \code{Matrix} object
 #' }
-#' @param ids Character vector of individual IDs to display. If NULL, all 
-#' individuals in the matrix are shown.
-#' @param reorder Logical. If TRUE, rows and columns are reordered using 
-#' hierarchical clustering to bring related individuals together. Only affects 
-#' heatmap visualization. Skipped for large matrices (N > 2000).
-#' @param grouping Optional. Name of the column in \code{ped} to group by 
-#' (e.g., "Family", "Gen", "Year"). Used for grouping in heatmaps.
-#' @param labelcex Numeric. Manual control for font size of individual 
-#' labels.
-#' @param ... Additional arguments passed to the plotting function 
-#' (\code{lattice::levelplot} or \code{lattice::histogram}).
+#' \strong{Note}: Inverse matrices (Ainv, Dinv, AAinv) are not supported for 
+#' visualization because their elements do not represent meaningful relationship
+#' coefficients.
 #'
-#' @return No returned value. The plot is generated on the current device.
+#' @param ped Optional. A tidied pedigree object (\code{tidyped}), used for 
+#' extracting labels or grouping information. Required when using the 
+#' \code{grouping} parameter. If \code{mat} is a \code{pedmatrix} object, 
+#' the pedigree can be automatically extracted from its attributes.
+#'
+#' @param type Character, type of visualization. Supported options:
+#' \itemize{
+#'   \item \code{"heatmap"}: Relationship matrix heatmap (default). Uses a 
+#'         Nature Genetics style color palette (white-orange-red-dark red),
+#'         with optional hierarchical clustering and group aggregation.
+#'   \item \code{"histogram"}: Distribution histogram of relationship coefficients.
+#'         Shows the frequency distribution of lower triangular elements (pairwise kinship).
+#' }
+#'
+#' @param ids Character vector specifying individual IDs to display. Used to 
+#' filter and display a submatrix of specific individuals. If \code{NULL} 
+#' (default), all individuals are shown.
+#'
+#' @param reorder Logical. If \code{TRUE} (default), rows and columns are 
+#' reordered using hierarchical clustering (Ward.D2 method) to bring closely 
+#' related individuals together. Only affects heatmap visualization. 
+#' Automatically skipped for large matrices (N > 2000) to improve performance.
+#' 
+#' \strong{Clustering principle}: Based on relationship profile distance (Euclidean).
+#' Full-sibs have nearly identical relationship profiles with the population,
+#' so they cluster tightly together.
+#'
+#' @param grouping Optional. Column name in \code{ped} to group by (e.g., 
+#' \code{"Family"}, \code{"Gen"}, \code{"Year"}). When grouping is enabled:
+#' \itemize{
+#'   \item Individual-level matrix is aggregated to group-level matrix 
+#'         (computing mean relationship coefficients between groups)
+#'   \item For \code{"Family"} grouping, founders without family assignment are excluded
+#'   \item For other grouping columns, NA values are assigned to \code{"Unknown"} group
+#' }
+#' This is useful for analyzing the structure of large populations.
+#'
+#' @param labelcex Numeric. Manual control for font size of individual labels. 
+#' If \code{NULL} (default), uses dynamic font size that adjusts automatically 
+#' based on matrix dimensions (range 0.2-0.7). For matrices with more than 500 
+#' individuals, labels are automatically hidden.
+#'
+#' @param ... Additional arguments passed to the plotting function:
+#' \itemize{
+#'   \item Heatmap uses \code{\link[lattice]{levelplot}}: can set \code{main},
+#'         \code{xlab}, \code{ylab}, \code{col.regions}, \code{colorkey},
+#'         \code{scales}, etc.
+#'   \item Histogram uses \code{\link[lattice]{histogram}}: can set \code{main},
+#'         \code{xlab}, \code{ylab}, \code{nint} (number of bins), etc.
+#' }
+#'
+#' @details
+#' \subsection{Visualization Types}{
+#' 
+#' \strong{Heatmap}:
+#' \itemize{
+#'   \item Uses Nature Genetics style color palette (white to orange to red to dark red)
+#'   \item Hierarchical clustering reordering is enabled by default to group similar individuals
+#'   \item Matrix[1,1] is displayed at top-left corner
+#'   \item Grid lines shown when N <= 100
+#'   \item Individual labels shown when N <= 500
+#' }
+#' 
+#' \strong{Histogram}:
+#' \itemize{
+#'   \item Shows distribution of lower triangular elements (excluding diagonal)
+#'   \item X-axis: relationship coefficient values; Y-axis: frequency percentage
+#'   \item Useful for checking population inbreeding levels and kinship structure
+#' }
+#' }
+#'
+#' \subsection{Performance Considerations}{
+#' \itemize{
+#'   \item N > 2000: Hierarchical clustering reordering is automatically skipped
+#'   \item N > 500: Individual labels are automatically hidden
+#'   \item N > 100: Grid lines are automatically hidden
+#'   \item Grouping functionality uses optimized matrix algebra, suitable for large matrices
+#' }
+#' }
+#'
+#' \subsection{Interpreting Relationship Coefficients}{
+#' For additive relationship matrix A:
+#' \itemize{
+#'   \item Diagonal elements = 1 + F (where F is the inbreeding coefficient)
+#'   \item Off-diagonal elements = 2 x kinship coefficient
+#'   \item Value 0: No relationship (unrelated)
+#'   \item Value 0.25: Half-sibs or grandparent-grandchild
+#'   \item Value 0.5: Full-sibs or parent-offspring
+#'   \item Value 1.0: Same individual
+#' }
+#' }
+#'
+#' @return Invisibly returns the \code{lattice} plot object. The plot is 
+#' generated on the current graphics device.
+#'
+#' @seealso 
+#' \code{\link{pedmatrix}} for computing relationship matrices
+#' \code{\link{tidyped}} for tidying pedigree data
+#' \code{\link{visped}} for visualizing pedigree structure graphs
+#' \code{\link[lattice]{levelplot}} underlying plotting function for heatmaps
+#' \code{\link[lattice]{histogram}} underlying plotting function for histograms
+#'
+#' @examples
+#' # ============================================================
+#' # Basic Usage
+#' # ============================================================
+#' 
+#' # Load example data
+#' data(simple_ped)
+#' ped <- tidyped(simple_ped)
+#' 
+#' # Method 1: Plot directly from tidyped object (auto-computes A matrix)
+#' vismat(ped)
+#' 
+#' # Method 2: Plot from pedmatrix object
+#' A <- pedmatrix(ped, method = "A")
+#' vismat(A)
+#' 
+#' # Method 3: Plot from plain matrix
+#' A_dense <- as.matrix(A)
+#' vismat(A_dense)
+#' 
+#' # ============================================================
+#' # Heatmap Customization
+#' # ============================================================
+#' 
+#' # Custom title and axis labels
+#' vismat(A, main = "Additive Relationship Matrix", xlab = "Individual", ylab = "Individual")
+#' 
+#' # Disable clustering reorder (preserve original order)
+#' vismat(A, reorder = FALSE)
+#' 
+#' # Custom label font size
+#' vismat(A, labelcex = 0.5)
+#' 
+#' # Custom color palette (blue-white-red)
+#' vismat(A, col.regions = colorRampPalette(c("blue", "white", "red"))(100))
+#' 
+#' # ============================================================
+#' # Select Specific Individuals
+#' # ============================================================
+#' 
+#' # Display only a subset of individuals
+#' target_ids <- rownames(A)[1:8]
+#' vismat(A, ids = target_ids)
+#' 
+#' # ============================================================
+#' # Histogram Visualization
+#' # ============================================================
+#' 
+#' # Relationship coefficient distribution histogram
+#' vismat(A, type = "histogram")
+#' 
+#' # Custom number of bins
+#' vismat(A, type = "histogram", nint = 30)
+#' 
+#' # ============================================================
+#' # Group Aggregation (for large populations)
+#' # ============================================================
+#' 
+#' # Group by generation
+#' vismat(A, ped = ped, grouping = "Gen", 
+#'        main = "Mean Relationship Between Generations")
+#' 
+#' # Group by family (if pedigree has Family column)
+#' # vismat(A, ped = ped, grouping = "Family")
+#' 
+#' # ============================================================
+#' # Different Types of Relationship Matrices
+#' # ============================================================
+#' 
+#' # Dominance relationship matrix
+#' D <- pedmatrix(ped, method = "D")
+#' vismat(D, main = "Dominance Relationship Matrix")
+#' 
+#' # Inbreeding coefficient distribution (diagonal elements - 1)
+#' A_mat <- as.matrix(A)
+#' f_values <- diag(A_mat) - 1
+#' hist(f_values, main = "Inbreeding Coefficient Distribution", xlab = "Inbreeding (F)")
+#' 
 #' @export
 #'
 #' @importFrom grDevices colorRampPalette
@@ -33,20 +204,57 @@
 #' @importFrom lattice levelplot panel.levelplot panel.abline histogram
 #' @importFrom data.table as.data.table
 vismat <- function(mat, ped = NULL, type = "heatmap", ids = NULL, reorder = TRUE, grouping = NULL, labelcex = NULL, ...) {
-  # 0. If input is a tidyped object, calculate A first
+  # 0a. Extract ped from pedmatrix object if available
+  is_pedmatrix <- inherits(mat, "pedmatrix") || !is.null(attr(mat, "pedmatrix_S4"))
+  if (is_pedmatrix) {
+    # Check for inverse matrices - not supported for visualization
+    ci <- attr(mat, "call_info")
+    if (!is.null(ci) && ci$method[1] %in% c("Ainv", "Dinv", "AAinv")) {
+      stop(sprintf(
+        paste0("vismat() does not support inverse matrices (%s). ",
+               "Inverse matrix elements do not represent meaningful relationship ",
+               "coefficients for visualization."),
+        ci$method[1]
+      ), call. = FALSE)
+    }
+    
+    if (is.null(ped)) {
+      ped <- attr(mat, "ped")
+    }
+    # Strip pedmatrix class to get raw matrix
+    if (inherits(mat, "pedmatrix")) {
+      class(mat) <- setdiff(class(mat), "pedmatrix")
+    }
+  }
+  
+  # 0b. If input is a tidyped object, calculate A first
   if (inherits(mat, "tidyped")) {
     ped <- mat
     res <- pedmatrix(ped, method = "A")
-    if (is.list(res) && "A" %in% names(res)) {
-      mat <- res$A
-    } else {
-      mat <- res
+    # Now res is a pure matrix with pedmatrix class
+    if (is.null(ped)) {
+      ped <- attr(res, "ped")
     }
+    class(res) <- setdiff(class(res), "pedmatrix")
+    mat <- res
   }
 
   # 1. Handle list input from pedmatrix
   if (is.list(mat) && !is.matrix(mat) && !inherits(mat, "Matrix")) {
-    preferred <- c("A", "D", "AA", "Ainv")
+    # Reject inverse matrices - primarily via list element names
+    # Note: Due to S4 Matrix limitations, unnamed/custom-named lists may bypass this check
+    inverse_methods <- c("Ainv", "Dinv", "AAinv")
+    
+    # Check list element names
+    has_inverse_name <- any(names(mat) %in% inverse_methods)
+    
+    if (has_inverse_name) {
+      stop("vismat() does not support inverse matrices (Ainv/Dinv/AAinv). ",
+           "Inverse matrix elements do not represent meaningful relationship coefficients. ",
+           "Please use pedmatrix() with method='A', 'D', or 'AA' instead.")
+    }
+    
+    preferred <- c("A", "D", "AA")
     found <- intersect(preferred, names(mat))
     if (length(found) > 0) {
       target_name <- found[1]
@@ -125,10 +333,40 @@ vismat <- function(mat, ped = NULL, type = "heatmap", ids = NULL, reorder = TRUE
     mat_ids <- rownames(mat)
     if (is.null(mat_ids)) stop("Matrix must have row names for grouping.")
 
-    mat_grps <- mapping[match(mat_ids, id), grp]
+    # Match matrix IDs to pedigree
+    match_idx <- match(mat_ids, mapping$id)
+    if (any(is.na(match_idx))) {
+      warning("Some individuals in matrix not found in pedigree. They will be assigned to 'Unknown' group.")
+    }
+    
+    # Extract groups (may contain NA if grouping column has NA values)
+    mat_grps <- mapping[match_idx, grp]
+    
+    # Handle NA groups
     if (any(is.na(mat_grps))) {
-      warning("Some individuals in matrix not found in pedigree. Using 'Unknown' group.")
-      mat_grps[is.na(mat_grps)] <- "Unknown"
+      n_na <- sum(is.na(mat_grps))
+      
+      # For Family grouping, exclude NA individuals (founders without family)
+      if (grouping == "Family") {
+        na_idx <- which(is.na(mat_grps))
+        na_ids <- mat_ids[na_idx]
+        message(sprintf(
+          "Note: Excluding %d founder(s) with no family assignment: %s%s",
+          n_na, 
+          paste(head(na_ids, 5), collapse = ", "),
+          if (n_na > 5) sprintf(" (and %d more)", n_na - 5) else ""
+        ))
+        
+        # Remove NA individuals from matrix and grouping
+        mat <- mat[-na_idx, -na_idx, drop = FALSE]
+        mat_grps <- mat_grps[-na_idx]
+        mat_ids <- mat_ids[-na_idx]
+      } else {
+        # For other grouping columns, assign to 'Unknown' group
+        message(sprintf("Note: %d individual(s) have NA in '%s' column. Assigning to 'Unknown' group.", 
+                        n_na, grouping))
+        mat_grps[is.na(mat_grps)] <- "Unknown"
+      }
     }
 
     # Aggregate: Mean relationship between groups
@@ -147,28 +385,73 @@ vismat <- function(mat, ped = NULL, type = "heatmap", ids = NULL, reorder = TRUE
 
     message(sprintf("Aggregating %d individuals into %d groups based on '%s'...", nrow(mat), n_grp, grouping))
 
-    agg_mat <- matrix(0, nrow = n_grp, ncol = n_grp, dimnames = list(grps_unique, grps_unique))
-
-    # Vectorized aggregation using tapply-style indexing
-    # Pre-compute all indices for efficiency
-    idx_list <- lapply(grps_unique, function(g) which(mat_grps == g))
+    # Optimized aggregation using matrix algebra instead of nested loops
+    # This is O(n * n_grp) instead of O(n_grp^2 * avg_group_size^2)
     
-    # Efficient aggregation for both dense and sparse matrices
-    for (i in seq_len(n_grp)) {
-      idx_i <- idx_list[[i]]
-      for (j in i:n_grp) {
-        idx_j <- idx_list[[j]]
-        # Extract sub-block and compute mean safely
-        sub_block <- mat[idx_i, idx_j, drop = FALSE]
-        val <- mean(as.matrix(sub_block), na.rm = TRUE)
-
-        # Ensure value is finite
-        if (!is.finite(val)) val <- 0
-
-        agg_mat[i, j] <- val
-        if (i != j) agg_mat[j, i] <- val  # Symmetry
+    # Create group membership matrix (n x n_grp indicator matrix)
+    grp_factor <- factor(mat_grps, levels = grps_unique)
+    n <- nrow(mat)
+    
+    # Count members per group for averaging
+    grp_sizes <- tabulate(grp_factor, nbins = n_grp)
+    
+    # For very large matrices with many groups, use block-wise aggregation
+    # to avoid memory issues while being much faster than element-wise loops
+    if (n > 10000 && n_grp > 100) {
+      message("  Using memory-efficient block aggregation for large matrix...")
+      
+      # Pre-compute group indices once
+      idx_list <- split(seq_len(n), grp_factor)
+      
+      # Initialize result matrix
+      agg_mat <- matrix(0, nrow = n_grp, ncol = n_grp, 
+                        dimnames = list(grps_unique, grps_unique))
+      
+      # Process in row blocks for memory efficiency
+      # Aggregate row sums first, then column sums
+      for (i in seq_len(n_grp)) {
+        idx_i <- idx_list[[i]]
+        n_i <- length(idx_i)
+        
+        # Extract rows for group i (sparse-friendly)
+        rows_i <- mat[idx_i, , drop = FALSE]
+        
+        # Sum across columns for each target group
+        for (j in i:n_grp) {
+          idx_j <- idx_list[[j]]
+          n_j <- length(idx_j)
+          
+          # Extract the subblock and compute sum (faster than mean on subblocks)
+          sub_sum <- sum(rows_i[, idx_j, drop = FALSE])
+          agg_mat[i, j] <- sub_sum / (n_i * n_j)
+          if (i != j) agg_mat[j, i] <- agg_mat[i, j]
+        }
       }
+    } else {
+      # For smaller matrices, use direct vectorized approach
+      # Convert to dense if sparse (for small matrices this is fine)
+      mat_dense <- as.matrix(mat)
+      
+      # Use rowsum for fast aggregation: first sum rows within groups
+      # rowsum(mat, group) gives sum of rows for each group
+      row_agg <- rowsum(mat_dense, grp_factor, reorder = TRUE)  # n_grp x n
+      
+      # Then sum columns within groups
+      agg_sum <- rowsum(t(row_agg), grp_factor, reorder = TRUE)  # n_grp x n_grp
+      agg_sum <- t(agg_sum)
+      
+      # Compute mean by dividing by group size products
+      size_mat <- outer(grp_sizes, grp_sizes)
+      agg_mat <- agg_sum / size_mat
+      
+      # Ensure symmetry and proper naming
+      agg_mat <- (agg_mat + t(agg_mat)) / 2
+      dimnames(agg_mat) <- list(grps_unique, grps_unique)
     }
+    
+    # Ensure all values are finite
+    agg_mat[!is.finite(agg_mat)] <- 0
+    
     mat <- agg_mat
     # Note: User's reorder setting is preserved for grouped matrices
 
@@ -243,6 +526,13 @@ vismat <- function(mat, ped = NULL, type = "heatmap", ids = NULL, reorder = TRUE
     # Histogram of relationship coefficients
     # Useful for checking the range of inbreeding/kinship
     dots <- list(...)
+    
+    # Convert to regular matrix if sparse (Matrix package)
+    # This ensures lower.tri() works correctly
+    if (inherits(mat, "Matrix")) {
+      mat <- as.matrix(mat)
+    }
+    
     vals <- as.numeric(mat[lower.tri(mat)])
     
     if (!"main" %in% names(dots)) dots$main <- "Distribution of Relationship Coefficients (Kinship)"

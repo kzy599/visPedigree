@@ -11,15 +11,6 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
-// hello_world
-void hello_world();
-RcppExport SEXP _visPedigree_hello_world() {
-BEGIN_RCPP
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    hello_world();
-    return R_NilValue;
-END_RCPP
-}
 // cpp_calculate_inbreeding
 List cpp_calculate_inbreeding(IntegerVector sire, IntegerVector dam);
 RcppExport SEXP _visPedigree_cpp_calculate_inbreeding(SEXP sireSEXP, SEXP damSEXP) {
@@ -156,7 +147,6 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_visPedigree_hello_world", (DL_FUNC) &_visPedigree_hello_world, 0},
     {"_visPedigree_cpp_calculate_inbreeding", (DL_FUNC) &_visPedigree_cpp_calculate_inbreeding, 2},
     {"_visPedigree_cpp_build_ainv_triplets", (DL_FUNC) &_visPedigree_cpp_build_ainv_triplets, 3},
     {"_visPedigree_cpp_calculate_A", (DL_FUNC) &_visPedigree_cpp_calculate_A, 2},

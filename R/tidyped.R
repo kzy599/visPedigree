@@ -14,9 +14,15 @@
 #' @param genmethod A character value specifying the generation assignment method: "\strong{top}" or "\strong{bottom}". "top" (top-aligned) assigns generations from parents to offspring, starting founders at Gen 1. "bottom" (bottom-aligned) assigns generations from offspring to parents, aligning terminal nodes at the bottom. Default is "top".
 #' @param ... Additional arguments passed to \code{\link{inbreed}}.
 #' 
-#' @return A \code{tidyped} object (which inherits from \code{data.table}). Individual, sire, and dam ID columns are renamed to \strong{Ind}, \strong{Sire}, and \strong{Dam}. Missing parents are replaced with \strong{NA}. The \strong{Sex} column contains "male", "female", or NA. The \strong{Cand} column is included if \code{cand} is not NULL. The \strong{Gen} column is included if \code{addgen} is TRUE. The \strong{IndNum}, \strong{SireNum}, and \strong{DamNum} columns are included if \code{addnum} is TRUE. The \strong{f} column is included if \code{inbreed} is TRUE.
+#' @return A \code{tidyped} object (which inherits from \code{data.table}). Individual, sire, and dam ID columns are renamed to \strong{Ind}, \strong{Sire}, and \strong{Dam}. Missing parents are replaced with \strong{NA}. The \strong{Sex} column contains "male", "female", or NA. The \strong{Cand} column is included if \code{cand} is not NULL. The \strong{Gen} column is included if \code{addgen} is TRUE. The \strong{IndNum}, \strong{SireNum}, and \strong{DamNum} columns are included if \code{addnum} is TRUE. The \strong{Family} and \strong{FamilySize} columns identify full-sibling families (e.g., "A x B" for offspring of sire A and dam B). The \strong{f} column is included if \code{inbreed} is TRUE.
 #' 
-#' @seealso \code{\link{summary.tidyped}}
+#' @seealso 
+#' \code{\link{summary.tidyped}} for summarizing tidyped objects
+#' \code{\link{visped}} for visualizing pedigree structure
+#' \code{\link{pedmatrix}} for computing relationship matrices
+#' \code{\link{vismat}} for visualizing relationship matrices
+#' \code{\link{splitped}} for splitting pedigree into connected components
+#' \code{\link{inbreed}} for calculating inbreeding coefficients
 #'
 #' @examples
 #' library(visPedigree)
@@ -141,6 +147,19 @@ tidyped <- function(ped,
     ped_dt[, DamNum := match(Dam, Ind, nomatch = 0)]
   }
   
+  # 8.5. Add Family identification (full-sibling families)
+  # Create family identifier based on parent combination
+  ped_dt[, Family := ifelse(
+    !is.na(Sire) & !is.na(Dam),
+    paste0(Sire, "x", Dam),
+    NA_character_
+  )]
+  
+  # Calculate family sizes
+  ped_dt[, FamilySize := .N, by = Family]
+  # Individuals without both parents have FamilySize = 1
+  ped_dt[is.na(Family), FamilySize := 1L]
+  
   if (!is.null(cand)) {
     ped_dt[, Cand := Ind %in% cand]
   }
@@ -196,14 +215,17 @@ validate_and_prepare_ped <- function(ped) {
     stop("Fatal error: Duplicate Ind IDs with different parents found!")
   }
 
-  # Bisexual parent check
+  # Sex conflict check: same individual appears as both sire and dam
   sires <- unique(ped_dt[!is.na(Sire), Sire])
   dams <- unique(ped_dt[!is.na(Dam), Dam])
   bisexual_parents <- sort(intersect(sires, dams))
   
   if (length(bisexual_parents) > 0) {
-    warning(paste("Bisexual individuals found (both Sire and Dam):", 
-                  paste(bisexual_parents, collapse = ", ")))
+    stop(sprintf(
+      paste0("Sex conflict detected: The following individual(s) appear as both Sire and Dam: %s. ",
+             "This is biologically impossible. Please check and correct the pedigree data."),
+      paste(bisexual_parents, collapse = ", ")
+    ), call. = FALSE)
   }
 
   # Add missing founders
@@ -402,10 +424,18 @@ infer_and_check_sex <- function(ped_dt) {
   sires <- unique(ped_dt[!is.na(Sire), Sire])
   dams <- unique(ped_dt[!is.na(Dam), Dam])
   
-  # Sex conflict check
+  # Note: Sex conflict (same individual as both Sire and Dam) is already checked 
+  # in validate_and_prepare_ped() earlier in the pipeline
+  
+  # Sex conflicts with explicit sex annotation
   sex_conflicts <- ped_dt[(Ind %in% sires & Sex == "female") | (Ind %in% dams & Sex == "male"), Ind]
   if (length(sex_conflicts) > 0) {
-    warning("Potential sex conflicts detected for individuals: ", paste(sex_conflicts, collapse = ", "))
+    stop(sprintf(
+      paste0("Sex annotation conflicts detected for: %s. ",
+             "These individuals have explicit sex that contradicts their role as Sire/Dam. ",
+             "Please check and correct the pedigree data."),
+      paste(sex_conflicts, collapse = ", ")
+    ), call. = FALSE)
   }
   
   # Infer sex from roles

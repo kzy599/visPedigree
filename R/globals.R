@@ -1,3 +1,5 @@
+#' @importFrom Rcpp sourceCpp
+#' @useDynLib visPedigree, .registration = TRUE
 if (getRversion() >= "2.15.1") {
   utils::globalVariables(
     c(
@@ -82,7 +84,32 @@ if (getRversion() >= "2.15.1") {
       "y",
       "..cols",
       "..new_names_edge",
-      "..new_names_node"
+      "..new_names_node",
+      "family_key",
+      "family_label",
+      "family_size",
+      "FamilySize",
+      "FamilyID",
+      "RepInd",
+      "RepIndNum",
+      "IsRepresentative",
+      "IsCompacted",
+      "is_parent",
+      "size_category",
+      "i.Ind",
+      "i.IndNum",
+      "FamilyLabel",
+      "OldIndNum",
+      "OldRepIndNum",
+      "NewNum",
+      "OldNum",
+      "NewSireNum",
+      "NewDamNum",
+      "NewRepIndNum",
+      "NewIndNum",
+      "OrigRepInd"
     )
   )
 }
+
+utils::globalVariables(c('i.SireNum', 'i.DamNum', 'i.Sire', 'i.Dam', 'i.is_parent', 'sort_key', 'n_compressed', 'Family', 'grp'))

@@ -1,19 +1,33 @@
-^packrat/
+# --- 开发工具配置 ---
 ^\.Rprofile$
 ^.*\.Rproj$
 ^\.Rproj\.user$
+^\.vscode$
+^\.github$
+^_pkgdown\.yml$
+^pkgdown$
+^docs$
+
+# --- R 包构建产物 ---
 ^doc$
 ^Meta$
-^DEVELOPMENT\.md$
-^cran-comments\.md$
-^todo.md$
-^todo$
-^\.github$
-^complex_100gen_ped\.rda$
-^manuscript\.md$
 ^visPedigree_.*\.tar\.gz$
-^CRAN-SUBMISSION$
 ^tar_contents\.txt$
-^_pkgdown\.yml$
-^docs$
-^pkgdown$
+
+# --- 临时脚本与测试 (CRAN 不接受非 tests/ 目录下的测试脚本) ---
+^check_.*\.R$
+^test_.*\.R$
+^demo_.*\.R$
+^find_.*\.R$
+^explain_.*\.R$
+^verify_.*\.R$
+
+# --- 临时文档与数据 ---
+^todo\.md$
+^todo$
+^cran-comments\.md$
+^DEVELOPMENT\.md$
+^CODE_REVIEW_FIXES\.md$
+^CRAN-SUBMISSION$
+^manuscript\.md$
+^complex_100gen_ped\.rda$

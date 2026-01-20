@@ -81,7 +81,7 @@ simple_ped[Sire %in% c("0", "*", "NA", NA) |
              Dam %in% c("0", "*", "NA", NA)]
 ```
 Example: If we incorrectly set the female `J0Z167` as the sire of `J2F588`, `tidyped()` will detect this bisexual conflict.
-```{r}
+```{r, error=TRUE}
 x <- data.table::copy(simple_ped)
 x[ID == "J2F588", Sire := "J0Z167"]
 y <- tidyped(x)
@@ -221,7 +221,23 @@ The `summary()` method provides a quick overview of the pedigree statistics, inc
 ```{r summary}
 # Summarize the tidied pedigree
 summary(tidy_simple_ped)
-
-# Summarize with inbreeding info
-summary(tidy_test)
 ```
+
+### 3.8 Splitting large pedigrees {#3.8}
+For extremely large pedigrees, it is sometimes useful to split them into disconnected subsets or "sub-pedigrees". The `splitped()` function automatically detects disconnected components (families that share no ancestors) and splits the pedigree into a list of smaller `tidyped` objects.
+
+```{r splitped}
+# Split the pedigree into components
+sub_pedigrees <- splitped(tidy_simple_ped)
+
+# View summary of the split result
+summary(sub_pedigrees)
+
+# Access a specific sub-pedigree
+# first_sub <- sub_pedigrees[[1]]
+```
+
+---
+**See Also:**
+- `vignette("draw-pedigree", package = "visPedigree")`
+- `vignette("relationship-matrix", package = "visPedigree")`

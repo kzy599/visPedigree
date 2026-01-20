@@ -1,86 +1,288 @@
 #' Genetic Relationship Matrices and Inbreeding Coefficients
 #'
-#' @description Optimized calculation of additive (A), its inverse (Ainv), 
-#' dominance (D) matrices, and inbreeding coefficients (f) using Rcpp and 
-#' Meuwissen & Luo (1992) algorithm.
+#' @description
+#' Optimized calculation of additive (A), dominance (D), epistatic (AA) 
+#' relationship matrices, their inverses, and inbreeding coefficients (f).
+#' Uses Rcpp with Meuwissen & Luo (1992) algorithm for efficient computation.
 #'
-#' @param ped A tidied pedigree (data.table or data.frame).
+#' @param ped A tidied pedigree from \code{\link{tidyped}}. Must be a single
+#'   pedigree, not a splitped object. For splitped results, use 
+#'   \code{pedmatrix(ped_split$GP1, ...)} to process individual groups.
 #' @param method Character, one of:
 #' \itemize{
-#'   \item "f": Inbreeding coefficients
-#'   \item "A": Additive relationship matrix
-#'   \item "Ainv": Inverse of A (Henderson's rules)
-#'   \item "D": Dominance relationship matrix
-#'   \item "Dinv": Inverse of D (see Performance Notes below)
-#'   \item "AA": Additive-by-additive relationship matrix (A # A)
-#'   \item "AAinv": Inverse of AA
+#'   \item \code{"f"}: Inbreeding coefficients (returns named vector)
+#'   \item \code{"A"}: Additive (numerator) relationship matrix
+#'   \item \code{"Ainv"}: Inverse of A using Henderson's rules (O(n) complexity)
+#'   \item \code{"D"}: Dominance relationship matrix
+#'   \item \code{"Dinv"}: Inverse of D (requires matrix inversion)
+#'   \item \code{"AA"}: Additive-by-additive epistatic matrix (A # A)
+#'   \item \code{"AAinv"}: Inverse of AA
 #' }
+#' @param sparse Logical, if \code{TRUE} returns sparse Matrix (recommended for
+#'   large pedigrees). Default is \code{TRUE}.
+#' @param invert_method Character, method for matrix inversion (Dinv/AAinv only):
+#' \itemize{
+#'   \item \code{"auto"}: Auto-detect and use optimal method (default)
+#'   \item \code{"sympd"}: Force Cholesky decomposition (faster for SPD matrices)
+#'   \item \code{"general"}: Force general LU decomposition
+#' }
+#' @param n_threads Integer, reserved for future parallel support. Currently
+#'   the C++ implementation uses all available cores automatically.
+#' @param compact Logical, if \code{TRUE} compacts full-sibling families by
+#'   selecting one representative per family. This dramatically reduces matrix
+#'   dimensions for pedigrees with large full-sib groups. See Details.
 #' 
 #' @details 
-#' 
-#' \strong{General Usage:}
+#' \strong{API Design:}
 #' 
 #' Only a single method may be requested per call. This design prevents
-#' accidental heavy computations and makes the API more explicit. If multiple
-#' results are needed, call \code{pedmatrix()} separately for each method.
+#' accidental heavy computations. If multiple matrices are needed, call
+#' \code{pedmatrix()} separately for each method.
 #'
-#' The function returns the requested matrix or vector directly (not wrapped
-#' in a list).
+#' \strong{Compact Mode (\code{compact = TRUE}):}
+#' 
+#' Full-siblings share identical relationships with all other individuals.
+#' Compact mode exploits this by selecting one representative per full-sib
+
+#' family, dramatically reducing matrix size. For example, a pedigree with
+#' 170,000 individuals might compact to 1,800 unique relationship patterns.
+#' 
+#' Key features:
+#' \itemize{
+#'   \item \code{\link{query_relationship}(x, id1, id2)}: Query any individual
+#'         pair, including merged siblings (automatic lookup)
+#'   \item \code{\link{expand_pedmatrix}(x)}: Restore full matrix dimensions
+#'   \item \code{\link{vismat}(x)}: Visualize directly (auto-detects compact)
+#' }
 #' 
 #' \strong{Performance Notes:}
-#' 
 #' \itemize{
-#'   \item \strong{Ainv}: O(n) complexity using Henderson's direct rules. 
-#'         Highly efficient for all pedigree sizes.
-#'   \item \strong{Dinv/AAinv}: O(n³) complexity using dense matrix inversion. 
-#'         Performance characteristics:
-#'         \itemize{
-#'           \item n < 500: ~10-20 ms (fast, recommended)
-#'           \item n = 1000: ~40-60 ms (acceptable)
-#'           \item n = 2000: ~130-150 ms (with Cholesky optimization)
-#'           \item n > 2000: May become slow and memory intensive
-#'         }
-#'   \item \strong{Optimization}: By default (invert_method="auto"), the function
-#'         automatically detects symmetric positive-definite matrices and uses
-#'         Cholesky decomposition, which is ~2x faster than general LU decomposition.
-#'         D and AA matrices are always symmetric positive-definite, so this
-#'         optimization is always applied.
-#'   \item \strong{Note}: Unlike Ainv which uses direct construction rules,
-#'         Dinv/AAinv requires computing the matrix first and then inverting it. 
-#'         For large pedigrees (n > 2000), consider whether the inverse is truly 
-#'         needed or if alternative formulations are possible.
+#'   \item \strong{Ainv}: O(n) complexity using Henderson's rules. Fast for any size.
+#'   \item \strong{Dinv/AAinv}: O(n³) matrix inversion. Practical limits:
+#'     \itemize{
+#'       \item n < 500: ~10-20 ms
+#'       \item n = 1,000: ~40-60 ms  
+#'       \item n = 2,000: ~130-150 ms
+#'       \item n > 2,000: Consider using \code{compact = TRUE}
+#'     }
+#'   \item \strong{Memory}: Sparse matrices use ~O(nnz) memory; dense use O(n²)
 #' }
-#' 
-#' @param sparse Logical, if TRUE returns sparse Matrix (for Ainv, A, D, AA).
-#' @param invert_method Character, method for matrix inversion (Dinv/AAinv):
-#' \itemize{
-#'   \item "auto": Auto-detect matrix properties and use optimal method (default)
-#'   \item "sympd": Force Cholesky decomposition (symmetric positive-definite)
-#'   \item "general": Force general LU decomposition
-#' }
-#' @param n_threads Integer, number of threads for parallel tasks. Currently
-#' unused; C++ implementation uses all available cores automatically.
 #'
-#' @return Returns the requested object directly:
+#' @return Returns a matrix or vector with S3 class \code{"pedmatrix"}.
+#' 
+#' \strong{Object type by method:}
 #' \itemize{
-#'   \item For "f": Named numeric vector of inbreeding coefficients
-#'   \item For "A", "D", "AA": Matrix (sparse or dense based on \code{sparse})
-#'   \item For "Ainv", "Dinv", "AAinv": Matrix (sparse or dense)
+#'   \item \code{method="f"}: Named numeric vector of inbreeding coefficients
+#'   \item All other methods: Sparse or dense matrix (depending on \code{sparse})
 #' }
+#' 
+#' \strong{S3 Methods:}
+#' \itemize{
+#'   \item \code{print(x)}: Display matrix with metadata header
+#'   \item \code{\link{summary_pedmatrix}(x)}: Detailed statistics (size, compression, mean, density)
+#'   \item \code{dim(x)}, \code{length(x)}, \code{diag(x)}, \code{t(x)}: Standard operations
+#'   \item \code{x[i, j]}: Subsetting (behaves like underlying matrix)
+#'   \item \code{as.matrix(x)}: Convert to base matrix
+#' }
+#' 
+#' \strong{Accessing Metadata (use \code{attr()}, not \code{$}):}
+#' \itemize{
+#'   \item \code{attr(x, "ped")}: The pedigree used (or compact pedigree if \code{compact=TRUE})
+#'   \item \code{attr(x, "ped_compact")}: Compact pedigree (when \code{compact=TRUE})
+#'   \item \code{attr(x, "method")}: Calculation method used
+#'   \item \code{attr(x, "call_info")}: Full calculation metadata (timing, sizes, etc.)
+#'   \item \code{names(attributes(x))}: List all available attributes
+#' }
+#' 
+#' \strong{Additional attributes when \code{compact = TRUE}:}
+#' \itemize{
+#'   \item \code{attr(x, "compact_map")}: data.table mapping individuals to representatives
+#'   \item \code{attr(x, "family_summary")}: data.table summarizing merged families
+#'   \item \code{attr(x, "compact_stats")}: Compression statistics (ratio, n_families, etc.)
+#' }
+#' 
+#' @seealso 
+#' \code{\link{tidyped}} for preparing pedigree data,
+#' \code{\link{query_relationship}} for querying individual pairs,
+#' \code{\link{expand_pedmatrix}} for restoring full dimensions,
+#' \code{\link{vismat}} for visualization,
+#' \code{\link{inbreed}} for simple inbreeding calculation
+#' 
+#' @examples
+#' # Basic usage with small pedigree
+#' library(visPedigree)
+#' tped <- tidyped(small_ped)
+#' 
+#' # --- Inbreeding Coefficients ---
+#' f <- pedmatrix(tped, method = "f")
+#' f["Z1"]  # Inbreeding of individual Z1
+#' 
+#' # --- Additive Relationship Matrix ---
+#' A <- pedmatrix(tped, method = "A")
+#' A["A", "B"]      # Relationship between A and B
+#' diag(A)          # Diagonal = 1 + F (inbreeding)
+#' 
+#' # --- Using summary_pedmatrix() ---
+#' summary_pedmatrix(A)   # Detailed matrix statistics
+#' 
+#' # --- Accessing Metadata ---
+#' attr(A, "ped")              # Original pedigree
+#' attr(A, "method")           # "A"
+#' names(attributes(A))        # All available attributes
+#' 
+#' # --- Compact Mode (for large full-sib families) ---
+#' A_compact <- pedmatrix(tped, method = "A", compact = TRUE)
+#' 
+#' # Query relationships (works for any individual, including merged sibs)
+#' query_relationship(A_compact, "Z1", "Z2")  # Full-sibs Z1 and Z2
+#' 
+#' # View compression statistics
+#' attr(A_compact, "compact_stats")
+#' attr(A_compact, "family_summary")
+#' 
+#' # Expand back to full size
+#' A_full <- expand_pedmatrix(A_compact)
+#' dim(A_full)  # Original dimensions restored
+#' 
+#' # --- Inverse Matrices ---
+#' Ainv <- pedmatrix(tped, method = "Ainv")  # Henderson's rules (fast)
+#' 
+#' # --- Dominance and Epistatic ---
+#' D <- pedmatrix(tped, method = "D")
+#' AA <- pedmatrix(tped, method = "AA")
+#' 
+#' # --- Visualization (requires display device) ---
+#' \dontrun{
+#' vismat(A)                       # Heatmap of relationship matrix
+#' vismat(A_compact)               # Works with compact matrices
+#' vismat(A, grouping = "Gen")     # Group by generation
+#' }
+#' 
+#' @references
+#' Meuwissen, T. H. E., & Luo, Z. (1992). Computing inbreeding coefficients 
+#' in large populations. Genetics Selection Evolution, 24(4), 305-313.
+#' 
+#' Henderson, C. R. (1976). A simple method for computing the inverse of a
+#' numerator relationship matrix used in prediction of breeding values.
+#' Biometrics, 32(1), 69-83.
+#' 
 #' @export
-#'
-#' @importFrom Matrix sparseMatrix diag
-#' @useDynLib visPedigree, .registration = TRUE
-#' @importFrom Rcpp evalCpp
-pedmatrix <- function(ped, method = "f", sparse = TRUE, invert_method = "auto", n_threads = 0) {
-  # Coerce method to character and validate single method behavior
-  if (length(method) != 1) {
-    stop("Only a single 'method' may be requested. Please call pedmatrix() separately for each desired method.")
+pedmatrix <- function(ped, method = "f", sparse = TRUE, invert_method = "auto", 
+                     n_threads = 0, compact = FALSE) {
+  # Check for splitped input - not supported
+
+  if (inherits(ped, "splitped")) {
+    stop(paste0(
+      "pedmatrix() does not support 'splitped' objects directly.\n",
+      "Use lapply() to process each group separately:\n",
+      "  lapply(ped_split[grep('^GP', names(ped_split))], pedmatrix, method = '", 
+      method, "')\n",
+      "Or process a single group: pedmatrix(ped_split$GP1, method = '", method, "')"
+    ), call. = FALSE)
   }
+  
+  # Coerce method to character
   method <- as.character(method)
+  
+  # Only single method allowed
+  if (length(method) != 1) {
+    stop(sprintf(
+      paste0("Only a single method may be requested per call. ",
+             "You requested %d methods: %s. ",
+             "Call pedmatrix() separately for each method."),
+      length(method), paste(method, collapse = ", ")
+    ), call. = FALSE)
+  }
+  
+  # Validate method
+  all_methods <- c("f", "A", "Ainv", "D", "Dinv", "AA", "AAinv")
+  if (!method %in% all_methods) {
+    stop(sprintf("Invalid method: '%s'. Valid methods: %s", 
+                 method, paste(all_methods, collapse = ", ")), call. = FALSE)
+  }
   
   # Validate invert_method
   invert_method <- match.arg(invert_method, c("auto", "sympd", "general"))
+  
+  # Store original pedigree N for call_info
+  n_original <- if (inherits(ped, "tidyped")) nrow(ped) else {
+    # Check if it's a data.frame/table before calling nrow
+    if (is.data.frame(ped)) nrow(ped) else NA_integer_
+  }
+
+  # Handle compact mode
+  if (compact) {
+    # Store original pedigree for metadata
+    ped_original <- if (inherits(ped, "tidyped")) ped else tidyped(ped, addnum = TRUE)
+    n_original <- nrow(ped_original)
+
+    # Compact the pedigree
+    compact_result <- compact_ped_for_matrix(ped_original)
+    
+    # For D/AA queries in compact mode, we also need A matrix for full-sibling calculations
+    needs_A <- method %in% c("D", "AA")
+    
+    # Calculate the requested method
+    result <- pedmatrix(
+      ped = compact_result$ped_compact,
+      method = method,
+      sparse = sparse,
+      invert_method = invert_method,
+      n_threads = n_threads,
+      compact = FALSE
+    )
+    
+    # If D or AA, extract A matrix from the calculation cache to avoid recomputation
+    # Note: D and AA calculations internally compute A first, so we can reuse it
+    A_matrix <- NULL
+    if (needs_A) {
+      # Try to extract A from the calculation process (if cached)
+      # Otherwise calculate it separately (fallback for safety)
+      A_matrix <- tryCatch({
+        attr(result, "A_intermediate")
+      }, error = function(e) NULL)
+      
+      if (is.null(A_matrix)) {
+        A_matrix <- pedmatrix(
+          ped = compact_result$ped_compact,
+          method = "A",
+          sparse = sparse,
+          compact = FALSE
+        )
+      }
+      # Strip pedmatrix class for storage
+      if (inherits(A_matrix, "pedmatrix")) {
+        class(A_matrix) <- setdiff(class(A_matrix), "pedmatrix")
+      }
+    }
+    
+    # Store A matrix if calculated
+    if (!is.null(A_matrix)) {
+      attr(result, "A_matrix") <- A_matrix
+    }
+    
+    # Update attributes for compaction
+    ci <- attr(result, "call_info")
+    ci$compact <- TRUE
+    ci$n_original <- n_original
+    ci$n_compact <- nrow(compact_result$ped_compact)
+    ci$ped_original <- ped_original  # Save for expand_pedmatrix
+    attr(result, "call_info") <- ci
+    
+    # Add compaction-specific attributes
+    attr(result, "compact_map") <- compact_result$compact_map
+    attr(result, "family_summary") <- compact_result$family_summary
+    attr(result, "compact_stats") <- compact_result$compact_stats
+    
+    # Mark result as pedmatrix for compact mode
+  if (isS4(result)) {
+    attr(result, "pedmatrix_S4") <- TRUE
+  } else {
+    class(result) <- c("pedmatrix", class(result))
+  }
+  
+  return(result)
+  }
 
   # 1. Standardize pedigree
   if (!inherits(ped, "tidyped")) {
@@ -94,6 +296,7 @@ pedmatrix <- function(ped, method = "f", sparse = TRUE, invert_method = "auto", 
   sire <- ped$SireNum
   dam <- ped$DamNum
   n <- nrow(ped)
+  n_original <- n
   
   # Use a named list to store results
   output <- list()
@@ -163,6 +366,10 @@ pedmatrix <- function(ped, method = "f", sparse = TRUE, invert_method = "auto", 
     } else if (m == "D") {
       D_mat <- get_D_dense()
       output$D <- if (sparse) Matrix::Matrix(D_mat, sparse = TRUE) else D_mat
+      # Store A matrix for compact mode reuse (on output list, not S4 matrix)
+      if (!is.null(cache$A_dense)) {
+        output$A_intermediate_D <- cache$A_dense
+      }
       
     } else if (m == "Dinv") {
       D_mat <- get_D_dense()
@@ -176,6 +383,10 @@ pedmatrix <- function(ped, method = "f", sparse = TRUE, invert_method = "auto", 
     } else if (m == "AA") {
       AA_mat <- get_AA_dense()
       output$AA <- if (sparse) Matrix::Matrix(AA_mat, sparse = TRUE) else AA_mat
+      # Store A matrix for compact mode reuse (on output list, not S4 matrix)
+      if (!is.null(cache$A_dense)) {
+        output$A_intermediate_AA <- cache$A_dense
+      }
 
     } else if (m == "AAinv") {
       AA_mat <- get_AA_dense()
@@ -214,10 +425,944 @@ pedmatrix <- function(ped, method = "f", sparse = TRUE, invert_method = "auto", 
     }
   }
 
-  # If a single method was requested, simplify return to direct object
-  if (length(active_methods) == 1) {
-    return(output[[active_methods]])
+  # Construct return object: ALWAYS return pure matrix/vector
+  # All metadata stored in attributes
+  result <- if (length(active_methods) == 1) {
+    output[[active_methods]]
+  } else {
+    # Multiple methods: return named list
+    output
   }
-
-  return(output)
+  
+  # Transfer A_intermediate from output list to result attributes (if exists)
+  # This is for compact mode reuse
+  if (length(active_methods) == 1) {
+    if (active_methods == "D" && !is.null(output$A_intermediate_D)) {
+      attr(result, "A_intermediate") <- output$A_intermediate_D
+    } else if (active_methods == "AA" && !is.null(output$A_intermediate_AA)) {
+      attr(result, "A_intermediate") <- output$A_intermediate_AA
+    }
+  }
+  
+  # Attach call information
+  attr(result, "call_info") <- list(
+    method = if(length(active_methods) == 1) active_methods else names(output),
+    sparse = sparse,
+    compact = FALSE,  # This branch is never compact
+    n_original = n_original,
+    n_compact = n_original,
+    timestamp = Sys.time()
+  )
+  
+  # Attach the pedigree used for calculation
+  attr(result, "ped") <- ped
+  
+  # Store all methods if multiple were calculated
+  if (length(active_methods) > 1) {
+    attr(result, "mat_all") <- output
+  }
+  
+  # Set S3 class - but only for non-S4 objects
+  # For S4 objects (like Matrix), we keep them as-is and add pedmatrix_S4 marker
+  if (isS4(result)) {
+    attr(result, "pedmatrix_S4") <- TRUE
+  } else {
+    class(result) <- c("pedmatrix", class(result))
+  }
+  
+  return(result)
 }
+
+
+#' Compact pedigree by merging full siblings for matrix calculation
+#' 
+#' @description
+#' This internal function identifies full siblings (individuals sharing the same
+#' sire and dam) and selects one representative per family. This can dramatically
+#' reduce memory requirements when calculating relationship matrices for pedigrees
+#' with large full-sibling families.
+#' 
+#' @param ped A tidyped object or pedigree data.
+#' 
+#' @return A list containing:
+#' \itemize{
+#'   \item \code{ped_compact}: The compacted pedigree (tidyped object)
+#'   \item \code{compact_map}: Individual-level mapping table
+#'   \item \code{family_summary}: Family-level summary table
+#'   \item \code{compact_stats}: Compression statistics
+#' }
+#' 
+#' @keywords internal
+compact_ped_for_matrix <- function(ped) {
+  # Ensure tidyped format
+  if (!inherits(ped, "tidyped")) {
+    ped <- tidyped(ped, addnum = TRUE)
+  }
+  
+  ped_dt <- data.table::copy(ped)
+  n_original <- nrow(ped_dt)
+  
+  # Step 1: Create family identifiers
+  # Using numeric keys for uniqueness and efficiency
+  ped_dt[, family_key := paste(SireNum, DamNum, sep = "_")]
+  ped_dt[SireNum == 0 | DamNum == 0, family_key := NA_character_]
+  
+  # Step 2: Create human-readable family labels
+  ped_dt[!is.na(family_key), family_label := paste0(Sire, "x", Dam)]
+  
+  # Step 3: Calculate family sizes
+  ped_dt[!is.na(family_key), family_size := .N, by = family_key]
+  ped_dt[is.na(family_key), family_size := 1L]
+  
+  # Step 4: Identify individuals who are parents
+  # Parents must be kept because their offspring reference them
+  all_sires <- unique(ped_dt$Sire[!is.na(ped_dt$Sire) & ped_dt$Sire != ""])
+  all_dams <- unique(ped_dt$Dam[!is.na(ped_dt$Dam) & ped_dt$Dam != ""])
+  all_parents <- unique(c(all_sires, all_dams))
+  
+  # Mark who is a parent
+  ped_dt[, is_parent := Ind %in% all_parents]
+  
+  # Step 5: Identify full-sibling families (family_size >= 2)
+  fullsib_families <- ped_dt[!is.na(family_key) & family_size >= 2]
+  
+  if (nrow(fullsib_families) == 0) {
+    # No full-sibling families to compact
+    return(list(
+      ped_compact = ped_dt,
+      compact_map = data.table(
+        Ind = ped_dt$Ind,
+        IndNum = ped_dt$IndNum,
+        RepInd = ped_dt$Ind,
+        RepIndNum = ped_dt$IndNum,
+        FamilyID = NA_character_,
+        SireNum = ped_dt$SireNum,
+        DamNum = ped_dt$DamNum,
+        Sire = ped_dt$Sire,
+        Dam = ped_dt$Dam,
+        FamilyLabel = NA_character_,
+        FamilySize = 1L,
+        IsRepresentative = TRUE,
+        IsCompacted = FALSE
+      ),
+      family_summary = data.table(),
+      compact_stats = list(
+        n_original = n_original,
+        n_compact = n_original,
+        n_removed = 0L,
+        n_families_compacted = 0L,
+        compression_ratio = 1.0,
+        memory_saved_pct = 0.0
+      )
+    ))
+  }
+  
+  # Step 6: For each family, select representative
+  # Strategy: 
+  # - If family has parent members: choose first parent as representative
+  # - If family has no parents: choose first non-parent as representative
+  # - All parent members are kept (never removed)
+  # - Non-parent, non-representative members are removed
+  
+  representatives <- fullsib_families[, {
+    parent_members <- .SD[is_parent == TRUE]
+    non_parent_members <- .SD[is_parent == FALSE]
+    
+    if (nrow(parent_members) > 0) {
+      # Choose first parent as representative
+      list(RepInd = parent_members$Ind[1],
+           RepIndNum = parent_members$IndNum[1])
+    } else {
+      # Choose first non-parent as representative
+      list(RepInd = non_parent_members$Ind[1],
+           RepIndNum = non_parent_members$IndNum[1])
+    }
+  }, by = family_key]
+  
+  # Step 7: Create family lookup table with FamilyID
+  family_lookup <- fullsib_families[, .(
+    SireNum = first(SireNum),
+    DamNum = first(DamNum),
+    Sire = first(Sire),
+    Dam = first(Dam),
+    FamilyLabel = first(family_label),
+    FamilySize = .N,
+    Gen = first(Gen)
+  ), by = family_key]
+  
+  family_lookup[, FamilyID := sprintf("F%04d", .I)]
+  
+  # Add representative information
+  family_lookup <- representatives[family_lookup, on = "family_key"]
+  
+  # Step 8: Build compact_map for ALL individuals
+  # For full-sibling families, map to representative
+  # Key rule: Parents are ALWAYS kept, non-parent non-representatives are removed
+  
+  compact_map_fullsibs <- family_lookup[fullsib_families, on = "family_key",
+    .(Ind = i.Ind,
+      OldIndNum = i.IndNum,
+      RepInd = RepInd,
+      OldRepIndNum = RepIndNum,
+      FamilyID = FamilyID,
+      SireNum = i.SireNum,
+      DamNum = i.DamNum,
+      Sire = i.Sire,
+      Dam = i.Dam,
+      FamilyLabel = FamilyLabel,
+      FamilySize = FamilySize,
+      is_parent = i.is_parent,
+      IsRepresentative = (i.Ind == RepInd),
+      IsCompacted = TRUE)
+  ]
+  
+  # Add non-compacted individuals (not in any full-sibling family)
+  non_fullsibs <- ped_dt[is.na(family_key) | family_size < 2]
+  compact_map_others <- data.table(
+    Ind = non_fullsibs$Ind,
+    OldIndNum = non_fullsibs$IndNum,
+    RepInd = non_fullsibs$Ind,
+    OldRepIndNum = non_fullsibs$IndNum,
+    FamilyID = NA_character_,
+    SireNum = non_fullsibs$SireNum,
+    DamNum = non_fullsibs$DamNum,
+    Sire = non_fullsibs$Sire,
+    Dam = non_fullsibs$Dam,
+    FamilyLabel = NA_character_,
+    FamilySize = 1L,
+    is_parent = non_fullsibs$is_parent,
+    IsRepresentative = TRUE,
+    IsCompacted = FALSE
+  )
+  
+  compact_map <- rbind(compact_map_fullsibs, compact_map_others)
+  data.table::setorder(compact_map, OldIndNum)
+  
+  # Step 9: Create compacted pedigree
+  # Remove rule: Non-parent AND non-representative individuals
+  # Keep rule: All parents + representatives
+  remove_ids <- compact_map[is_parent == FALSE & IsRepresentative == FALSE, OldIndNum]
+  ped_compact <- ped_dt[!(IndNum %in% remove_ids)]
+  data.table::setorder(ped_compact, IndNum)
+  
+  # CRITICAL: Renumber IndNum to be consecutive (1, 2, 3, ...)
+  # C++ code expects IndNum to be consecutive indices starting from 1
+  old_to_new_map <- data.table(
+    OldNum = ped_compact$IndNum,
+    NewNum = seq_len(nrow(ped_compact))
+  )
+  
+  # Update compact_map: map OldRepIndNum to NewRepIndNum
+  compact_map <- old_to_new_map[compact_map, on = c(OldNum = "OldRepIndNum")]
+  setnames(compact_map, "NewNum", "RepIndNum")
+  compact_map[, OldNum := NULL]
+  
+  # Update SireNum and DamNum in compact_map to match compact matrix indices
+  # First SireNum
+  compact_map <- old_to_new_map[compact_map, on = c(OldNum = "SireNum")]
+  setnames(compact_map, "NewNum", "SireNum")
+  compact_map[is.na(SireNum), SireNum := 0L] # Handle founders / missing from map
+  compact_map[, OldNum := NULL]
+  
+  # Then DamNum
+  compact_map <- old_to_new_map[compact_map, on = c(OldNum = "DamNum")]
+  setnames(compact_map, "NewNum", "DamNum")
+  compact_map[is.na(DamNum), DamNum := 0L]
+  compact_map[, OldNum := NULL]
+  
+  # Also store old IndNum for reference
+  setnames(compact_map, "OldIndNum", "IndNum")
+  
+  # Update ped_compact: renumber IndNum, SireNum, DamNum
+  ped_compact[, OldIndNum := IndNum]
+  ped_compact <- old_to_new_map[ped_compact, on = c(OldNum = "OldIndNum")]
+  ped_compact[, IndNum := NewNum]
+  ped_compact[, c("NewNum", "OldNum") := NULL]
+  
+  # Update SireNum
+  old_to_new_sire <- copy(old_to_new_map)
+  setnames(old_to_new_sire, c("OldSireNum", "NewSireNum"))
+  ped_compact <- old_to_new_sire[ped_compact, on = c(OldSireNum = "SireNum")]
+  ped_compact[!is.na(NewSireNum), SireNum := NewSireNum]
+  ped_compact[is.na(NewSireNum), SireNum := 0L]
+  ped_compact[, c("OldSireNum", "NewSireNum") := NULL]
+  
+  # Update DamNum
+  old_to_new_dam <- copy(old_to_new_map)
+  setnames(old_to_new_dam, c("OldDamNum", "NewDamNum"))
+  ped_compact <- old_to_new_dam[ped_compact, on = c(OldDamNum = "DamNum")]
+  ped_compact[!is.na(NewDamNum), DamNum := NewDamNum]
+  ped_compact[is.na(NewDamNum), DamNum := 0L]
+  ped_compact[, c("OldDamNum", "NewDamNum") := NULL]
+  
+  # Remove OldIndNum if it still exists
+  if ("OldIndNum" %in% names(ped_compact)) {
+    ped_compact[, OldIndNum := NULL]
+  }
+  
+  # Clean up extra columns added during compaction
+  extra_cols <- c("family_key", "family_label", "family_size", "is_parent")
+  for (col in extra_cols) {
+    if (col %in% names(ped_compact)) {
+      ped_compact[, (col) := NULL]
+    }
+  }
+  
+  # Count before tidyped (for accurate statistics)
+  n_before_tidyped <- nrow(ped_compact)
+  
+  # Calculate family compression counts BEFORE tidyped (while we still have compact_map with removed individuals)
+  family_compressed_counts <- compact_map[IsCompacted == TRUE, .(
+    n_compressed = sum(is_parent == FALSE & IsRepresentative == FALSE)
+  ), by = FamilyID]
+  
+  # CRITICAL: Use tidyped to ensure ped_compact is complete and properly numbered
+  # This will add missing parents, renumber everything correctly, and compute Family field
+  ped_compact <- tidyped(ped_compact, addnum = TRUE)
+  
+  # Verify Family and FamilySize columns exist in ped_compact
+  if (!("Family" %in% names(ped_compact))) {
+    warning("Family field missing in compact pedigree. This may cause issues with vismat grouping.")
+  }
+  
+  # After tidyped, rebuild compact_map to include ALL individuals (kept + removed)
+  # Save original compact_map information before rebuilding
+  original_compact_map <- copy(compact_map)
+  
+  # Build compact_map for individuals in ped_compact (kept individuals)
+  kept_compact_map <- ped_compact[, .(
+    Ind,
+    IndNum,
+    SireNum,
+    DamNum,
+    Sire,
+    Dam
+  )]
+  
+  # Merge with original mapping information
+  kept_compact_map <- original_compact_map[kept_compact_map, on = "Ind",
+    .(Ind = i.Ind,
+      IndNum = i.IndNum,
+      SireNum = i.SireNum,
+      DamNum = i.DamNum,
+      Sire = i.Sire,
+      Dam = i.Dam,
+      RepInd = RepInd,
+      FamilyID = FamilyID,
+      FamilyLabel = FamilyLabel,
+      FamilySize = FamilySize,
+      IsCompacted = IsCompacted,
+      is_parent = is_parent,
+      IsRepresentative = IsRepresentative)
+  ]
+  
+  # For individuals added by tidyped (not in original), set defaults
+  kept_compact_map[is.na(RepInd), `:=`(
+    RepInd = Ind,
+    FamilyID = NA_character_,
+    FamilyLabel = NA_character_,
+    FamilySize = 1L,
+    IsCompacted = FALSE,
+    is_parent = TRUE,  # Added by tidyped means they're parents
+    IsRepresentative = TRUE
+  )]
+  
+  # Update RepIndNum based on new numbering in ped_compact
+  rep_num_mapping <- ped_compact[, .(RepInd = Ind, RepIndNum = IndNum)]
+  kept_compact_map <- rep_num_mapping[kept_compact_map, on = "RepInd"]
+  
+  # Build compact_map for removed individuals (not in ped_compact)
+  removed_inds <- original_compact_map[!(Ind %in% ped_compact$Ind)]
+  if (nrow(removed_inds) > 0) {
+    # For removed individuals, keep original info but update RepIndNum
+    removed_compact_map <- removed_inds[, .(
+      Ind,
+      IndNum = NA_integer_,  # No IndNum in ped_compact
+      RepInd,
+      SireNum,
+      DamNum,
+      Sire,
+      Dam,
+      FamilyID,
+      FamilyLabel,
+      FamilySize,
+      IsCompacted,
+      is_parent,
+      IsRepresentative = FALSE  # Removed individuals are never representatives
+    )]
+    
+    # Update RepIndNum for removed individuals
+    removed_compact_map <- rep_num_mapping[removed_compact_map, on = "RepInd"]
+    
+    # Combine kept and removed
+    new_compact_map <- rbind(kept_compact_map, removed_compact_map, fill = TRUE)
+  } else {
+    new_compact_map <- kept_compact_map
+  }
+  
+  # Sort: kept individuals first (by IndNum), then removed individuals (by Ind)
+  new_compact_map[!is.na(IndNum), sort_key := IndNum]
+  new_compact_map[is.na(IndNum), sort_key := 1000000 + seq_len(.N)]
+  data.table::setorder(new_compact_map, sort_key)
+  new_compact_map[, sort_key := NULL]
+  
+  compact_map <- new_compact_map
+  data.table::setorder(compact_map, IndNum)
+  
+  n_compact <- nrow(ped_compact)
+  n_removed <- n_original - n_before_tidyped  # Use pre-tidyped count
+  n_families <- nrow(family_lookup)
+  
+  # Step 9: Calculate statistics
+  compression_ratio <- n_compact / n_original
+  # Memory saved for dense matrix: (n_original^2 - n_compact^2) / n_original^2
+  memory_saved_pct <- (1 - (n_compact / n_original)^2) * 100
+  
+  # By sex statistics
+  sex_stats <- compact_map[, .(
+    n_original = .N,
+    n_compact = sum(IsRepresentative),
+    n_removed = sum(!IsRepresentative)
+  ), by = .(Sex = ifelse(is.na(Sire) & is.na(Dam), "founder", 
+                         ifelse(Sire != "", "with_parents", "unknown")))]
+  
+  # Family size distribution
+  family_size_breaks <- c(0, 2, 10, 50, 100, Inf)
+  family_size_labels <- c("1", "2-10", "11-50", "51-100", "100+")
+  family_lookup[, size_category := cut(FamilySize, 
+                                        breaks = family_size_breaks,
+                                        labels = family_size_labels,
+                                        right = TRUE)]
+  
+  family_size_dist <- family_lookup[, .(
+    n_families = .N,
+    n_individuals_total = sum(FamilySize),
+    n_individuals_removed = sum(FamilySize - 1)
+  ), by = size_category]
+  
+  # Ensure result is not a tidyped object (just a data.table)
+  class(family_size_dist) <- c("data.table", "data.frame")
+  
+  compact_stats <- list(
+    n_original = n_original,
+    n_compact = n_compact,
+    n_removed = n_removed,
+    n_families_compacted = n_families,
+    compression_ratio = compression_ratio,
+    memory_saved_pct = memory_saved_pct,
+    by_sex = sex_stats,
+    family_size_dist = family_size_dist
+  )
+  
+  # Step 10: Prepare final family_summary (update RepIndNum with new numbering)
+  # Match RepInd with the new IndNum from ped_compact
+  rep_num_mapping <- ped_compact[, .(RepInd = Ind, NewRepIndNum = IndNum)]
+  family_summary <- family_lookup[, .(FamilyID, SireNum, DamNum, Sire, Dam, 
+                                      FamilyLabel, FamilySize, RepInd, Gen)]
+  family_summary <- rep_num_mapping[family_summary, on = "RepInd"]
+  setnames(family_summary, "NewRepIndNum", "RepIndNum")
+  
+  # Add n_compressed column using pre-calculated counts (before tidyped)
+  family_summary <- family_compressed_counts[family_summary, on = "FamilyID"]
+  family_summary[is.na(n_compressed), n_compressed := 0L]
+  
+  # Reorder columns for clarity
+  data.table::setcolorder(family_summary, c("FamilyID", "FamilyLabel", "Sire", "Dam",
+                                             "SireNum", "DamNum", "FamilySize", 
+                                             "n_compressed", "RepInd", "RepIndNum", "Gen"))
+  data.table::setorder(family_summary, FamilyID)
+  
+  # Ensure result is not a tidyped object
+  class(family_summary) <- c("data.table", "data.frame")
+  class(compact_map) <- c("data.table", "data.frame")
+  
+  return(list(
+    ped_compact = ped_compact,
+    compact_map = compact_map,
+    family_summary = family_summary,
+    compact_stats = compact_stats
+  ))
+}
+
+
+#' Query Relationship Coefficients from a Pedigree Matrix
+#' 
+#' @description
+#' Retrieves relationship coefficients between individuals from a pedmatrix object.
+#' For compact matrices, automatically handles lookup of merged full-siblings.
+#' 
+#' @param x A pedmatrix object created by \code{\link{pedmatrix}}.
+#' @param id1 Character, first individual ID.
+#' @param id2 Character, second individual ID. If \code{NULL}, returns 
+#'   the entire row of relationships for \code{id1}.
+#' 
+#' @return 
+#' \itemize{
+#'   \item If \code{id2} is provided: numeric value (relationship coefficient)
+#'   \item If \code{id2} is \code{NULL}: named numeric vector (id1's row)
+#'   \item Returns \code{NA} if individual not found
+#' }
+#' 
+#' @details
+#' For compact matrices (\code{compact = TRUE}), this function automatically
+
+#' maps individuals to their family representatives. For methods A, D, and AA,
+#' it can compute the correct relationship even between merged full-siblings
+#' using the formula:
+#' \itemize{
+#'   \item \strong{A}: \eqn{a_{ij} = 0.5 * (a_{is} + a_{id})} where s, d are parents
+#'   \item \strong{D}: \eqn{d_{ij} = a_{ij}^2} (for full-sibs in same family)
+#'   \item \strong{AA}: \eqn{aa_{ij} = a_{ij}^2}
+#' }
+#' 
+#' @note
+#' Inverse matrices (Ainv, Dinv, AAinv) are \strong{not supported} because
+#' inverse matrix elements do not represent meaningful relationship coefficients.
+#' 
+#' @seealso \code{\link{pedmatrix}}, \code{\link{expand_pedmatrix}}
+#' 
+#' @examples
+#' tped <- tidyped(small_ped)
+#' A <- pedmatrix(tped, method = "A", compact = TRUE)
+#' 
+#' # Query specific pair
+#' query_relationship(A, "A", "B")
+#' 
+#' # Query merged full-siblings (works with compact)
+#' query_relationship(A, "Z1", "Z2")
+#' 
+#' # Get all relationships for one individual
+#' query_relationship(A, "A")
+#' 
+#' @export
+query_relationship <- function(x, id1, id2 = NULL) {
+  # Check if x is a pedmatrix (either S3 or S4 with marker)
+  is_pedmatrix <- inherits(x, "pedmatrix") || !is.null(attr(x, "pedmatrix_S4"))
+  if (!is_pedmatrix) {
+    stop("x must be a pedmatrix object")
+  }
+  
+  ci <- attr(x, "call_info")
+  primary_method <- ci$method[1]
+  
+  # Inverse matrices are not supported - their elements don't represent
+  # meaningful relationship coefficients
+  if (primary_method %in% c("Ainv", "Dinv", "AAinv")) {
+    stop(sprintf(
+      paste0("query_relationship() does not support inverse matrices (%s). ",
+             "Inverse matrix elements do not represent meaningful relationship ",
+             "coefficients between individuals."),
+      primary_method
+    ), call. = FALSE)
+  }
+  
+  # Handle vector case (e.g., inbreeding coefficients "f")
+  # For vectors, id2 is ignored - we just look up the value for id1
+  if (primary_method == "f" || (is.numeric(x) && is.null(dim(x)))) {
+    # Strip class for indexing
+    vec <- x
+    if (inherits(vec, "pedmatrix")) {
+      class(vec) <- setdiff(class(vec), "pedmatrix")
+    }
+    
+    if (isTRUE(ci$compact)) {
+      compact_map <- attr(x, "compact_map")
+      map1 <- compact_map[Ind == id1]
+      if (nrow(map1) == 0) return(NA_real_)
+      rep1_idx <- map1$RepIndNum[1]
+      return(vec[rep1_idx])
+    } else {
+      # Non-compact: use names directly
+      if (id1 %in% names(vec)) {
+        return(vec[id1])
+      } else {
+        return(NA_real_)
+      }
+    }
+  }
+  
+  # Get raw matrix (already is the raw matrix)
+  mat <- x
+  if (inherits(mat, "pedmatrix")) {
+    class(mat) <- setdiff(class(mat), "pedmatrix")
+  }
+  
+  # Check if it's compact
+  if (isTRUE(ci$compact)) {
+    compact_map <- attr(x, "compact_map")
+    
+    # Use data.table for fast lookup
+    map1 <- compact_map[Ind == id1]
+    if (nrow(map1) == 0) return(NA_real_)
+    rep1_idx <- map1$RepIndNum[1]
+    rep1_ind <- map1$RepInd[1]
+    
+    if (is.null(id2)) {
+      # Return row for representative
+      # The returned vector keeps the matrix column names (compact pedigree individuals)
+      res <- mat[rep1_idx, ]
+      # Names are already set from matrix colnames, no need to modify
+      return(res)
+    }
+    
+    map2 <- compact_map[Ind == id2]
+    if (nrow(map2) == 0) return(NA_real_)
+    rep2_idx <- map2$RepIndNum[1]
+    rep2_ind <- map2$RepInd[1]
+    
+    # The actual individuals are different but they share the same representative
+    # (Full-sibling case)
+    if (id1 != id2 && rep1_idx == rep2_idx) {
+      repS_idx <- map1$SireNum[1]
+      repD_idx <- map1$DamNum[1]
+      
+      # Helper to get relationship (handling missing parents as 0)
+      # We need A values even if primary_method is D or AA
+      get_A_val <- function(r1, r2) {
+        if (r1 <= 0 || r2 <= 0) return(0.0)
+        
+        # Look for A matrix
+        A_mat <- NULL
+        if (primary_method == "A") {
+            A_mat <- mat
+        } else {
+            # Check for stored A matrix in attributes
+            A_mat <- attr(x, "A_matrix")
+            if (is.null(A_mat)) {
+              mat_all <- attr(x, "mat_all")
+              if (!is.null(mat_all) && !is.null(mat_all$A)) {
+                A_mat <- mat_all$A
+              }
+            }
+        }
+        
+        if (is.null(A_mat)) return(NA_real_)
+        return(A_mat[r1, r2])
+      }
+      
+      A_ss <- get_A_val(repS_idx, repS_idx)
+      if (repS_idx <= 0) A_ss <- 1.0 
+      A_dd <- get_A_val(repD_idx, repD_idx)
+      if (repD_idx <= 0) A_dd <- 1.0
+      A_sd <- get_A_val(repS_idx, repD_idx)
+      
+      
+      # Calculate A_ij
+      if (repS_idx <= 0 && repD_idx <= 0) {
+        res_A <- 0.0
+      } else {
+        res_A <- 0.25 * (A_ss + A_dd + 2 * A_sd)
+      }
+      
+      if (primary_method == "A") return(res_A)
+      
+      # For D: 0.25 * (A_SS * A_DD + A_SD^2)
+      if (primary_method == "D") return(0.25 * (A_ss * A_dd + A_sd^2))
+      
+      # For AA: A_ij^2
+      if (primary_method == "AA") return(res_A^2)
+      
+      return(res_A) 
+    }
+    
+    return(mat[rep1_idx, rep2_idx])
+  } else {
+    # Non-compact: direct indexing
+    if (is.null(id2)) return(mat[id1, ])
+    return(mat[id1, id2])
+  }
+}
+
+#' Expand a Compact Pedigree Matrix to Full Dimensions
+#' 
+#' @description
+#' Restores a compact pedmatrix to its original dimensions by mapping each
+#' individual to their family representative's values. For non-compact matrices,
+#' returns the matrix unchanged.
+#' 
+#' @param x A pedmatrix object from \code{\link{pedmatrix}}.
+#' 
+#' @return 
+#' Matrix or vector with original pedigree dimensions:
+#' \itemize{
+#'   \item Matrices: Row and column names set to all individual IDs
+#'   \item Vectors (e.g., method="f"): Names set to all individual IDs
+#' }
+#' The result is \strong{not} a pedmatrix object (S3 class stripped).
+#' 
+#' @details
+#' For compact matrices, full-siblings within the same family will have
+#' identical relationship values in the expanded matrix because they shared
+#' the same representative during calculation.
+#' 
+#' @seealso \code{\link{pedmatrix}}, \code{\link{query_relationship}}
+#' 
+#' @examples
+#' tped <- tidyped(small_ped)
+#' 
+#' # Compact matrix
+#' A_compact <- pedmatrix(tped, method = "A", compact = TRUE)
+#' dim(A_compact)  # Reduced dimensions
+#' 
+#' # Expand to full size
+#' A_full <- expand_pedmatrix(A_compact)
+#' dim(A_full)  # Original dimensions restored
+#' 
+#' # Non-compact matrices are returned unchanged
+#' A <- pedmatrix(tped, method = "A", compact = FALSE)
+#' A2 <- expand_pedmatrix(A)
+#' identical(dim(A), dim(A2))  # TRUE
+#' 
+#' @export
+expand_pedmatrix <- function(x) {
+  # Check if x is a pedmatrix (either S3 or S4 with marker)
+  is_pedmatrix <- inherits(x, "pedmatrix") || !is.null(attr(x, "pedmatrix_S4"))
+  if (!is_pedmatrix) {
+    stop("x must be a pedmatrix object")
+  }
+  
+  ci <- attr(x, "call_info")
+  if (!isTRUE(ci$compact)) {
+    # Already full size, just return the matrix
+    result <- x
+    if (inherits(result, "pedmatrix")) {
+      class(result) <- setdiff(class(result), "pedmatrix")
+    }
+    return(result)
+  }
+  
+  map <- attr(x, "compact_map")
+  mat <- x
+  if (inherits(mat, "pedmatrix")) {
+    class(mat) <- setdiff(class(mat), "pedmatrix")
+  }
+  
+  # Get original order based on Ind column
+  # compact_map is sorted by OldIndNum (original pedigree order)
+  # We need to get the original pedigree Ind order
+  ped_full <- attr(x, "call_info")$ped_original
+  if (is.null(ped_full)) {
+    # Fallback: use map$Ind order as-is
+    orig_ind_order <- map$Ind
+  } else {
+    orig_ind_order <- ped_full$Ind
+  }
+  
+  # Filter map to match original order
+  map_ordered <- map[match(orig_ind_order, map$Ind)]
+  
+  # Matrix-like or vector-like?
+  if (!is.null(dim(mat))) {
+    # Matrix expansion
+    result_full <- mat[map_ordered$RepIndNum, map_ordered$RepIndNum]
+    rownames(result_full) <- map_ordered$Ind
+    colnames(result_full) <- map_ordered$Ind
+    return(result_full)
+  } else {
+    # Vector expansion
+    result_full <- mat[map_ordered$RepIndNum]
+    names(result_full) <- map_ordered$Ind
+    return(result_full)
+  }
+}
+
+# --- S3 Methods for pedmatrix class ---
+
+#' @export
+print.pedmatrix <- function(x, ...) {
+  ci <- attr(x, "call_info")
+  cat("Pedigree Matrix (", paste(ci$method, collapse=", "), ")\n", sep="")
+  if (isTRUE(ci$compact)) {
+    cat("Compacted: ", ci$n_original, " -> ", ci$n_compact, " individuals\n", sep="")
+  } else {
+    cat("Size: ", ci$n_original, " individuals\n", sep="")
+  }
+  
+  cat("\nUse summary() for details, attr(x, 'ped') for pedigree data.\n\n")
+  
+  # Strip pedmatrix class and print using underlying method
+  x_show <- x
+  if (inherits(x_show, "pedmatrix")) {
+    class(x_show) <- setdiff(class(x_show), "pedmatrix")
+  }
+  print(x_show, ...)
+}
+
+#' Summary Statistics for Pedigree Matrices
+#' 
+#' @description
+#' Computes and displays summary statistics for a pedmatrix object.
+#' 
+#' @param x A pedmatrix object from \code{\link{pedmatrix}}.
+#' 
+#' @return An object of class \code{"summary.pedmatrix"} with statistics including
+#'   method, dimensions, compression ratio (if compact), mean relationship, 
+#'   and matrix density.
+#' 
+#' @details
+#' Since pedmatrix objects are often S4 sparse matrices with custom attributes,
+#' use this function instead of the generic \code{summary()} to ensure proper
+#' display of pedigree matrix statistics.
+#' 
+#' @examples
+#' tped <- tidyped(small_ped)
+#' A <- pedmatrix(tped, method = "A")
+#' summary_pedmatrix(A)
+#' 
+#' @seealso \code{\link{pedmatrix}}
+#' @export
+summary_pedmatrix <- function(x) {
+  # Check if it's a pedmatrix
+  is_pedmatrix <- inherits(x, "pedmatrix") || !is.null(attr(x, "pedmatrix_S4"))
+  if (!is_pedmatrix) {
+    stop("x must be a pedmatrix object")
+  }
+  
+  ci <- attr(x, "call_info")
+  
+  stats <- list(
+    method = ci$method,
+    compact = isTRUE(ci$compact),
+    n_original = ci$n_original,
+    n_calculated = ci$n_compact
+  )
+  
+  # Calculate matrix-level stats
+  obj_clean <- x
+  class(obj_clean) <- setdiff(class(obj_clean), "pedmatrix")
+  
+  if (!is.list(obj_clean)) {
+    # For Matrix objects, use Matrix::mean or extract values
+    stats$mean_val <- tryCatch({
+      if (inherits(obj_clean, "Matrix")) {
+        mean(obj_clean@x)  # Access non-zero elements for sparse
+      } else {
+        mean(obj_clean)
+      }
+    }, error = function(e) NA_real_)
+    
+    stats$sparsity <- if (inherits(obj_clean, "sparseMatrix")) {
+      Matrix::nnzero(obj_clean) / (as.numeric(nrow(obj_clean)) * ncol(obj_clean))
+    } else if (is.matrix(obj_clean) || inherits(obj_clean, "Matrix")) {
+      1.0
+    } else { NA_real_ }
+  }
+  
+  if (isTRUE(ci$compact)) {
+    stats$compact_stats <- attr(x, "compact_stats")
+    fs <- attr(x, "family_summary")
+    if (!is.null(fs)) {
+      stats$top_families <- head(fs[order(-fs$FamilySize), ], 5)
+    }
+  }
+  
+  class(stats) <- "summary.pedmatrix"
+  return(stats)
+}
+
+#' @export
+summary.pedmatrix <- function(object, ...) {
+  # Delegate to summary_pedmatrix
+  summary_pedmatrix(object)
+}
+
+#' @export
+print.summary.pedmatrix <- function(x, ...) {
+  cat("Summary of Pedigree Matrix (", paste(x$method, collapse=", "), ")\n", sep="")
+  cat("========================================\n")
+  cat("Input Size:     ", x$n_original, " individuals\n")
+  cat("Calculated Size:", x$n_calculated, " individuals\n")
+  
+  if (x$compact) {
+    cat("\nCompaction Results:\n")
+    if (!is.null(x$compact_stats)) {
+      ratio <- x$compact_stats$compression_ratio
+      cat("- Compression: ", round(ratio * 100, 1), "%\n", sep="")
+      cat("- Families:    ", x$compact_stats$n_families_compacted, " families merged\n")
+    }
+    if (!is.null(x$top_families)) {
+      cat("\nTop 5 families by size:\n")
+      print(x$top_families[, c("FamilyLabel", "FamilySize")])
+    }
+  }
+  
+  if (!is.null(x$mean_val)) {
+      cat("\nMatrix Properties:\n")
+      cat("- Mean relationship: ", if(is.na(x$mean_val)) "NA" else round(x$mean_val, 6), "\n")
+      cat("- Density (non-zero): ", if(is.na(x$sparsity)) "NA" else round(x$sparsity * 100, 2), "%\n", sep="")
+  }
+  cat("========================================\n")
+}
+
+# --- Generic functions to enable S3 dispatch ---
+
+
+
+#' @export
+#' @method [ pedmatrix
+`[.pedmatrix` <- function(x, ...) {
+  # Strip pedmatrix class and delegate to underlying method
+  class(x) <- setdiff(class(x), "pedmatrix")
+  x[...]
+}
+
+#' @export
+#' @method dim pedmatrix
+dim.pedmatrix <- function(x) {
+  class(x) <- setdiff(class(x), "pedmatrix")
+  dim(x)
+}
+
+#' @export
+#' @method length pedmatrix
+length.pedmatrix <- function(x) {
+  class(x) <- setdiff(class(x), "pedmatrix")
+  length(x)
+}
+
+#' Extract Matrix Diagonals
+#' 
+#' @description
+#' Extract the diagonal of a pedmatrix object or other matrices.
+#' This generic function delegates to \code{\link[base]{diag}}, \code{Matrix::diag}, 
+#' or specialized S3 methods.
+#' 
+#' @param x A matrix, vector, or \code{pedmatrix} object.
+#' @param ... Additional arguments passed to methods.
+#' 
+#' @return The diagonal vectors or a diagonal matrix.
+#' @export
+diag <- function(x, ...) {
+    if (inherits(x, "pedmatrix")) return(diag.pedmatrix(x))
+    if (isS4(x)) return(Matrix::diag(x))
+    base::diag(x, ...)
+}
+
+#' @export
+#' @method diag pedmatrix
+diag.pedmatrix <- function(x, ...) {
+  class(x) <- setdiff(class(x), "pedmatrix")
+  if (inherits(x, "Matrix")) return(Matrix::diag(x))
+  diag(x)
+}
+
+#' @export
+#' @method t pedmatrix
+t.pedmatrix <- function(x) {
+  class(x) <- setdiff(class(x), "pedmatrix")
+  t(x)
+}
+
+#' @export
+as.matrix.pedmatrix <- function(x, ...) {
+  class(x) <- setdiff(class(x), "pedmatrix")
+  if (inherits(x, "Matrix")) return(as.matrix(x))
+  return(x)
+}
+
+#' @export
+as.vector.pedmatrix <- function(x, mode = "any") {
+  class(x) <- setdiff(class(x), "pedmatrix")
+  as.vector(x, mode = mode)
+}
+

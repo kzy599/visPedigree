@@ -16,39 +16,202 @@ vismat(
 )
 }
 \arguments{
-\item{mat}{A relationship matrix (e.g., from \code{\link{pedmatrix}}), or a 
-named list containing matrices, or a \code{tidyped} object.}
-
-\item{ped}{Optional. A tidied pedigree object. Used for extracting labels 
-or grouping information.}
-
-\item{type}{Character, type of visualization. Supported:
+\item{mat}{A relationship matrix. Can be one of the following types:
 \itemize{
-  \item "heatmap": Individual or group-level relationship heatmap (default).
-  \item "histogram": Histogram of relationship coefficients.
+  \item A \code{pedmatrix} object returned by \code{\link{pedmatrix}}
+  \item A named list containing matrices (preferring A, D, AA)
+  \item A \code{\link{tidyped}} object (automatically calculates additive relationship matrix A)
+  \item A standard \code{matrix} or \code{Matrix} object
+}
+\strong{Note}: Inverse matrices (Ainv, Dinv, AAinv) are not supported for 
+visualization because their elements do not represent meaningful relationship
+coefficients.}
+
+\item{ped}{Optional. A tidied pedigree object (\code{tidyped}), used for 
+extracting labels or grouping information. Required when using the 
+\code{grouping} parameter. If \code{mat} is a \code{pedmatrix} object, 
+the pedigree can be automatically extracted from its attributes.}
+
+\item{type}{Character, type of visualization. Supported options:
+\itemize{
+  \item \code{"heatmap"}: Relationship matrix heatmap (default). Uses a 
+        Nature Genetics style color palette (white-orange-red-dark red),
+        with optional hierarchical clustering and group aggregation.
+  \item \code{"histogram"}: Distribution histogram of relationship coefficients.
+        Shows the frequency distribution of lower triangular elements (pairwise kinship).
 }}
 
-\item{ids}{Character vector of individual IDs to display. If NULL, all 
-individuals in the matrix are shown.}
+\item{ids}{Character vector specifying individual IDs to display. Used to 
+filter and display a submatrix of specific individuals. If \code{NULL} 
+(default), all individuals are shown.}
 
-\item{reorder}{Logical. If TRUE, rows and columns are reordered using 
-hierarchical clustering to bring related individuals together. Only affects 
-heatmap visualization. Skipped for large matrices (N > 2000).}
+\item{reorder}{Logical. If \code{TRUE} (default), rows and columns are 
+reordered using hierarchical clustering (Ward.D2 method) to bring closely 
+related individuals together. Only affects heatmap visualization. 
+Automatically skipped for large matrices (N > 2000) to improve performance.
 
-\item{grouping}{Optional. Name of the column in \code{ped} to group by 
-(e.g., "Family", "Gen", "Year"). Used for grouping in heatmaps.}
+\strong{Clustering principle}: Based on relationship profile distance (Euclidean).
+Full-sibs have nearly identical relationship profiles with the population,
+so they cluster tightly together.}
 
-\item{labelcex}{Numeric. Manual control for font size of individual 
-labels.}
+\item{grouping}{Optional. Column name in \code{ped} to group by (e.g., 
+\code{"Family"}, \code{"Gen"}, \code{"Year"}). When grouping is enabled:
+\itemize{
+  \item Individual-level matrix is aggregated to group-level matrix 
+        (computing mean relationship coefficients between groups)
+  \item For \code{"Family"} grouping, founders without family assignment are excluded
+  \item For other grouping columns, NA values are assigned to \code{"Unknown"} group
+}
+This is useful for analyzing the structure of large populations.}
 
-\item{...}{Additional arguments passed to the plotting function 
-(\code{lattice::levelplot} or \code{lattice::histogram}).}
+\item{labelcex}{Numeric. Manual control for font size of individual labels. 
+If \code{NULL} (default), uses dynamic font size that adjusts automatically 
+based on matrix dimensions (range 0.2-0.7). For matrices with more than 500 
+individuals, labels are automatically hidden.}
+
+\item{...}{Additional arguments passed to the plotting function:
+\itemize{
+  \item Heatmap uses \code{\link[lattice]{levelplot}}: can set \code{main},
+        \code{xlab}, \code{ylab}, \code{col.regions}, \code{colorkey},
+        \code{scales}, etc.
+  \item Histogram uses \code{\link[lattice]{histogram}}: can set \code{main},
+        \code{xlab}, \code{ylab}, \code{nint} (number of bins), etc.
+}}
 }
 \value{
-No returned value. The plot is generated on the current device.
+Invisibly returns the \code{lattice} plot object. The plot is 
+generated on the current graphics device.
 }
 \description{
-\code{vismat} provides visualization tools for relationship 
-matrices (A, D, AA, etc.). It supports individual-level heatmaps and 
-relationship coefficient histograms.
+\code{vismat} provides visualization tools for relationship matrices (A, D, AA),
+supporting individual-level heatmaps and relationship coefficient histograms.
+This function is useful for exploring population genetic structure, identifying
+inbred individuals, and analyzing kinship between families.
+}
+\details{
+\subsection{Visualization Types}{
+
+\strong{Heatmap}:
+\itemize{
+  \item Uses Nature Genetics style color palette (white to orange to red to dark red)
+  \item Hierarchical clustering reordering is enabled by default to group similar individuals
+  \item Matrix[1,1] is displayed at top-left corner
+  \item Grid lines shown when N <= 100
+  \item Individual labels shown when N <= 500
+}
+
+\strong{Histogram}:
+\itemize{
+  \item Shows distribution of lower triangular elements (excluding diagonal)
+  \item X-axis: relationship coefficient values; Y-axis: frequency percentage
+  \item Useful for checking population inbreeding levels and kinship structure
+}
+}
+
+\subsection{Performance Considerations}{
+\itemize{
+  \item N > 2000: Hierarchical clustering reordering is automatically skipped
+  \item N > 500: Individual labels are automatically hidden
+  \item N > 100: Grid lines are automatically hidden
+  \item Grouping functionality uses optimized matrix algebra, suitable for large matrices
+}
+}
+
+\subsection{Interpreting Relationship Coefficients}{
+For additive relationship matrix A:
+\itemize{
+  \item Diagonal elements = 1 + F (where F is the inbreeding coefficient)
+  \item Off-diagonal elements = 2 x kinship coefficient
+  \item Value 0: No relationship (unrelated)
+  \item Value 0.25: Half-sibs or grandparent-grandchild
+  \item Value 0.5: Full-sibs or parent-offspring
+  \item Value 1.0: Same individual
+}
+}
+}
+\examples{
+# ============================================================
+# Basic Usage
+# ============================================================
+
+# Load example data
+data(simple_ped)
+ped <- tidyped(simple_ped)
+
+# Method 1: Plot directly from tidyped object (auto-computes A matrix)
+vismat(ped)
+
+# Method 2: Plot from pedmatrix object
+A <- pedmatrix(ped, method = "A")
+vismat(A)
+
+# Method 3: Plot from plain matrix
+A_dense <- as.matrix(A)
+vismat(A_dense)
+
+# ============================================================
+# Heatmap Customization
+# ============================================================
+
+# Custom title and axis labels
+vismat(A, main = "Additive Relationship Matrix", xlab = "Individual", ylab = "Individual")
+
+# Disable clustering reorder (preserve original order)
+vismat(A, reorder = FALSE)
+
+# Custom label font size
+vismat(A, labelcex = 0.5)
+
+# Custom color palette (blue-white-red)
+vismat(A, col.regions = colorRampPalette(c("blue", "white", "red"))(100))
+
+# ============================================================
+# Select Specific Individuals
+# ============================================================
+
+# Display only a subset of individuals
+target_ids <- rownames(A)[1:8]
+vismat(A, ids = target_ids)
+
+# ============================================================
+# Histogram Visualization
+# ============================================================
+
+# Relationship coefficient distribution histogram
+vismat(A, type = "histogram")
+
+# Custom number of bins
+vismat(A, type = "histogram", nint = 30)
+
+# ============================================================
+# Group Aggregation (for large populations)
+# ============================================================
+
+# Group by generation
+vismat(A, ped = ped, grouping = "Gen", 
+       main = "Mean Relationship Between Generations")
+
+# Group by family (if pedigree has Family column)
+# vismat(A, ped = ped, grouping = "Family")
+
+# ============================================================
+# Different Types of Relationship Matrices
+# ============================================================
+
+# Dominance relationship matrix
+D <- pedmatrix(ped, method = "D")
+vismat(D, main = "Dominance Relationship Matrix")
+
+# Inbreeding coefficient distribution (diagonal elements - 1)
+A_mat <- as.matrix(A)
+f_values <- diag(A_mat) - 1
+hist(f_values, main = "Inbreeding Coefficient Distribution", xlab = "Inbreeding (F)")
+
+}
+\seealso{
+\code{\link{pedmatrix}} for computing relationship matrices
+\code{\link{tidyped}} for tidying pedigree data
+\code{\link{visped}} for visualizing pedigree structure graphs
+\code{\link[lattice]{levelplot}} underlying plotting function for heatmaps
+\code{\link[lattice]{histogram}} underlying plotting function for histograms
 }

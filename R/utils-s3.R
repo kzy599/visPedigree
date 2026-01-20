@@ -80,6 +80,7 @@ summary.tidyped <- function(object, ...) {
   x <- object
   res <- list()
   
+  # Basic counts
   res$n_ind <- nrow(x)
   res$n_male <- sum(x$Sex == "male", na.rm = TRUE)
   res$n_female <- sum(x$Sex == "female", na.rm = TRUE)
@@ -88,13 +89,24 @@ summary.tidyped <- function(object, ...) {
   # Founders: Individuals with both parents unknown (NA)
   res$n_founders <- sum(is.na(x$Sire) & is.na(x$Dam))
   
+  # Pedigree completeness
+  res$n_both_parents <- sum(!is.na(x$Sire) & !is.na(x$Dam))
+  res$n_sire_only <- sum(!is.na(x$Sire) & is.na(x$Dam))
+  res$n_dam_only <- sum(is.na(x$Sire) & !is.na(x$Dam))
+  
   # Isolated: Gen == 0
   if ("Gen" %in% names(x)) {
     res$n_isolated <- sum(x$Gen == 0)
     res$max_gen <- max(x$Gen, na.rm = TRUE)
+    
+    # Generation distribution
+    gen_table <- table(x$Gen)
+    res$gen_dist <- as.data.frame(gen_table)
+    names(res$gen_dist) <- c("Generation", "Count")
   } else {
     res$n_isolated <- NA
     res$max_gen <- NA
+    res$gen_dist <- NULL
   }
   
   # Candidates
@@ -104,6 +116,51 @@ summary.tidyped <- function(object, ...) {
     res$n_cand <- NA
   }
 
+  # Offspring statistics
+  # Count offspring for each individual
+  if (!is.null(x$Sire) && !is.null(x$Dam)) {
+    sire_counts <- table(x$Sire[!is.na(x$Sire)])
+    dam_counts <- table(x$Dam[!is.na(x$Dam)])
+    
+    # Individuals with offspring (as sire)
+    res$n_sires <- length(sire_counts)
+    res$max_offspring_sire <- if(length(sire_counts) > 0) max(sire_counts) else 0
+    res$mean_offspring_sire <- if(length(sire_counts) > 0) mean(sire_counts) else 0
+    
+    # Individuals with offspring (as dam)
+    res$n_dams <- length(dam_counts)
+    res$max_offspring_dam <- if(length(dam_counts) > 0) max(dam_counts) else 0
+    res$mean_offspring_dam <- if(length(dam_counts) > 0) mean(dam_counts) else 0
+    
+    # Combined: any individual with offspring
+    parents <- unique(c(names(sire_counts), names(dam_counts)))
+    res$n_parents <- length(parents)
+  }
+
+  # Family information
+  if ("Family" %in% names(x)) {
+    # Count non-NA families
+    families <- x$Family[!is.na(x$Family)]
+    if (length(families) > 0) {
+      family_table <- table(families)
+      res$n_families <- length(family_table)
+      res$family_sizes <- as.numeric(family_table)
+      res$max_family_size <- max(res$family_sizes)
+      res$mean_family_size <- mean(res$family_sizes)
+      
+      # Top 5 largest families
+      top5 <- head(sort(family_table, decreasing = TRUE), 5)
+      res$top_families <- data.frame(
+        Family = names(top5),
+        Size = as.numeric(top5),
+        stringsAsFactors = FALSE
+      )
+    } else {
+      res$n_families <- 0
+      res$top_families <- NULL
+    }
+  }
+
   # Inbreeding coefficients statistics
   if ("f" %in% names(x)) {
     res$f_stats <- list(
@@ -111,6 +168,9 @@ summary.tidyped <- function(object, ...) {
       max = max(x$f, na.rm = TRUE),
       mean = mean(x$f, na.rm = TRUE)
     )
+    
+    # Count inbred individuals (f > 0)
+    res$n_inbred <- sum(x$f > 0, na.rm = TRUE)
 
     # Stats for candidates if present
     if (!is.na(res$n_cand) && res$n_cand > 0) {
@@ -121,6 +181,7 @@ summary.tidyped <- function(object, ...) {
           max = max(cand_f, na.rm = TRUE),
           mean = mean(cand_f, na.rm = TRUE)
         )
+        res$n_cand_inbred <- sum(cand_f > 0, na.rm = TRUE)
       }
     }
   }
@@ -135,39 +196,113 @@ summary.tidyped <- function(object, ...) {
 #' @param ... Additional arguments (ignored).
 #' @export
 print.summary.tidyped <- function(x, ...) {
-  cat("Pedigree Summary:\n")
-  cat("-----------------\n")
+  cat("Pedigree Summary\n")
+  cat("================\n\n")
+  
+  # Basic information
   cat("Total Individuals: ", x$n_ind, "\n")
-  cat("  - Males:   ", x$n_male, "\n")
-  cat("  - Females: ", x$n_female, "\n")
+  cat("  - Males:   ", sprintf("%d (%.1f%%)", x$n_male, 
+                               100 * x$n_male / x$n_ind), "\n")
+  cat("  - Females: ", sprintf("%d (%.1f%%)", x$n_female, 
+                               100 * x$n_female / x$n_ind), "\n")
   if (x$n_unknown_sex > 0) {
-    cat("  - Unknown Sex: ", x$n_unknown_sex, "\n")
+    cat("  - Unknown: ", sprintf("%d (%.1f%%)", x$n_unknown_sex,
+                                 100 * x$n_unknown_sex / x$n_ind), "\n")
   }
   cat("\n")
-  cat("Founders (parents unknown): ", x$n_founders, "\n")
+  
+  # Pedigree structure
+  cat("Pedigree Structure:\n")
+  cat("  - Founders (no parents):  ", x$n_founders, "\n")
+  cat("  - Both parents known:     ", x$n_both_parents, "\n")
+  if (x$n_sire_only > 0) {
+    cat("  - Sire only known:        ", x$n_sire_only, "\n")
+  }
+  if (x$n_dam_only > 0) {
+    cat("  - Dam only known:         ", x$n_dam_only, "\n")
+  }
   
   if (!is.na(x$n_isolated) && x$n_isolated > 0) {
-    cat("Isolated Individuals (Gen 0): ", x$n_isolated, "\n")
+    cat("  - Isolated (Gen 0):       ", x$n_isolated, "\n")
   }
-  
-  if (!is.na(x$max_gen)) {
-    cat("Maximum Generation: ", x$max_gen, "\n")
-  }
-  
-  if (!is.na(x$n_cand)) {
-    cat("Candidates Traced: ", x$n_cand, "\n")
-  }
-
-  if (!is.null(x$f_stats)) {
-    cat("\nInbreeding coefficients:\n")
-    cat(sprintf("  - All:        Mean=%.4f, Min=%.4f, Max=%.4f\n",
-                x$f_stats$mean, x$f_stats$min, x$f_stats$max))
-    if (!is.null(x$cand_f_stats)) {
-      cat(sprintf("  - Candidates: Mean=%.4f, Min=%.4f, Max=%.4f\n",
-                  x$cand_f_stats$mean, x$cand_f_stats$min, x$cand_f_stats$max))
-    }
-  }
-
   cat("\n")
+  
+  # Generation information
+  if (!is.na(x$max_gen)) {
+    cat("Generation:\n")
+    cat("  - Maximum: ", x$max_gen, "\n")
+    if (!is.null(x$gen_dist) && nrow(x$gen_dist) <= 10) {
+      cat("  - Distribution:\n")
+      for (i in seq_len(nrow(x$gen_dist))) {
+        cat(sprintf("      Gen %s: %d individuals\n", 
+                    x$gen_dist[i, 1], x$gen_dist[i, 2]))
+      }
+    } else if (!is.null(x$gen_dist)) {
+      cat(sprintf("  - Distribution: %d generations (use str() for details)\n", 
+                  nrow(x$gen_dist)))
+    }
+    cat("\n")
+  }
+  
+  # Reproduction information
+  if (!is.null(x$n_parents)) {
+    cat("Reproduction:\n")
+    cat("  - Individuals with offspring: ", x$n_parents, "\n")
+    cat("  - Sires: ", x$n_sires, 
+        sprintf(" (Mean=%.1f, Max=%d offspring)\n", 
+                x$mean_offspring_sire, x$max_offspring_sire))
+    cat("  - Dams:  ", x$n_dams, 
+        sprintf(" (Mean=%.1f, Max=%d offspring)\n", 
+                x$mean_offspring_dam, x$max_offspring_dam))
+    cat("\n")
+  }
+  
+  # Family information
+  if (!is.null(x$n_families) && x$n_families > 0) {
+    cat("Full-sibling Families:\n")
+    cat("  - Number of families:     ", x$n_families, "\n")
+    cat("  - Mean family size:       ", sprintf("%.2f\n", x$mean_family_size))
+    cat("  - Maximum family size:    ", x$max_family_size, "\n")
+    
+    if (!is.null(x$top_families) && nrow(x$top_families) > 0) {
+      cat("  - Top families by size:\n")
+      for (i in seq_len(nrow(x$top_families))) {
+        cat(sprintf("      %s: %d\n", 
+                    x$top_families$Family[i], 
+                    x$top_families$Size[i]))
+      }
+    }
+    cat("\n")
+  }
+  
+  # Candidates
+  if (!is.na(x$n_cand)) {
+    cat("Candidates Traced: ", x$n_cand, "\n\n")
+  }
+
+  # Inbreeding information
+  if (!is.null(x$f_stats)) {
+    cat("Inbreeding Coefficients:\n")
+    cat("  - All individuals:\n")
+    cat(sprintf("      Mean = %.4f, Min = %.4f, Max = %.4f\n",
+                x$f_stats$mean, x$f_stats$min, x$f_stats$max))
+    if (!is.null(x$n_inbred)) {
+      cat(sprintf("      Inbred (f > 0): %d (%.1f%%)\n",
+                  x$n_inbred, 100 * x$n_inbred / x$n_ind))
+    }
+    
+    if (!is.null(x$cand_f_stats)) {
+      cat("  - Candidates:\n")
+      cat(sprintf("      Mean = %.4f, Min = %.4f, Max = %.4f\n",
+                  x$cand_f_stats$mean, x$cand_f_stats$min, x$cand_f_stats$max))
+      if (!is.null(x$n_cand_inbred)) {
+        cat(sprintf("      Inbred (f > 0): %d (%.1f%%)\n",
+                    x$n_cand_inbred, 100 * x$n_cand_inbred / x$n_cand))
+      }
+    }
+    cat("\n")
+  }
+  
+  cat("================\n")
   invisible(x)
 }

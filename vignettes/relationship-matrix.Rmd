@@ -1,0 +1,177 @@
+---
+title: "3. Calculation and visualization of relationship matrix"
+author: "Sheng Luan"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{3. Calculation and visualization of relationship matrix}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 6
+)
+library(visPedigree)
+library(Matrix)
+```
+
+Relationship matrices are fundamental tools in quantitative genetics and animal breeding. They quantify the genetic similarity between individuals due to shared ancestry, which is essential for estimating breeding values (BLUP) and managing genetic diversity. The `visPedigree` package provides efficient tools for calculating various relationship matrices and visualizing them through heatmaps and histograms.
+
+## 1. Calculating Relationship Matrices with `pedmatrix()`
+
+The `pedmatrix()` function is the primary tool for calculating relationship matrices. It supports both additive and dominance relationship matrices, as well as their inverses.
+
+### 1.1 Supported Methods
+
+The `method` parameter in `pedmatrix()` determines the type of matrix to calculate:
+
+-   **"A"**: Additive relationship matrix (Numerator Relationship Matrix).
+-   **"Ainv"**: Inverse of the additive relationship matrix.
+-   **"D"**: Dominance relationship matrix.
+-   **"Dinv"**: Inverse of the dominance relationship matrix.
+-   **"AA"**: Additive-by-additive (epistatic) relationship matrix.
+-   **"AAinv"**: Inverse of the epistatic relationship matrix.
+-   **"f"**: Inbreeding coefficients vector.
+
+### 1.2 Basic Usage
+
+Most calculations require a pedigree tidied by `tidyped()`.
+
+```{r basic_calc}
+# Load example pedigree and tidy it
+data(small_ped)
+tped <- tidyped(small_ped)
+
+# Calculate Additive Relationship Matrix (A)
+mat_A <- pedmatrix(tped, method = "A")
+
+# Calculate Dominance Relationship Matrix (D)
+mat_D <- pedmatrix(tped, method = "D")
+
+# Calculate inbreeding coefficients (f)
+vec_f <- pedmatrix(tped, method = "f")
+```
+
+### 1.3 Sparse Matrix Representation
+
+By default, `pedmatrix()` returns a sparse matrix (class `dsCMatrix` from the `Matrix` package) for relationship matrices. This is highly memory-efficient for large pedigrees where many individuals are unrelated.
+
+```{r sparse_check}
+class(mat_A)
+```
+
+## 2. Inspecting the Matrix
+
+### 2.1 Summary Statistics
+
+Use the `summary()` method to get an overview of the calculated matrix, including size, density, and average relationship.
+
+```{r matrix_summary}
+summary(mat_A)
+```
+
+### 2.2 Querying Specific Relationships
+
+Instead of manually indexing the matrix, you can use `query_relationship()` to retrieve coefficients by individual IDs.
+
+```{r query}
+# Query relationship between Z1 and Z2
+query_relationship(mat_A, "Z1", "Z2")
+
+# Query multiple pairs
+query_relationship(mat_A, c("Z1", "A"), c("Z2", "B"))
+```
+
+## 3. Compact Mode for Large Pedigrees
+
+For large pedigrees with many full-sibling families (common in aquatic breeding populations), `pedmatrix()` can merge full siblings into representative nodes to save memory and time.
+
+### 3.1 Using `compact = TRUE`
+
+When `compact = TRUE`, the matrix is calculated for unique representative individuals from each full-sib family.
+
+```{r compact_calc}
+# Calculate compacted A matrix
+mat_compact <- pedmatrix(tped, method = "A", compact = TRUE)
+
+# The result is a 'pedmatrix' object containing the compacted matrix
+print(mat_compact)
+```
+
+### 3.2 Expanding and Querying Compacted Matrices
+
+If you need the full matrix after a compact calculation, use `expand_pedmatrix()`. For retrieving specific values, `query_relationship()` handles both standard and compact objects transparently.
+
+```{r expand}
+# Expand to full 28x28 matrix
+mat_full <- expand_pedmatrix(mat_compact)
+dim(mat_full)
+
+# Query still works the same way
+query_relationship(mat_compact, "Z1", "Z2")
+```
+
+### 3.3 When to Use Compact Mode
+
+Compact mode is highly recommended for:
+
+*   **Large Pedigrees**: More than 5,000 individuals with substantial full-sibling groups.
+*   **High-fecundity species**: Such as aquatic animals or plants, where families often have hundreds or thousands of offspring.
+*   **Memory-limited environments**: When the full matrix exceeds available RAM.
+
+| Pedigree Size | Full-Sib Proportion | Recommended Mode |
+| :--- | :--- | :--- |
+| < 1,000 | Any | Standard |
+| > 5,000 | < 20% | Standard / Compact |
+| > 5,000 | > 20% | **Compact** |
+
+## 4. Visualizing Relationship Matrices with `vismat()`
+
+Visualization helps in understanding population structure, detecting family clusters, and checking the distribution of genetic relationships.
+
+### 4.1 Relationship Heatmaps
+
+The "heatmap" type (default) uses a Nature Genetics style color palette (White-Orange-Red) to display relationships.
+
+```{r heatmap, fig.width=6, fig.height=6}
+# Heatmap of the A matrix
+vismat(mat_A)
+```
+
+#### Reordering and Clustering
+Setting `reorder = TRUE` (default) performs hierarchical clustering to group related individuals together.
+
+#### Grouping by Labels
+You can aggregate relationships by groups (e.g., generations) using the `grouping` parameter.
+
+```{r heatmap_group, fig.width=6, fig.height=6}
+# Mean relationship between generations
+vismat(mat_A, ped = tped, grouping = "Gen")
+```
+
+### 4.2 Inbreeding and Kinship Histograms
+
+The "histogram" type displays the distribution of relationship coefficients (lower triangle) or inbreeding coefficients.
+
+```{r histogram, fig.width=6, fig.height=4}
+# Distribution of relationship coefficients
+vismat(mat_A, type = "histogram")
+```
+
+## 5. Performance Considerations
+
+Calculation and visualization of large matrices can be resource-intensive. `vismat()` includes several optimizations for large datasets:
+
+-   **N > 2000**: For heatmaps larger than 2000x2000, labels are suppressed.
+-   **N > 500**: For heatmaps larger than 500x500, reordering is disabled by default to save time.
+-   **Compact Pedigree**: Using a tidied pedigree with `compact = TRUE` is recommended for high-fecundity species.
+
+---
+**See Also:**
+- `vignette("tidy-pedigree", package = "visPedigree")`
+- `vignette("draw-pedigree", package = "visPedigree")`

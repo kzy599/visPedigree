@@ -9,79 +9,180 @@ pedmatrix(
   method = "f",
   sparse = TRUE,
   invert_method = "auto",
-  n_threads = 0
+  n_threads = 0,
+  compact = FALSE
 )
 }
 \arguments{
-\item{ped}{A tidied pedigree (data.table or data.frame).}
+\item{ped}{A tidied pedigree from \code{\link{tidyped}}. Must be a single
+pedigree, not a splitped object. For splitped results, use 
+\code{pedmatrix(ped_split$GP1, ...)} to process individual groups.}
 
 \item{method}{Character, one of:
 \itemize{
-  \item "f": Inbreeding coefficients
-  \item "A": Additive relationship matrix
-  \item "Ainv": Inverse of A (Henderson's rules)
-  \item "D": Dominance relationship matrix
-  \item "Dinv": Inverse of D (see Performance Notes below)
-  \item "AA": Additive-by-additive relationship matrix (A # A)
-  \item "AAinv": Inverse of AA
+  \item \code{"f"}: Inbreeding coefficients (returns named vector)
+  \item \code{"A"}: Additive (numerator) relationship matrix
+  \item \code{"Ainv"}: Inverse of A using Henderson's rules (O(n) complexity)
+  \item \code{"D"}: Dominance relationship matrix
+  \item \code{"Dinv"}: Inverse of D (requires matrix inversion)
+  \item \code{"AA"}: Additive-by-additive epistatic matrix (A # A)
+  \item \code{"AAinv"}: Inverse of AA
 }}
 
-\item{sparse}{Logical, if TRUE returns sparse Matrix (for Ainv, A, D, AA).}
+\item{sparse}{Logical, if \code{TRUE} returns sparse Matrix (recommended for
+large pedigrees). Default is \code{TRUE}.}
 
-\item{invert_method}{Character, method for matrix inversion (Dinv/AAinv):
+\item{invert_method}{Character, method for matrix inversion (Dinv/AAinv only):
 \itemize{
-  \item "auto": Auto-detect matrix properties and use optimal method (default)
-  \item "sympd": Force Cholesky decomposition (symmetric positive-definite)
-  \item "general": Force general LU decomposition
+  \item \code{"auto"}: Auto-detect and use optimal method (default)
+  \item \code{"sympd"}: Force Cholesky decomposition (faster for SPD matrices)
+  \item \code{"general"}: Force general LU decomposition
 }}
 
-\item{n_threads}{Integer, number of threads for parallel tasks. Currently
-unused; C++ implementation uses all available cores automatically.}
+\item{n_threads}{Integer, reserved for future parallel support. Currently
+the C++ implementation uses all available cores automatically.}
+
+\item{compact}{Logical, if \code{TRUE} compacts full-sibling families by
+selecting one representative per family. This dramatically reduces matrix
+dimensions for pedigrees with large full-sib groups. See Details.}
 }
 \value{
-Returns the requested object directly:
+Returns a matrix or vector with S3 class \code{"pedmatrix"}.
+
+\strong{Object type by method:}
 \itemize{
-  \item For "f": Named numeric vector of inbreeding coefficients
-  \item For "A", "D", "AA": Matrix (sparse or dense based on \code{sparse})
-  \item For "Ainv", "Dinv", "AAinv": Matrix (sparse or dense)
+  \item \code{method="f"}: Named numeric vector of inbreeding coefficients
+  \item All other methods: Sparse or dense matrix (depending on \code{sparse})
+}
+
+\strong{S3 Methods:}
+\itemize{
+  \item \code{print(x)}: Display matrix with metadata header
+  \item \code{\link{summary_pedmatrix}(x)}: Detailed statistics (size, compression, mean, density)
+  \item \code{dim(x)}, \code{length(x)}, \code{diag(x)}, \code{t(x)}: Standard operations
+  \item \code{x[i, j]}: Subsetting (behaves like underlying matrix)
+  \item \code{as.matrix(x)}: Convert to base matrix
+}
+
+\strong{Accessing Metadata (use \code{attr()}, not \code{$}):}
+\itemize{
+  \item \code{attr(x, "ped")}: The pedigree used (or compact pedigree if \code{compact=TRUE})
+  \item \code{attr(x, "ped_compact")}: Compact pedigree (when \code{compact=TRUE})
+  \item \code{attr(x, "method")}: Calculation method used
+  \item \code{attr(x, "call_info")}: Full calculation metadata (timing, sizes, etc.)
+  \item \code{names(attributes(x))}: List all available attributes
+}
+
+\strong{Additional attributes when \code{compact = TRUE}:}
+\itemize{
+  \item \code{attr(x, "compact_map")}: data.table mapping individuals to representatives
+  \item \code{attr(x, "family_summary")}: data.table summarizing merged families
+  \item \code{attr(x, "compact_stats")}: Compression statistics (ratio, n_families, etc.)
 }
 }
 \description{
-Optimized calculation of additive (A), its inverse (Ainv), 
-dominance (D) matrices, and inbreeding coefficients (f) using Rcpp and 
-Meuwissen & Luo (1992) algorithm.
+Optimized calculation of additive (A), dominance (D), epistatic (AA) 
+relationship matrices, their inverses, and inbreeding coefficients (f).
+Uses Rcpp with Meuwissen & Luo (1992) algorithm for efficient computation.
 }
 \details{
-\strong{General Usage:}
+\strong{API Design:}
 
 Only a single method may be requested per call. This design prevents
-accidental heavy computations and makes the API more explicit. If multiple
-results are needed, call \code{pedmatrix()} separately for each method.
+accidental heavy computations. If multiple matrices are needed, call
+\code{pedmatrix()} separately for each method.
 
-The function returns the requested matrix or vector directly (not wrapped
-in a list).
+\strong{Compact Mode (\code{compact = TRUE}):}
+
+Full-siblings share identical relationships with all other individuals.
+Compact mode exploits this by selecting one representative per full-sib
+family, dramatically reducing matrix size. For example, a pedigree with
+170,000 individuals might compact to 1,800 unique relationship patterns.
+
+Key features:
+\itemize{
+  \item \code{\link{query_relationship}(x, id1, id2)}: Query any individual
+        pair, including merged siblings (automatic lookup)
+  \item \code{\link{expand_pedmatrix}(x)}: Restore full matrix dimensions
+  \item \code{\link{vismat}(x)}: Visualize directly (auto-detects compact)
+}
 
 \strong{Performance Notes:}
-
 \itemize{
-  \item \strong{Ainv}: O(n) complexity using Henderson's direct rules. 
-        Highly efficient for all pedigree sizes.
-  \item \strong{Dinv/AAinv}: O(n³) complexity using dense matrix inversion. 
-        Performance characteristics:
-        \itemize{
-          \item n < 500: ~10-20 ms (fast, recommended)
-          \item n = 1000: ~40-60 ms (acceptable)
-          \item n = 2000: ~130-150 ms (with Cholesky optimization)
-          \item n > 2000: May become slow and memory intensive
-        }
-  \item \strong{Optimization}: By default (invert_method="auto"), the function
-        automatically detects symmetric positive-definite matrices and uses
-        Cholesky decomposition, which is ~2x faster than general LU decomposition.
-        D and AA matrices are always symmetric positive-definite, so this
-        optimization is always applied.
-  \item \strong{Note}: Unlike Ainv which uses direct construction rules,
-        Dinv/AAinv requires computing the matrix first and then inverting it. 
-        For large pedigrees (n > 2000), consider whether the inverse is truly 
-        needed or if alternative formulations are possible.
+  \item \strong{Ainv}: O(n) complexity using Henderson's rules. Fast for any size.
+  \item \strong{Dinv/AAinv}: O(n³) matrix inversion. Practical limits:
+    \itemize{
+      \item n < 500: ~10-20 ms
+      \item n = 1,000: ~40-60 ms  
+      \item n = 2,000: ~130-150 ms
+      \item n > 2,000: Consider using \code{compact = TRUE}
+    }
+  \item \strong{Memory}: Sparse matrices use ~O(nnz) memory; dense use O(n²)
 }
+}
+\examples{
+# Basic usage with small pedigree
+library(visPedigree)
+tped <- tidyped(small_ped)
+
+# --- Inbreeding Coefficients ---
+f <- pedmatrix(tped, method = "f")
+f["Z1"]  # Inbreeding of individual Z1
+
+# --- Additive Relationship Matrix ---
+A <- pedmatrix(tped, method = "A")
+A["A", "B"]      # Relationship between A and B
+diag(A)          # Diagonal = 1 + F (inbreeding)
+
+# --- Using summary_pedmatrix() ---
+summary_pedmatrix(A)   # Detailed matrix statistics
+
+# --- Accessing Metadata ---
+attr(A, "ped")              # Original pedigree
+attr(A, "method")           # "A"
+names(attributes(A))        # All available attributes
+
+# --- Compact Mode (for large full-sib families) ---
+A_compact <- pedmatrix(tped, method = "A", compact = TRUE)
+
+# Query relationships (works for any individual, including merged sibs)
+query_relationship(A_compact, "Z1", "Z2")  # Full-sibs Z1 and Z2
+
+# View compression statistics
+attr(A_compact, "compact_stats")
+attr(A_compact, "family_summary")
+
+# Expand back to full size
+A_full <- expand_pedmatrix(A_compact)
+dim(A_full)  # Original dimensions restored
+
+# --- Inverse Matrices ---
+Ainv <- pedmatrix(tped, method = "Ainv")  # Henderson's rules (fast)
+
+# --- Dominance and Epistatic ---
+D <- pedmatrix(tped, method = "D")
+AA <- pedmatrix(tped, method = "AA")
+
+# --- Visualization (requires display device) ---
+\dontrun{
+vismat(A)                       # Heatmap of relationship matrix
+vismat(A_compact)               # Works with compact matrices
+vismat(A, grouping = "Gen")     # Group by generation
+}
+
+}
+\references{
+Meuwissen, T. H. E., & Luo, Z. (1992). Computing inbreeding coefficients 
+in large populations. Genetics Selection Evolution, 24(4), 305-313.
+
+Henderson, C. R. (1976). A simple method for computing the inverse of a
+numerator relationship matrix used in prediction of breeding values.
+Biometrics, 32(1), 69-83.
+}
+\seealso{
+\code{\link{tidyped}} for preparing pedigree data,
+\code{\link{query_relationship}} for querying individual pairs,
+\code{\link{expand_pedmatrix}} for restoring full dimensions,
+\code{\link{vismat}} for visualization,
+\code{\link{inbreed}} for simple inbreeding calculation
 }

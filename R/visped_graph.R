@@ -110,7 +110,7 @@ prepare_initial_nodes <- function(ped) {
   max_id <- max(ped_node$id, na.rm = TRUE)
   familylabel = NULL
   ped_node[!(is.na(sirelabel) & is.na(damlabel)),
-           familylabel := paste(sirelabel, damlabel, sep = "")]
+           familylabel := paste(sirelabel, damlabel, sep = "x")]
   
   ped_node[!is.na(familylabel), 
            familynum := .GRP + max_id, 
