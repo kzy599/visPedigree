@@ -8,16 +8,27 @@ reference:
   contents:
   - tidyped
   - visped
+  - splitped
+- title: Relationship Matrices
+  desc: Tools for computing and analyzing genetic relationship matrices.
+  contents:
+  - pedmatrix
+  - expand_pedmatrix
+  - query_relationship
+  - vismat
 - title: Pedigree Analysis
   desc: Functions for genealogical and genetic computations.
-  contents: inbreed
+  contents:
+  - inbreed
 - title: Datasets
   desc: Built-in pedigree examples for testing and demonstration.
   contents: ends_with("_ped")
 - title: S3 Methods
-  desc: Generic methods for 'tidyped' objects.
+  desc: Generic methods for 'tidyped' and 'pedmatrix' objects.
   contents:
   - starts_with("plot.")
   - starts_with("summary.")
   - starts_with("print.")
+  - diag
+  - summary_pedmatrix
 
