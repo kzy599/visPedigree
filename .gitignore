@@ -28,3 +28,5 @@ packrat/
 
 # 临时测试 PDF
 *.pdf
+/doc/
+/Meta/

@@ -30,7 +30,8 @@ To address this, we developed the [visPedigree](https://github.com/luansheng/vis
 3.4 [Creating an integer pedigree](#3.4)   
 3.5 [Calculating inbreeding coefficients](#3.5)   
 3.6 [Customizing generation assignment](#3.6)   
-3.7 [Summarizing the pedigree](#3.7)
+3.7 [Summarizing the pedigree](#3.7)   
+3.8 [Splitting large pedigrees](#3.8)
 
 ## 1. Installation of the visPedigree package {#1}
 
