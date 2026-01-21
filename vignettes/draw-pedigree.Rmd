@@ -17,17 +17,17 @@ knitr::opts_chunk$set(
 library(visPedigree)
 ```
 
-4. [Drawing the pedigree graph](#4)   
-4.1 [A simple pedigree graph](#4.1)   
-4.1.1 [Highlighting specific individuals](#4.1.1)   
-4.1.2 [Showing inbreeding coefficients](#4.1.2)   
-4.2 [A reduced pedigree graph](#4.2)   
-4.3 [An outlined pedigree graph](#4.3)   
-4.4 [How to use this package in a selective breeding program](#4.4)   
-4.4.1 [Analysis of founders for an individual](#4.4.1)   
-4.4.2 [The contribution of different families in a selective breeding program](#4.4.2) 
+1. [Drawing the pedigree graph](#1)   
+1.1 [A simple pedigree graph](#1.1)   
+1.1.1 [Highlighting specific individuals](#1.1.1)   
+1.1.2 [Showing inbreeding coefficients](#1.1.2)   
+1.2 [A reduced pedigree graph](#1.2)   
+1.3 [An outlined pedigree graph](#1.3)   
+1.4 [How to use this package in a selective breeding program](#1.4)   
+1.4.1 [Analysis of founders for an individual](#1.4.1)   
+1.4.2 [The contribution of different families in a selective breeding program](#1.4.2) 
 
-## 4 Drawing the pedigree {#4}
+## 1 Drawing the pedigree {#1}
 The **visped** function takes a pedigree tidied by the `tidyped` function and outputs a hierarchical graph for all individuals in the pedigree. The graph can be displayed on the default graphics device and saved as a PDF file. The graph in the PDF file is a vector drawing, which is legible and avoids overlapping. It is especially useful when the number of individuals is large or when individual labels are long. This function can visualize very large pedigrees (> 10,000 individuals per generation) by compacting full-sib individuals. It is particularly effective for aquatic animal pedigrees, which typically include many full-sib families per generation in the nucleus breeding population. A pedigree outline without individual labels is shown if the graph width exceeds the maximum PDF width (200 inches). This helps breeders quickly review the population construction process and identify any introduction of new genetic material.
 
 **Important Note:** It is strongly recommended to set the `cand` parameter when tidying a pedigree. Pruning the pedigree by specifying candidates allows for more accurate generation inference and a more logical layout in the resulting pedigree tree.
@@ -45,7 +45,7 @@ visped(tidy_small_ped, compact = TRUE, file = tempfile(fileext = ".pdf"))
 
 In the above graph, two shapes and three colors are used. Circles represent individuals, while squares represent families. Dark sky blue indicates males, dark goldenrod indicates females, and dark olive green indicates unknown sex. For example, a dark sky blue circle represents a male individual, while a dark goldenrod square represents all female individuals in a full-sib family when `compact = TRUE`. The ancestors are drawn at the top and descendants are drawn at the bottom in the pedigree graph. Parents and offspring are connected via dummy nodes. Lines from offspring to dummy nodes are dark grey, while lines from dummy nodes to parents match the parents' respective colors.
 
-### 4.1 A simple pedigree graph {#4.1}
+### 1.1 A simple pedigree graph {#1.1}
 The trimmed **simple_ped** pedigree is drawn and displayed on the default graphics device. The **addgen** and **addnum** parameters need to be set to TRUE when tidying the pedigree using the **tidyped** function.
 ```{r vissimpleped,  fig.width=6.5, fig.height=6.5, fig.show="hold"}
 tidy_simple_ped <- tidyped(simple_ped)
@@ -60,7 +60,7 @@ suppressMessages(visped(tidy_simple_ped, showgraph = FALSE, file = tempfile(file
 
 By setting the **file** parameter, you can generate a high-definition PDF version of the pedigree.
 
-#### 4.1.1 Highlighting specific individuals {#4.1.1}
+#### 1.1.1 Highlighting specific individuals {#1.1.1}
 Specific individuals can be highlighted in the pedigree graph using the **highlight** parameter. This is useful for marking candidates, founders, or any individuals of interest.
 
 You can provide a character vector of individual IDs to use the default highlight colors (purple border and light purple fill):
@@ -82,7 +82,7 @@ visped(tidyped(small_ped),
                         color = "#81c784"))
 ```
 
-### 4.1.2 Showing inbreeding coefficients {#4.1.2}
+### 1.1.2 Showing inbreeding coefficients {#1.1.2}
 Inbreeding coefficients can be displayed on the pedigree graph using the **showf** parameter in the **visped** function. This requires that the pedigree has been processed with inbreeding coefficients calculated using the **inbreed** parameter in the **tidyped** function.
 ```{r showinbreed, fig.width=6.5, fig.height=6.5}
 library(data.table)
@@ -96,7 +96,7 @@ tidy_test_ped_inbreed <- tidyped(test_ped, inbreed = TRUE)
 visped(tidy_test_ped_inbreed, showf = TRUE)
 ```
 
-### 4.2 A reduced pedigree graph {#4.2}
+### 1.2 A reduced pedigree graph {#1.2}
 
 Warning messages will be shown when you try to draw the pedigree graph of the deep_ped dataset.
 ```{r deepped, eval=FALSE}
@@ -147,7 +147,7 @@ visped(
 ```
 You can open the generated PDF file to view the high-definition pedigree vectorgraph. The labels align better with the shapes compared to the previous version. You can continue to adjust `cex` until the labels are sized appropriately.
 
-### 4.3 An outlined pedigree graph {#4.3}
+### 1.3 An outlined pedigree graph {#1.3}
 Setting `outline = TRUE` produces an outlined pedigree graph. Individual labels will not be shown in the graph. This is highly effective for large pedigrees with many individuals.
 
 The following code generates an outlined pedigree graph in a PDF file.
@@ -165,8 +165,8 @@ suppressMessages(visped(
 ))
 ```
 
-### 4.4 How to use this package in a selective breeding program {#4.4}    
-#### 4.4.1 An analysis of founders for an individual {#4.4.1}    
+### 1.4 How to use this package in a selective breeding program {#1.4}    
+#### 1.4.1 An analysis of founders for an individual {#1.4.1}    
 Selective breeding is a process of enriching desirable minor genes from multiple founders through successive generations of mating. This is supported by the well-known infinitesimal model (or minor polygene hypothesis).
 
 We select the individual "J110550G" in the deep_ped dataset to visualize its pedigree. The following code generates the pedigree graph for a specific individual in a PDF file.
@@ -178,7 +178,7 @@ suppressMessages(visped(J110550G_ped, showgraph = TRUE, file = tempfile(fileext 
 
 As you can see from the figure above, the number of founder individuals (without parents) of the J110550G individual is `r nrow(J110550G_ped[is.na(Sire) & is.na(Dam)])`. This indicates that the individual has accumulated favorable genes from many founders, contributing to genetic gain in the target traits.
 
-#### 4.4.2 The contribution of different families in a selective breeding program {#4.4.2}
+#### 1.4.2 The contribution of different families in a selective breeding program {#1.4.2}
 
 Under optimum contribution theory, families contribute different numbers of individuals to the next generation, with higher-indexing families contributing more. By visualizing pedigree, we can directly see the contribution ratio of different families.
 
