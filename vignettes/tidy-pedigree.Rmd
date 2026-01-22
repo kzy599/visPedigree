@@ -24,14 +24,14 @@ To address this, we developed the [visPedigree](https://github.com/luansheng/vis
 1. [Installation of the visPedigree package](#1)   
 2. [The specification of pedigree format](#2)   
 3. [Checking and tidying pedigree](#3)   
-3.1 [Introduction](#3.1)   
-3.2 [Pedigree loop detection](#3.2)   
-3.3 [Tracing the pedigree of a specific individual](#3.3)   
-3.4 [Creating an integer pedigree](#3.4)   
-3.5 [Calculating inbreeding coefficients](#3.5)   
-3.6 [Customizing generation assignment](#3.6)   
-3.7 [Summarizing the pedigree](#3.7)   
-3.8 [Splitting large pedigrees](#3.8)
+3.1 [Introduction](#3-1)   
+3.2 [Pedigree loop detection](#3-2)   
+3.3 [Tracing the pedigree of a specific individual](#3-3)   
+3.4 [Creating an integer pedigree](#3-4)   
+3.5 [Calculating inbreeding coefficients](#3-5)   
+3.6 [Customizing generation assignment](#3-6)   
+3.7 [Summarizing the pedigree](#3-7)   
+3.8 [Splitting large pedigrees](#3-8)
 
 ## 1. Installation of the visPedigree package {#1}
 
@@ -51,7 +51,7 @@ The first three columns of pedigree data must be in the order of individual, sir
 
 ## 3. Checking and tidying pedigree {#3}
 
-### 3.1 Introduction {#3.1}
+### 3.1 Introduction {#3-1}
 The pedigree can be checked and tidied through the `tidyped()` function.
 
 This function takes a pedigree, checks for duplicates and bisexual individuals, detects loops, adds missing founders, sorts the pedigree, and traces candidate pedigrees. 
@@ -107,7 +107,7 @@ tidy_simple_ped_no_gen_num <-
 ```
 Once tidied, you can use `data.table::fwrite()` to export the pedigree for genetic evaluation software like ASReml.
 
-### 3.2 Pedigree loop detection {#3.2}
+### 3.2 Pedigree loop detection {#3-2}
 A pedigree loop occurs when an individual is its own ancestor (e.g., A is the parent of B, B is the parent of C, and C is the parent of A). This is a biological impossibility and a serious error in pedigree records. The `tidyped()` function automatically detects these cycles using graph theory algorithms. If a loop is detected, the function will stop and provide information about the individuals involved in the loop.
 
 The following code demonstrates what happens when a pedigree with loops is processed:
@@ -131,7 +131,7 @@ data.table::fwrite(
 )
 ```
 
-### 3.3 Tracing the pedigree of a specific individual {#3.3}
+### 3.3 Tracing the pedigree of a specific individual {#3-3}
 
 To trace the pedigree of specific individuals, use the `cand` parameter. This adds a `Cand` column where `TRUE` identifies the specified candidates. If `cand` is provided, only the candidates and their ancestors/descendants are retained.
 ```{r}
@@ -166,7 +166,7 @@ tidy_simple_ped_J0Z990_offspring <-
 ```
 Tracing the descendants of `J0Z990` reveals a total of 5 individuals.
 
-### 3.4 Creating an integer pedigree {#3.4}
+### 3.4 Creating an integer pedigree {#3-4}
 Certain genetic evaluation programs require integer-coded pedigrees, where individuals are numbered consecutively to facilitate the calculation of the additive genetic relationship matrix.
 
 By default, `tidyped()` adds `IndNum`, `SireNum`, and `DamNum` columns. This can be disabled with `addnum = FALSE`.
@@ -177,7 +177,7 @@ head(tidy_simple_ped_with_int)
 ```
 
 
-### 3.5 Calculating inbreeding coefficients {#3.5}
+### 3.5 Calculating inbreeding coefficients {#3-5}
 The inbreeding coefficient (F) of each individual can be calculated using tidyped() or inbreed() functions. There are two options to add the inbreeding coefficients to a tidied pedigree:
 
 1. Set `inbreed = TRUE` in the `tidyped()` function. This will calculate the inbreeding coefficients using optimized C++ code (Meuwissen & Luo algorithm) and add an `f` column to the tidied pedigree.
@@ -202,7 +202,7 @@ head(tidy_test)
 tidy_test <- inbreed(tidyped(test_ped))
 ```
 
-### 3.6 Customizing generation assignment {#3.6}
+### 3.6 Customizing generation assignment {#3-6}
 Generation inference is essential for pedigree visualization. `tidyped()` provides two methods for assigning generation numbers via the `genmethod` parameter:
 
 *   **"top" (default)**: Top-aligned (depth-based). Founders are assigned to Generation 1. This is the optimal scheme for most biological pedigrees as it ensures all founders start at the top, preventing them from "drifting" to lower generations if they have fewer descendants.
@@ -218,7 +218,7 @@ tidy_bottom <- tidyped(simple_ped, genmethod = "bottom")
 tidy_bottom[Ind == "J2Y434"]
 ```
 
-### 3.7 Summarizing the pedigree {#3.7}
+### 3.7 Summarizing the pedigree {#3-7}
 The `summary()` method provides a quick overview of the pedigree statistics, including the number of individuals, sex distribution, founders, and isolated individuals. If inbreeding coefficients have been calculated (column `f`), the summary will also include descriptive statistics of inbreeding.
 
 ```{r summary}
@@ -226,7 +226,7 @@ The `summary()` method provides a quick overview of the pedigree statistics, inc
 summary(tidy_simple_ped)
 ```
 
-### 3.8 Splitting large pedigrees {#3.8}
+### 3.8 Splitting large pedigrees {#3-8}
 For extremely large pedigrees, it is sometimes useful to split them into disconnected subsets or "sub-pedigrees". The `splitped()` function automatically detects disconnected components (families that share no ancestors) and splits the pedigree into a list of smaller `tidyped` objects.
 
 ```{r splitped}

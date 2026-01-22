@@ -21,19 +21,19 @@ library(Matrix)
 ```
 
 1. [Calculating Relationship Matrices with pedmatrix()](#1)   
-1.1 [Supported Methods](#1.1)   
-1.2 [Basic Usage](#1.2)   
-1.3 [Sparse Matrix Representation](#1.3)   
+1.1 [Supported Methods](#1-1)   
+1.2 [Basic Usage](#1-2)   
+1.3 [Sparse Matrix Representation](#1-3)   
 2. [Inspecting the Matrix](#2)   
-2.1 [Summary Statistics](#2.1)   
-2.2 [Querying Specific Relationships](#2.2)   
+2.1 [Summary Statistics](#2-1)   
+2.2 [Querying Specific Relationships](#2-2)   
 3. [Compact Mode for Large Pedigrees](#3)   
-3.1 [Using compact = TRUE](#3.1)   
-3.2 [Expanding and Querying Compacted Matrices](#3.2)   
-3.3 [When to Use Compact Mode](#3.3)   
+3.1 [Using compact = TRUE](#3-1)   
+3.2 [Expanding and Querying Compacted Matrices](#3-2)   
+3.3 [When to Use Compact Mode](#3-3)   
 4. [Visualizing Relationship Matrices with vismat()](#4)   
-4.1 [Relationship Heatmaps](#4.1)   
-4.2 [Inbreeding and Kinship Histograms](#4.2)   
+4.1 [Relationship Heatmaps](#4-1)   
+4.2 [Inbreeding and Kinship Histograms](#4-2)   
 5. [Performance Considerations](#5)
 
 Relationship matrices are fundamental tools in quantitative genetics and animal breeding. They quantify the genetic similarity between individuals due to shared ancestry, which is essential for estimating breeding values (BLUP) and managing genetic diversity. The `visPedigree` package provides efficient tools for calculating various relationship matrices and visualizing them through heatmaps and histograms.
@@ -42,7 +42,7 @@ Relationship matrices are fundamental tools in quantitative genetics and animal 
 
 The `pedmatrix()` function is the primary tool for calculating relationship matrices. It supports both additive and dominance relationship matrices, as well as their inverses.
 
-### 1.1 Supported Methods {#1.1}
+### 1.1 Supported Methods {#1-1}
 
 The `method` parameter in `pedmatrix()` determines the type of matrix to calculate:
 
@@ -54,7 +54,7 @@ The `method` parameter in `pedmatrix()` determines the type of matrix to calcula
 -   **"AAinv"**: Inverse of the epistatic relationship matrix.
 -   **"f"**: Inbreeding coefficients vector (uses the same optimized engine as `tidyped(..., inbreed = TRUE)`).
 
-### 1.2 Basic Usage {#1.2}
+### 1.2 Basic Usage {#1-2}
 
 Most calculations require a pedigree tidied by `tidyped()`.
 
@@ -73,7 +73,7 @@ mat_D <- pedmatrix(tped, method = "D")
 vec_f <- pedmatrix(tped, method = "f")
 ```
 
-### 1.3 Sparse Matrix Representation {#1.3}
+### 1.3 Sparse Matrix Representation {#1-3}
 
 By default, `pedmatrix()` returns a sparse matrix (class `dsCMatrix` from the `Matrix` package) for relationship matrices. This is highly memory-efficient for large pedigrees where many individuals are unrelated.
 
@@ -83,7 +83,7 @@ class(mat_A)
 
 ## 2. Inspecting the Matrix {#2}
 
-### 2.1 Summary Statistics {#2.1}
+### 2.1 Summary Statistics {#2-1}
 
 Use the `summary()` method to get an overview of the calculated matrix, including size, density, and average relationship.
 
@@ -91,7 +91,7 @@ Use the `summary()` method to get an overview of the calculated matrix, includin
 summary(mat_A)
 ```
 
-### 2.2 Querying Specific Relationships {#2.2}
+### 2.2 Querying Specific Relationships {#2-2}
 
 Instead of manually indexing the matrix, you can use `query_relationship()` to retrieve coefficients by individual IDs.
 
@@ -107,7 +107,7 @@ query_relationship(mat_A, c("Z1", "A"), c("Z2", "B"))
 
 For large pedigrees with many full-sibling families (common in aquatic breeding populations), `pedmatrix()` can merge full siblings into representative nodes to save memory and time.
 
-### 3.1 Using `compact = TRUE` {#3.1}
+### 3.1 Using `compact = TRUE` {#3-1}
 
 When `compact = TRUE`, the matrix is calculated for unique representative individuals from each full-sib family.
 
@@ -119,7 +119,7 @@ mat_compact <- pedmatrix(tped, method = "A", compact = TRUE)
 print(mat_compact)
 ```
 
-### 3.2 Expanding and Querying Compacted Matrices {#3.2}
+### 3.2 Expanding and Querying Compacted Matrices {#3-2}
 
 If you need the full matrix after a compact calculation, use `expand_pedmatrix()`. For retrieving specific values, `query_relationship()` handles both standard and compact objects transparently.
 
@@ -132,7 +132,7 @@ dim(mat_full)
 query_relationship(mat_compact, "Z1", "Z2")
 ```
 
-### 3.3 When to Use Compact Mode {#3.3}
+### 3.3 When to Use Compact Mode {#3-3}
 
 Compact mode is highly recommended for:
 
@@ -150,7 +150,7 @@ Compact mode is highly recommended for:
 
 Visualization helps in understanding population structure, detecting family clusters, and checking the distribution of genetic relationships.
 
-### 4.1 Relationship Heatmaps {#4.1}
+### 4.1 Relationship Heatmaps {#4-1}
 
 The "heatmap" type (default) uses a Nature Genetics style color palette (White-Orange-Red) to display relationships.
 
@@ -170,7 +170,7 @@ You can aggregate relationships by groups (e.g., generations) using the `groupin
 vismat(mat_A, ped = tped, grouping = "Gen")
 ```
 
-### 4.2 Inbreeding and Kinship Histograms {#4.2}
+### 4.2 Inbreeding and Kinship Histograms {#4-2}
 
 The "histogram" type displays the distribution of relationship coefficients (lower triangle) or inbreeding coefficients.
 
