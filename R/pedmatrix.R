@@ -10,7 +10,7 @@
 #'   \code{pedmatrix(ped_split$GP1, ...)} to process individual groups.
 #' @param method Character, one of:
 #' \itemize{
-#'   \item \code{"f"}: Inbreeding coefficients (returns named vector)
+#'   \item \code{"f"}: Inbreeding coefficients (returns named vector). This uses the same optimized engine as \code{tidyped(..., inbreed = TRUE)}.
 #'   \item \code{"A"}: Additive (numerator) relationship matrix
 #'   \item \code{"Ainv"}: Inverse of A using Henderson's rules (O(n) complexity)
 #'   \item \code{"D"}: Dominance relationship matrix

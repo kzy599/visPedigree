@@ -180,8 +180,10 @@ head(tidy_simple_ped_with_int)
 ### 3.5 Calculating inbreeding coefficients {#3.5}
 The inbreeding coefficient (F) of each individual can be calculated using tidyped() or inbreed() functions. There are two options to add the inbreeding coefficients to a tidied pedigree:
 
-1. Set `inbreed = TRUE` in the `tidyped()` function. This will calculate the inbreeding coefficients using the `nadiv` package and add an `f` column to the tidied pedigree.
+1. Set `inbreed = TRUE` in the `tidyped()` function. This will calculate the inbreeding coefficients using optimized C++ code (Meuwissen & Luo algorithm) and add an `f` column to the tidied pedigree.
 2. Or call `inbreed()` directly on a tidied pedigree to add the `f` column. 
+
+Both options use the same high-performance engine as `pedmatrix(method = "f")`, ensuring consistent results across the package.
 
 ```{r inbreed, fig.width=6.5, fig.height=6.5}
 # Create a simple inbred pedigree
