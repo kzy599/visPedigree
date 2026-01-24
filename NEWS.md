@@ -1,11 +1,19 @@
-# Changes in version 1.0.0 released on 20 Jan 2026
+# Changes in version 1.0.0 released on 24 Jan 2026
+## API Standardization (BREAKING)
+To provide a clean and intuitive API for v1.0.0, core function names have been standardized following the "[action][obj]" pattern:
+- **`pedmatrix`** is renamed to **`pedmat`**.
+- **`expand_pedmatrix`** is renamed to **`expand_pedmat`**.
+- **`summary_pedmatrix`** is renamed to **`summary_pedmat`**.
+- The parameter **`n_threads`** is standardized to **`threads`** across all functions.
+- Legacy function names (`pedmatrix`, etc.) are preserved as deprecated wrappers to ensure backward compatibility.
+
 ## New Features
 1. **Family Assignment and Summary**: 
     - `tidyped()` now automatically assigns and includes a `Family` column, identifying full-sib groups.
     - `summary.tidyped()` has been updated to provide family statistics (count, sizes, top largest families) and richer offspring analysis.
 2. **Pedigree Splitting (`splitped`)**: Added `splitped()` function to detect and split disconnected pedigree components. It efficiently identifies independent sub-populations (connected components) using graph theory, excludes isolated individuals, and returns a list of re-indexed `tidyped` objects ready for separate analysis or visualization.
-3. **Comprehensive Matrix Support**: `pedmatrix()` now fully supports 6 types of genetic relationship matrices: Additive (A, Ainv), Dominance (D, Dinv), and Additive-by-Additive Epistatic (AA, AAinv).
-4. **Relationship Matrix Visualization (`vismat`)**: Added `vismat()` function for visualizing relationship matrices (A, D, AA, etc.) with heatmaps and histograms. It supports `pedmatrix` objects, `tidyped` objects (auto-calculates A matrix), and standard matrices. Heatmaps can be annotated with family groups when a pedigree is provided.
+3. **Comprehensive Matrix Support**: `pedmat()` (formerly `pedmatrix`) now fully supports 6 types of genetic relationship matrices: Additive (A, Ainv), Dominance (D, Dinv), and Additive-by-Additive Epistatic (AA, AAinv).
+4. **Relationship Matrix Visualization (`vismat`)**: Added `vismat()` function for visualizing relationship matrices (A, D, AA, etc.) with heatmaps and histograms. It supports `pedmat` objects, `tidyped` objects (auto-calculates A matrix), and standard matrices. Heatmaps can be annotated with family groups when a pedigree is provided.
 
 ## CRAN Submission & Internal Improvements
 This release marks the first stable version 1.0.0, polished for CRAN.
