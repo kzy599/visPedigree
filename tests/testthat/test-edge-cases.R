@@ -1,21 +1,21 @@
 # Test edge cases and boundary conditions
 
-test_that("pedmatrix rejects multiple methods", {
+test_that("pedmat rejects multiple methods", {
   skip_if_not_installed("visPedigree")
   tped <- tidyped(small_ped)
   
   expect_error(
-    pedmatrix(tped, method = c("A", "D")),
+    pedmat(tped, method = c("A", "D")),
     "Only a single method may be requested"
   )
 })
 
-test_that("pedmatrix rejects invalid methods", {
+test_that("pedmat rejects invalid methods", {
   skip_if_not_installed("visPedigree")
   tped <- tidyped(small_ped)
   
   expect_error(
-    pedmatrix(tped, method = "invalid"),
+    pedmat(tped, method = "invalid"),
     "Invalid method"
   )
 })
@@ -23,7 +23,7 @@ test_that("pedmatrix rejects invalid methods", {
 test_that("query_relationship rejects inverse matrices", {
   skip_if_not_installed("visPedigree")
   tped <- tidyped(small_ped)
-  Ainv <- pedmatrix(tped, method = "Ainv")
+  Ainv <- pedmat(tped, method = "Ainv")
   
   expect_error(
     query_relationship(Ainv, "A", "B"),
@@ -34,7 +34,7 @@ test_that("query_relationship rejects inverse matrices", {
 test_that("vismat rejects inverse matrices", {
   skip_if_not_installed("visPedigree")
   tped <- tidyped(small_ped)
-  Ainv <- pedmatrix(tped, method = "Ainv")
+  Ainv <- pedmat(tped, method = "Ainv")
   
   expect_error(
     vismat(Ainv),
@@ -42,16 +42,16 @@ test_that("vismat rejects inverse matrices", {
   )
 })
 
-test_that("compact mode expand_pedmatrix works for vectors", {
+test_that("compact mode expand_pedmat works for vectors", {
   skip_if_not_installed("visPedigree")
   tped <- tidyped(small_ped)
   
   # Get inbreeding coefficients in compact mode
-  f_compact <- pedmatrix(tped, method = "f", compact = TRUE)
-  f_full <- pedmatrix(tped, method = "f", compact = FALSE)
+  f_compact <- pedmat(tped, method = "f", compact = TRUE)
+  f_full <- pedmat(tped, method = "f", compact = FALSE)
   
   # Expand compact version
-  f_expanded <- expand_pedmatrix(f_compact)
+  f_expanded <- expand_pedmat(f_compact)
   
   # Should have same length as original pedigree
   expect_equal(length(f_expanded), nrow(tped))
@@ -65,8 +65,8 @@ test_that("compact mode query_relationship handles full-siblings", {
   tped <- tidyped(small_ped)
   
   # C, D, E are full-siblings (AxB)
-  A_compact <- pedmatrix(tped, method = "A", compact = TRUE)
-  A_full <- pedmatrix(tped, method = "A", compact = FALSE)
+  A_compact <- pedmat(tped, method = "A", compact = TRUE)
+  A_full <- pedmat(tped, method = "A", compact = FALSE)
   
   # Full-sibling relationship should be 0.5
   expect_equal(query_relationship(A_compact, "C", "D"), 0.5)
@@ -85,8 +85,8 @@ test_that("D matrix compact mode full-sibling query works", {
   tped <- tidyped(small_ped)
   
   # D matrix in compact mode
-  D_compact <- pedmatrix(tped, method = "D", compact = TRUE)
-  D_full <- pedmatrix(tped, method = "D", compact = FALSE)
+  D_compact <- pedmat(tped, method = "D", compact = TRUE)
+  D_full <- pedmat(tped, method = "D", compact = FALSE)
   
   # Query full-siblings
   d_cd_compact <- query_relationship(D_compact, "C", "D")
@@ -134,7 +134,7 @@ test_that("sex annotation conflict detection works", {
 test_that("query_relationship id2=NULL returns correctly named vector", {
   skip_if_not_installed("visPedigree")
   tped <- tidyped(small_ped)
-  A_compact <- pedmatrix(tped, method = "A", compact = TRUE)
+  A_compact <- pedmat(tped, method = "A", compact = TRUE)
   
   # Query row for individual A
   row_a <- query_relationship(A_compact, "A")
@@ -144,7 +144,7 @@ test_that("query_relationship id2=NULL returns correctly named vector", {
   
   # Length should match matrix dimension
   mat <- A_compact
-  class(mat) <- setdiff(class(mat), "pedmatrix")
+  class(mat) <- setdiff(class(mat), "pedmat")
   expect_equal(length(row_a), ncol(mat))
   
   # Names should match matrix column names

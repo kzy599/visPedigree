@@ -7,7 +7,7 @@
 #'
 #' @param ped A tidied pedigree from \code{\link{tidyped}}. Must be a single
 #'   pedigree, not a splitped object. For splitped results, use 
-#'   \code{pedmatrix(ped_split$GP1, ...)} to process individual groups.
+#'   \code{pedmat(ped_split$GP1, ...)} to process individual groups.
 #' @param method Character, one of:
 #' \itemize{
 #'   \item \code{"f"}: Inbreeding coefficients (returns named vector). This uses the same optimized engine as \code{tidyped(..., inbreed = TRUE)}.
@@ -26,7 +26,7 @@
 #'   \item \code{"sympd"}: Force Cholesky decomposition (faster for SPD matrices)
 #'   \item \code{"general"}: Force general LU decomposition
 #' }
-#' @param n_threads Integer, reserved for future parallel support. Currently
+#' @param threads Integer, reserved for future parallel support. Currently
 #'   the C++ implementation uses all available cores automatically.
 #' @param compact Logical, if \code{TRUE} compacts full-sibling families by
 #'   selecting one representative per family. This dramatically reduces matrix
@@ -37,13 +37,12 @@
 #' 
 #' Only a single method may be requested per call. This design prevents
 #' accidental heavy computations. If multiple matrices are needed, call
-#' \code{pedmatrix()} separately for each method.
+#' \code{pedmat()} separately for each method.
 #'
 #' \strong{Compact Mode (\code{compact = TRUE}):}
 #' 
 #' Full-siblings share identical relationships with all other individuals.
 #' Compact mode exploits this by selecting one representative per full-sib
-
 #' family, dramatically reducing matrix size. For example, a pedigree with
 #' 170,000 individuals might compact to 1,800 unique relationship patterns.
 #' 
@@ -51,7 +50,7 @@
 #' \itemize{
 #'   \item \code{\link{query_relationship}(x, id1, id2)}: Query any individual
 #'         pair, including merged siblings (automatic lookup)
-#'   \item \code{\link{expand_pedmatrix}(x)}: Restore full matrix dimensions
+#'   \item \code{\link{expand_pedmat}(x)}: Restore full matrix dimensions
 #'   \item \code{\link{vismat}(x)}: Visualize directly (auto-detects compact)
 #' }
 #' 
@@ -68,7 +67,7 @@
 #'   \item \strong{Memory}: Sparse matrices use ~O(nnz) memory; dense use O(n²)
 #' }
 #'
-#' @return Returns a matrix or vector with S3 class \code{"pedmatrix"}.
+#' @return Returns a matrix or vector with S3 class \code{"pedmat"}.
 #' 
 #' \strong{Object type by method:}
 #' \itemize{
@@ -79,7 +78,7 @@
 #' \strong{S3 Methods:}
 #' \itemize{
 #'   \item \code{print(x)}: Display matrix with metadata header
-#'   \item \code{\link{summary_pedmatrix}(x)}: Detailed statistics (size, compression, mean, density)
+#'   \item \code{\link{summary_pedmat}(x)}: Detailed statistics (size, compression, mean, density)
 #'   \item \code{dim(x)}, \code{length(x)}, \code{diag(x)}, \code{t(x)}: Standard operations
 #'   \item \code{x[i, j]}: Subsetting (behaves like underlying matrix)
 #'   \item \code{as.matrix(x)}: Convert to base matrix
@@ -104,7 +103,7 @@
 #' @seealso 
 #' \code{\link{tidyped}} for preparing pedigree data,
 #' \code{\link{query_relationship}} for querying individual pairs,
-#' \code{\link{expand_pedmatrix}} for restoring full dimensions,
+#' \code{\link{expand_pedmat}} for restoring full dimensions,
 #' \code{\link{vismat}} for visualization,
 #' \code{\link{inbreed}} for simple inbreeding calculation
 #' 
@@ -114,16 +113,16 @@
 #' tped <- tidyped(small_ped)
 #' 
 #' # --- Inbreeding Coefficients ---
-#' f <- pedmatrix(tped, method = "f")
+#' f <- pedmat(tped, method = "f")
 #' f["Z1"]  # Inbreeding of individual Z1
 #' 
 #' # --- Additive Relationship Matrix ---
-#' A <- pedmatrix(tped, method = "A")
+#' A <- pedmat(tped, method = "A")
 #' A["A", "B"]      # Relationship between A and B
 #' diag(A)          # Diagonal = 1 + F (inbreeding)
 #' 
-#' # --- Using summary_pedmatrix() ---
-#' summary_pedmatrix(A)   # Detailed matrix statistics
+#' # --- Using summary_pedmat() ---
+#' summary_pedmat(A)   # Detailed matrix statistics
 #' 
 #' # --- Accessing Metadata ---
 #' attr(A, "ped")              # Original pedigree
@@ -131,7 +130,7 @@
 #' names(attributes(A))        # All available attributes
 #' 
 #' # --- Compact Mode (for large full-sib families) ---
-#' A_compact <- pedmatrix(tped, method = "A", compact = TRUE)
+#' A_compact <- pedmat(tped, method = "A", compact = TRUE)
 #' 
 #' # Query relationships (works for any individual, including merged sibs)
 #' query_relationship(A_compact, "Z1", "Z2")  # Full-sibs Z1 and Z2
@@ -141,15 +140,15 @@
 #' attr(A_compact, "family_summary")
 #' 
 #' # Expand back to full size
-#' A_full <- expand_pedmatrix(A_compact)
+#' A_full <- expand_pedmat(A_compact)
 #' dim(A_full)  # Original dimensions restored
 #' 
 #' # --- Inverse Matrices ---
-#' Ainv <- pedmatrix(tped, method = "Ainv")  # Henderson's rules (fast)
+#' Ainv <- pedmat(tped, method = "Ainv")  # Henderson's rules (fast)
 #' 
 #' # --- Dominance and Epistatic ---
-#' D <- pedmatrix(tped, method = "D")
-#' AA <- pedmatrix(tped, method = "AA")
+#' D <- pedmat(tped, method = "D")
+#' AA <- pedmat(tped, method = "AA")
 #' 
 #' # --- Visualization (requires display device) ---
 #' \dontrun{
@@ -167,17 +166,17 @@
 #' Biometrics, 32(1), 69-83.
 #' 
 #' @export
-pedmatrix <- function(ped, method = "f", sparse = TRUE, invert_method = "auto", 
-                     n_threads = 0, compact = FALSE) {
+pedmat <- function(ped, method = "f", sparse = TRUE, invert_method = "auto", 
+                     threads = 0, compact = FALSE) {
   # Check for splitped input - not supported
 
   if (inherits(ped, "splitped")) {
     stop(paste0(
-      "pedmatrix() does not support 'splitped' objects directly.\n",
+      "pedmat() does not support 'splitped' objects directly.\n",
       "Use lapply() to process each group separately:\n",
-      "  lapply(ped_split[grep('^GP', names(ped_split))], pedmatrix, method = '", 
+      "  lapply(ped_split[grep('^GP', names(ped_split))], pedmat, method = '", 
       method, "')\n",
-      "Or process a single group: pedmatrix(ped_split$GP1, method = '", method, "')"
+      "Or process a single group: pedmat(ped_split$GP1, method = '", method, "')"
     ), call. = FALSE)
   }
   
@@ -189,7 +188,7 @@ pedmatrix <- function(ped, method = "f", sparse = TRUE, invert_method = "auto",
     stop(sprintf(
       paste0("Only a single method may be requested per call. ",
              "You requested %d methods: %s. ",
-             "Call pedmatrix() separately for each method."),
+             "Call pedmat() separately for each method."),
       length(method), paste(method, collapse = ", ")
     ), call. = FALSE)
   }
@@ -223,16 +222,16 @@ pedmatrix <- function(ped, method = "f", sparse = TRUE, invert_method = "auto",
     needs_A <- method %in% c("D", "AA")
     
     # Calculate the requested method
-    result <- pedmatrix(
+    result <- pedmat(
       ped = compact_result$ped_compact,
       method = method,
       sparse = sparse,
       invert_method = invert_method,
-      n_threads = n_threads,
+      threads = threads,
       compact = FALSE
     )
     
-    # If D or AA, extract A matrix from the calculation cache to avoid recomputation
+    # If D or AA, extract A matrix from the calculation process (if cached)
     # Note: D and AA calculations internally compute A first, so we can reuse it
     A_matrix <- NULL
     if (needs_A) {
@@ -243,16 +242,16 @@ pedmatrix <- function(ped, method = "f", sparse = TRUE, invert_method = "auto",
       }, error = function(e) NULL)
       
       if (is.null(A_matrix)) {
-        A_matrix <- pedmatrix(
+        A_matrix <- pedmat(
           ped = compact_result$ped_compact,
           method = "A",
           sparse = sparse,
           compact = FALSE
         )
       }
-      # Strip pedmatrix class for storage
-      if (inherits(A_matrix, "pedmatrix")) {
-        class(A_matrix) <- setdiff(class(A_matrix), "pedmatrix")
+      # Strip pedmat class for storage
+      if (inherits(A_matrix, "pedmat")) {
+        class(A_matrix) <- setdiff(class(A_matrix), "pedmat")
       }
     }
     
@@ -266,7 +265,7 @@ pedmatrix <- function(ped, method = "f", sparse = TRUE, invert_method = "auto",
     ci$compact <- TRUE
     ci$n_original <- n_original
     ci$n_compact <- nrow(compact_result$ped_compact)
-    ci$ped_original <- ped_original  # Save for expand_pedmatrix
+    ci$ped_original <- ped_original  # Save for expand_pedmat
     attr(result, "call_info") <- ci
     
     # Add compaction-specific attributes
@@ -274,11 +273,11 @@ pedmatrix <- function(ped, method = "f", sparse = TRUE, invert_method = "auto",
     attr(result, "family_summary") <- compact_result$family_summary
     attr(result, "compact_stats") <- compact_result$compact_stats
     
-    # Mark result as pedmatrix for compact mode
+    # Mark result as pedmat for compact mode
   if (isS4(result)) {
-    attr(result, "pedmatrix_S4") <- TRUE
+    attr(result, "pedmat_S4") <- TRUE
   } else {
-    class(result) <- c("pedmatrix", class(result))
+    class(result) <- c("pedmat", class(result))
   }
   
   return(result)
@@ -399,7 +398,7 @@ pedmatrix <- function(ped, method = "f", sparse = TRUE, invert_method = "auto",
       
     } else if (m == "Ainv") {
       f_res <- get_f_res()
-      # Pass n_threads if we want, but currently C++ uses max
+      # Pass threads if we want, but currently C++ uses max
       triplets <- cpp_build_ainv_triplets(sire, dam, f_res$dii)
       Ainv <- Matrix::sparseMatrix(
         i = triplets$i, j = triplets$j, x = triplets$v,
@@ -463,14 +462,20 @@ pedmatrix <- function(ped, method = "f", sparse = TRUE, invert_method = "auto",
   }
   
   # Set S3 class - but only for non-S4 objects
-  # For S4 objects (like Matrix), we keep them as-is and add pedmatrix_S4 marker
+  # For S4 objects (like Matrix), we keep them as-is and add pedmat_S4 marker
   if (isS4(result)) {
-    attr(result, "pedmatrix_S4") <- TRUE
+    attr(result, "pedmat_S4") <- TRUE
   } else {
-    class(result) <- c("pedmatrix", class(result))
+    class(result) <- c("pedmat", class(result))
   }
   
   return(result)
+}
+
+#' @export
+pedmatrix <- function(...) {
+  .Deprecated("pedmat")
+  pedmat(...)
 }
 
 
@@ -888,10 +893,10 @@ compact_ped_for_matrix <- function(ped) {
 #' Query Relationship Coefficients from a Pedigree Matrix
 #' 
 #' @description
-#' Retrieves relationship coefficients between individuals from a pedmatrix object.
+#' Retrieves relationship coefficients between individuals from a pedmat object.
 #' For compact matrices, automatically handles lookup of merged full-siblings.
 #' 
-#' @param x A pedmatrix object created by \code{\link{pedmatrix}}.
+#' @param x A pedmat object created by \code{\link{pedmat}}.
 #' @param id1 Character, first individual ID.
 #' @param id2 Character, second individual ID. If \code{NULL}, returns 
 #'   the entire row of relationships for \code{id1}.
@@ -919,11 +924,11 @@ compact_ped_for_matrix <- function(ped) {
 #' Inverse matrices (Ainv, Dinv, AAinv) are \strong{not supported} because
 #' inverse matrix elements do not represent meaningful relationship coefficients.
 #' 
-#' @seealso \code{\link{pedmatrix}}, \code{\link{expand_pedmatrix}}
+#' @seealso \code{\link{pedmat}}, \code{\link{expand_pedmat}}
 #' 
 #' @examples
 #' tped <- tidyped(small_ped)
-#' A <- pedmatrix(tped, method = "A", compact = TRUE)
+#' A <- pedmat(tped, method = "A", compact = TRUE)
 #' 
 #' # Query specific pair
 #' query_relationship(A, "A", "B")
@@ -936,10 +941,10 @@ compact_ped_for_matrix <- function(ped) {
 #' 
 #' @export
 query_relationship <- function(x, id1, id2 = NULL) {
-  # Check if x is a pedmatrix (either S3 or S4 with marker)
-  is_pedmatrix <- inherits(x, "pedmatrix") || !is.null(attr(x, "pedmatrix_S4"))
-  if (!is_pedmatrix) {
-    stop("x must be a pedmatrix object")
+  # Check if x is a pedmat (either S3 or S4 with marker)
+  is_pedmat <- inherits(x, "pedmat") || !is.null(attr(x, "pedmat_S4"))
+  if (!is_pedmat) {
+    stop("x must be a pedmat object")
   }
   
   ci <- attr(x, "call_info")
@@ -961,8 +966,8 @@ query_relationship <- function(x, id1, id2 = NULL) {
   if (primary_method == "f" || (is.numeric(x) && is.null(dim(x)))) {
     # Strip class for indexing
     vec <- x
-    if (inherits(vec, "pedmatrix")) {
-      class(vec) <- setdiff(class(vec), "pedmatrix")
+    if (inherits(vec, "pedmat")) {
+      class(vec) <- setdiff(class(vec), "pedmat")
     }
     
     if (isTRUE(ci$compact)) {
@@ -983,8 +988,8 @@ query_relationship <- function(x, id1, id2 = NULL) {
   
   # Get raw matrix (already is the raw matrix)
   mat <- x
-  if (inherits(mat, "pedmatrix")) {
-    class(mat) <- setdiff(class(mat), "pedmatrix")
+  if (inherits(mat, "pedmat")) {
+    class(mat) <- setdiff(class(mat), "pedmat")
   }
   
   # Check if it's compact
@@ -1076,11 +1081,11 @@ query_relationship <- function(x, id1, id2 = NULL) {
 #' Expand a Compact Pedigree Matrix to Full Dimensions
 #' 
 #' @description
-#' Restores a compact pedmatrix to its original dimensions by mapping each
+#' Restores a compact pedmat to its original dimensions by mapping each
 #' individual to their family representative's values. For non-compact matrices,
 #' returns the matrix unchanged.
 #' 
-#' @param x A pedmatrix object from \code{\link{pedmatrix}}.
+#' @param x A pedmat object from \code{\link{pedmat}}.
 #' 
 #' @return 
 #' Matrix or vector with original pedigree dimensions:
@@ -1088,53 +1093,53 @@ query_relationship <- function(x, id1, id2 = NULL) {
 #'   \item Matrices: Row and column names set to all individual IDs
 #'   \item Vectors (e.g., method="f"): Names set to all individual IDs
 #' }
-#' The result is \strong{not} a pedmatrix object (S3 class stripped).
+#' The result is \strong{not} a pedmat object (S3 class stripped).
 #' 
 #' @details
 #' For compact matrices, full-siblings within the same family will have
 #' identical relationship values in the expanded matrix because they shared
 #' the same representative during calculation.
 #' 
-#' @seealso \code{\link{pedmatrix}}, \code{\link{query_relationship}}
+#' @seealso \code{\link{pedmat}}, \code{\link{query_relationship}}
 #' 
 #' @examples
 #' tped <- tidyped(small_ped)
 #' 
 #' # Compact matrix
-#' A_compact <- pedmatrix(tped, method = "A", compact = TRUE)
+#' A_compact <- pedmat(tped, method = "A", compact = TRUE)
 #' dim(A_compact)  # Reduced dimensions
 #' 
 #' # Expand to full size
-#' A_full <- expand_pedmatrix(A_compact)
+#' A_full <- expand_pedmat(A_compact)
 #' dim(A_full)  # Original dimensions restored
 #' 
 #' # Non-compact matrices are returned unchanged
-#' A <- pedmatrix(tped, method = "A", compact = FALSE)
-#' A2 <- expand_pedmatrix(A)
+#' A <- pedmat(tped, method = "A", compact = FALSE)
+#' A2 <- expand_pedmat(A)
 #' identical(dim(A), dim(A2))  # TRUE
 #' 
 #' @export
-expand_pedmatrix <- function(x) {
-  # Check if x is a pedmatrix (either S3 or S4 with marker)
-  is_pedmatrix <- inherits(x, "pedmatrix") || !is.null(attr(x, "pedmatrix_S4"))
-  if (!is_pedmatrix) {
-    stop("x must be a pedmatrix object")
+expand_pedmat <- function(x) {
+  # Check if x is a pedmat (either S3 or S4 with marker)
+  is_pedmat <- inherits(x, "pedmat") || !is.null(attr(x, "pedmat_S4"))
+  if (!is_pedmat) {
+    stop("x must be a pedmat object")
   }
   
   ci <- attr(x, "call_info")
   if (!isTRUE(ci$compact)) {
     # Already full size, just return the matrix
     result <- x
-    if (inherits(result, "pedmatrix")) {
-      class(result) <- setdiff(class(result), "pedmatrix")
+    if (inherits(result, "pedmat")) {
+      class(result) <- setdiff(class(result), "pedmat")
     }
     return(result)
   }
   
   map <- attr(x, "compact_map")
   mat <- x
-  if (inherits(mat, "pedmatrix")) {
-    class(mat) <- setdiff(class(mat), "pedmatrix")
+  if (inherits(mat, "pedmat")) {
+    class(mat) <- setdiff(class(mat), "pedmat")
   }
   
   # Get original order based on Ind column
@@ -1166,10 +1171,10 @@ expand_pedmatrix <- function(x) {
   }
 }
 
-# --- S3 Methods for pedmatrix class ---
+# --- S3 Methods for pedmat class ---
 
 #' @export
-print.pedmatrix <- function(x, ...) {
+print.pedmat <- function(x, ...) {
   ci <- attr(x, "call_info")
   cat("Pedigree Matrix (", paste(ci$method, collapse=", "), ")\n", sep="")
   if (isTRUE(ci$compact)) {
@@ -1180,10 +1185,10 @@ print.pedmatrix <- function(x, ...) {
   
   cat("\nUse summary() for details, attr(x, 'ped') for pedigree data.\n\n")
   
-  # Strip pedmatrix class and print using underlying method
+  # Strip pedmat class and print using underlying method
   x_show <- x
-  if (inherits(x_show, "pedmatrix")) {
-    class(x_show) <- setdiff(class(x_show), "pedmatrix")
+  if (inherits(x_show, "pedmat")) {
+    class(x_show) <- setdiff(class(x_show), "pedmat")
   }
   print(x_show, ...)
 }
@@ -1191,31 +1196,31 @@ print.pedmatrix <- function(x, ...) {
 #' Summary Statistics for Pedigree Matrices
 #' 
 #' @description
-#' Computes and displays summary statistics for a pedmatrix object.
+#' Computes and displays summary statistics for a pedmat object.
 #' 
-#' @param x A pedmatrix object from \code{\link{pedmatrix}}.
+#' @param x A pedmat object from \code{\link{pedmat}}.
 #' 
-#' @return An object of class \code{"summary.pedmatrix"} with statistics including
+#' @return An object of class \code{"summary.pedmat"} with statistics including
 #'   method, dimensions, compression ratio (if compact), mean relationship, 
 #'   and matrix density.
 #' 
 #' @details
-#' Since pedmatrix objects are often S4 sparse matrices with custom attributes,
+#' Since pedmat objects are often S4 sparse matrices with custom attributes,
 #' use this function instead of the generic \code{summary()} to ensure proper
 #' display of pedigree matrix statistics.
 #' 
 #' @examples
 #' tped <- tidyped(small_ped)
-#' A <- pedmatrix(tped, method = "A")
-#' summary_pedmatrix(A)
+#' A <- pedmat(tped, method = "A")
+#' summary_pedmat(A)
 #' 
-#' @seealso \code{\link{pedmatrix}}
+#' @seealso \code{\link{pedmat}}
 #' @export
-summary_pedmatrix <- function(x) {
-  # Check if it's a pedmatrix
-  is_pedmatrix <- inherits(x, "pedmatrix") || !is.null(attr(x, "pedmatrix_S4"))
-  if (!is_pedmatrix) {
-    stop("x must be a pedmatrix object")
+summary_pedmat <- function(x) {
+  # Check if it's a pedmat
+  is_pedmat <- inherits(x, "pedmat") || !is.null(attr(x, "pedmat_S4"))
+  if (!is_pedmat) {
+    stop("x must be a pedmat object")
   }
   
   ci <- attr(x, "call_info")
@@ -1229,7 +1234,7 @@ summary_pedmatrix <- function(x) {
   
   # Calculate matrix-level stats
   obj_clean <- x
-  class(obj_clean) <- setdiff(class(obj_clean), "pedmatrix")
+  class(obj_clean) <- setdiff(class(obj_clean), "pedmat")
   
   if (!is.list(obj_clean)) {
     # For Matrix objects, use Matrix::mean or extract values
@@ -1256,18 +1261,18 @@ summary_pedmatrix <- function(x) {
     }
   }
   
-  class(stats) <- "summary.pedmatrix"
+  class(stats) <- "summary.pedmat"
   return(stats)
 }
 
 #' @export
-summary.pedmatrix <- function(object, ...) {
-  # Delegate to summary_pedmatrix
-  summary_pedmatrix(object)
+summary.pedmat <- function(object, ...) {
+  # Delegate to summary_pedmat
+  summary_pedmat(object)
 }
 
 #' @export
-print.summary.pedmatrix <- function(x, ...) {
+print.summary.pedmat <- function(x, ...) {
   cat("Summary of Pedigree Matrix (", paste(x$method, collapse=", "), ")\n", sep="")
   cat("========================================\n")
   cat("Input Size:     ", x$n_original, " individuals\n")
@@ -1299,70 +1304,70 @@ print.summary.pedmatrix <- function(x, ...) {
 
 
 #' @export
-#' @method [ pedmatrix
-`[.pedmatrix` <- function(x, ...) {
-  # Strip pedmatrix class and delegate to underlying method
-  class(x) <- setdiff(class(x), "pedmatrix")
+#' @method [ pedmat
+`[.pedmat` <- function(x, ...) {
+  # Strip pedmat class and delegate to underlying method
+  class(x) <- setdiff(class(x), "pedmat")
   x[...]
 }
 
 #' @export
-#' @method dim pedmatrix
-dim.pedmatrix <- function(x) {
-  class(x) <- setdiff(class(x), "pedmatrix")
+#' @method dim pedmat
+dim.pedmat <- function(x) {
+  class(x) <- setdiff(class(x), "pedmat")
   dim(x)
 }
 
 #' @export
-#' @method length pedmatrix
-length.pedmatrix <- function(x) {
-  class(x) <- setdiff(class(x), "pedmatrix")
+#' @method length pedmat
+length.pedmat <- function(x) {
+  class(x) <- setdiff(class(x), "pedmat")
   length(x)
 }
 
 #' Extract Matrix Diagonals
 #' 
 #' @description
-#' Extract the diagonal of a pedmatrix object or other matrices.
+#' Extract the diagonal of a pedmat object or other matrices.
 #' This generic function delegates to \code{\link[base]{diag}}, \code{Matrix::diag}, 
 #' or specialized S3 methods.
 #' 
-#' @param x A matrix, vector, or \code{pedmatrix} object.
+#' @param x A matrix, vector, or \code{pedmat} object.
 #' @param ... Additional arguments passed to methods.
 #' 
 #' @return The diagonal vectors or a diagonal matrix.
 #' @export
 diag <- function(x, ...) {
-    if (inherits(x, "pedmatrix")) return(diag.pedmatrix(x))
+    if (inherits(x, "pedmat")) return(diag.pedmat(x))
     if (isS4(x)) return(Matrix::diag(x))
     base::diag(x, ...)
 }
 
 #' @export
-#' @method diag pedmatrix
-diag.pedmatrix <- function(x, ...) {
-  class(x) <- setdiff(class(x), "pedmatrix")
+#' @method diag pedmat
+diag.pedmat <- function(x, ...) {
+  class(x) <- setdiff(class(x), "pedmat")
   if (inherits(x, "Matrix")) return(Matrix::diag(x))
   diag(x)
 }
 
 #' @export
-#' @method t pedmatrix
-t.pedmatrix <- function(x) {
-  class(x) <- setdiff(class(x), "pedmatrix")
+#' @method t pedmat
+t.pedmat <- function(x) {
+  class(x) <- setdiff(class(x), "pedmat")
   t(x)
 }
 
 #' @export
-as.matrix.pedmatrix <- function(x, ...) {
-  class(x) <- setdiff(class(x), "pedmatrix")
+as.matrix.pedmat <- function(x, ...) {
+  class(x) <- setdiff(class(x), "pedmat")
   if (inherits(x, "Matrix")) return(as.matrix(x))
   return(x)
 }
 
 #' @export
-as.vector.pedmatrix <- function(x, mode = "any") {
-  class(x) <- setdiff(class(x), "pedmatrix")
+as.vector.pedmat <- function(x, mode = "any") {
+  class(x) <- setdiff(class(x), "pedmat")
   as.vector(x, mode = mode)
 }
 

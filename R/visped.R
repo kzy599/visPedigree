@@ -36,7 +36,7 @@
 #' @seealso 
 #' \code{\link{tidyped}} for tidying pedigree data (required input)
 #' \code{\link{vismat}} for visualizing relationship matrices as heatmaps
-#' \code{\link{pedmatrix}} for computing relationship matrices
+#' \code{\link{pedmat}} for computing relationship matrices
 #' \code{\link{splitped}} for splitting pedigree into connected components
 #' \code{\link[igraph:plot.igraph]{plot.igraph}} underlying plotting function
 #'

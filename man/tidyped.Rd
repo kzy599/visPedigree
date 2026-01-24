@@ -29,7 +29,7 @@ tidyped(
 
 \item{addnum}{A logical value indicating whether to generate a numeric pedigree. Default is TRUE, which adds \strong{IndNum}, \strong{SireNum}, and \strong{DamNum} columns to the output.}
 
-\item{inbreed}{A logical value indicating whether to calculate inbreeding coefficients. Default is FALSE. If TRUE, an \strong{f} column is added to the output. This uses the same optimized engine as \code{pedmatrix(..., method = "f")}.}
+\item{inbreed}{A logical value indicating whether to calculate inbreeding coefficients. Default is FALSE. If TRUE, an \strong{f} column is added to the output. This uses the same optimized engine as \code{pedmat(..., method = "f")}.}
 
 \item{genmethod}{A character value specifying the generation assignment method: "\strong{top}" or "\strong{bottom}". "top" (top-aligned) assigns generations from parents to offspring, starting founders at Gen 1. "bottom" (bottom-aligned) assigns generations from offspring to parents, aligning terminal nodes at the bottom. Default is "top".}
 
@@ -75,7 +75,7 @@ summary(tidy_big)
 \seealso{
 \code{\link{summary.tidyped}} for summarizing tidyped objects
 \code{\link{visped}} for visualizing pedigree structure
-\code{\link{pedmatrix}} for computing relationship matrices
+\code{\link{pedmat}} for computing relationship matrices
 \code{\link{vismat}} for visualizing relationship matrices
 \code{\link{splitped}} for splitting pedigree into connected components
 \code{\link{inbreed}} for calculating inbreeding coefficients

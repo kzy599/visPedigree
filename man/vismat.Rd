@@ -18,7 +18,7 @@ vismat(
 \arguments{
 \item{mat}{A relationship matrix. Can be one of the following types:
 \itemize{
-  \item A \code{pedmatrix} object returned by \code{\link{pedmatrix}}
+  \item A \code{pedmat} object returned by \code{\link{pedmat}}
   \item A named list containing matrices (preferring A, D, AA)
   \item A \code{\link{tidyped}} object (automatically calculates additive relationship matrix A)
   \item A standard \code{matrix} or \code{Matrix} object
@@ -29,7 +29,7 @@ coefficients.}
 
 \item{ped}{Optional. A tidied pedigree object (\code{tidyped}), used for 
 extracting labels or grouping information. Required when using the 
-\code{grouping} parameter. If \code{mat} is a \code{pedmatrix} object, 
+\code{grouping} parameter. If \code{mat} is a \code{pedmat} object, 
 the pedigree can be automatically extracted from its attributes.}
 
 \item{type}{Character, type of visualization. Supported options:
@@ -141,8 +141,8 @@ ped <- tidyped(simple_ped)
 # Method 1: Plot directly from tidyped object (auto-computes A matrix)
 vismat(ped)
 
-# Method 2: Plot from pedmatrix object
-A <- pedmatrix(ped, method = "A")
+# Method 2: Plot from pedmat object
+A <- pedmat(ped, method = "A")
 vismat(A)
 
 # Method 3: Plot from plain matrix
@@ -199,7 +199,7 @@ vismat(A, ped = ped, grouping = "Gen",
 # ============================================================
 
 # Dominance relationship matrix
-D <- pedmatrix(ped, method = "D")
+D <- pedmat(ped, method = "D")
 vismat(D, main = "Dominance Relationship Matrix")
 
 # Inbreeding coefficient distribution (diagonal elements - 1)
@@ -209,7 +209,7 @@ hist(f_values, main = "Inbreeding Coefficient Distribution", xlab = "Inbreeding 
 
 }
 \seealso{
-\code{\link{pedmatrix}} for computing relationship matrices
+\code{\link{pedmat}} for computing relationship matrices
 \code{\link{tidyped}} for tidying pedigree data
 \code{\link{visped}} for visualizing pedigree structure graphs
 \code{\link[lattice]{levelplot}} underlying plotting function for heatmaps

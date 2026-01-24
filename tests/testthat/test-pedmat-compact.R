@@ -1,5 +1,5 @@
 # Test script for compact matrix functionality
-# Source this file to test the compact pedmatrix feature
+# Source this file to test the compact pedmat feature
 
 library(visPedigree)
 library(data.table)
@@ -65,7 +65,7 @@ cat("  Offspring:", sum(!is.na(ped_tidy$Sire) & !is.na(ped_tidy$Dam)), "\n\n")
 # Test 2: Calculate inbreeding without compact
 cat("Test 2: Calculate inbreeding WITHOUT compact...\n")
 time_normal <- system.time({
-  f_normal <- pedmatrix(ped_tidy, method = "f", compact = FALSE)
+  f_normal <- pedmat(ped_tidy, method = "f", compact = FALSE)
 })
 cat("  Time:", round(time_normal["elapsed"], 3), "seconds\n")
 cat("  Result length:", length(f_normal), "\n")
@@ -74,7 +74,7 @@ cat("  Mean f:", round(mean(f_normal), 6), "\n\n")
 # Test 3: Calculate inbreeding WITH compact
 cat("Test 3: Calculate inbreeding WITH compact...\n")
 time_compact <- system.time({
-  f_compact <- pedmatrix(ped_tidy, method = "f", compact = TRUE)
+  f_compact <- pedmat(ped_tidy, method = "f", compact = TRUE)
 })
 cat("  Time:", round(time_compact["elapsed"], 3), "seconds\n\n")
 
@@ -114,7 +114,7 @@ cat("    Matches original:", all.equal(f_normal[ind1], f_query), "\n\n")
 
 # Test 6: Expand matrix
 cat("Test 6: Test expand function...\n")
-f_expanded <- expand_pedmatrix(f_compact)
+f_expanded <- expand_pedmat(f_compact)
 cat("  Expanded length:", length(f_expanded), "\n")
 cat("  Matches original length:", length(f_expanded) == length(f_normal), "\n")
 cat("  Values match:", all.equal(as.numeric(f_normal), as.numeric(f_expanded)), "\n\n")
@@ -128,10 +128,10 @@ cat("\n")
 if (nrow(ped_tidy) < 1000) {
   cat("Test 8: Test A matrix with compact...\n")
   time_A <- system.time({
-    A_compact <- pedmatrix(ped_tidy, method = "A", compact = TRUE, sparse = TRUE)
+    A_compact <- pedmat(ped_tidy, method = "A", compact = TRUE, sparse = TRUE)
   })
   A_mat <- A_compact
-  class(A_mat) <- setdiff(class(A_mat), "pedmatrix")
+  class(A_mat) <- setdiff(class(A_mat), "pedmat")
   A_compact_map <- attr(A_compact, "compact_map")
   cat("  Time:", round(time_A["elapsed"], 3), "seconds\n")
   cat("  Matrix dimensions:", nrow(A_mat), "x", ncol(A_mat), "\n")

@@ -8,7 +8,7 @@
 #'
 #' @param mat A relationship matrix. Can be one of the following types:
 #' \itemize{
-#'   \item A \code{pedmatrix} object returned by \code{\link{pedmatrix}}
+#'   \item A \code{pedmat} object returned by \code{\link{pedmat}}
 #'   \item A named list containing matrices (preferring A, D, AA)
 #'   \item A \code{\link{tidyped}} object (automatically calculates additive relationship matrix A)
 #'   \item A standard \code{matrix} or \code{Matrix} object
@@ -19,7 +19,7 @@
 #'
 #' @param ped Optional. A tidied pedigree object (\code{tidyped}), used for 
 #' extracting labels or grouping information. Required when using the 
-#' \code{grouping} parameter. If \code{mat} is a \code{pedmatrix} object, 
+#' \code{grouping} parameter. If \code{mat} is a \code{pedmat} object, 
 #' the pedigree can be automatically extracted from its attributes.
 #'
 #' @param type Character, type of visualization. Supported options:
@@ -113,7 +113,7 @@
 #' generated on the current graphics device.
 #'
 #' @seealso 
-#' \code{\link{pedmatrix}} for computing relationship matrices
+#' \code{\link{pedmat}} for computing relationship matrices
 #' \code{\link{tidyped}} for tidying pedigree data
 #' \code{\link{visped}} for visualizing pedigree structure graphs
 #' \code{\link[lattice]{levelplot}} underlying plotting function for heatmaps
@@ -131,8 +131,8 @@
 #' # Method 1: Plot directly from tidyped object (auto-computes A matrix)
 #' vismat(ped)
 #' 
-#' # Method 2: Plot from pedmatrix object
-#' A <- pedmatrix(ped, method = "A")
+#' # Method 2: Plot from pedmat object
+#' A <- pedmat(ped, method = "A")
 #' vismat(A)
 #' 
 #' # Method 3: Plot from plain matrix
@@ -189,7 +189,7 @@
 #' # ============================================================
 #' 
 #' # Dominance relationship matrix
-#' D <- pedmatrix(ped, method = "D")
+#' D <- pedmat(ped, method = "D")
 #' vismat(D, main = "Dominance Relationship Matrix")
 #' 
 #' # Inbreeding coefficient distribution (diagonal elements - 1)
@@ -204,9 +204,9 @@
 #' @importFrom lattice levelplot panel.levelplot panel.abline histogram
 #' @importFrom data.table as.data.table
 vismat <- function(mat, ped = NULL, type = "heatmap", ids = NULL, reorder = TRUE, grouping = NULL, labelcex = NULL, ...) {
-  # 0a. Extract ped from pedmatrix object if available
-  is_pedmatrix <- inherits(mat, "pedmatrix") || !is.null(attr(mat, "pedmatrix_S4"))
-  if (is_pedmatrix) {
+  # 0a. Extract ped from pedmat object if available
+  is_pedmat <- inherits(mat, "pedmat") || !is.null(attr(mat, "pedmat_S4"))
+  if (is_pedmat) {
     # Check for inverse matrices - not supported for visualization
     ci <- attr(mat, "call_info")
     if (!is.null(ci) && ci$method[1] %in% c("Ainv", "Dinv", "AAinv")) {
@@ -221,25 +221,25 @@ vismat <- function(mat, ped = NULL, type = "heatmap", ids = NULL, reorder = TRUE
     if (is.null(ped)) {
       ped <- attr(mat, "ped")
     }
-    # Strip pedmatrix class to get raw matrix
-    if (inherits(mat, "pedmatrix")) {
-      class(mat) <- setdiff(class(mat), "pedmatrix")
+    # Strip pedmat class to get raw matrix
+    if (inherits(mat, "pedmat")) {
+      class(mat) <- setdiff(class(mat), "pedmat")
     }
   }
   
   # 0b. If input is a tidyped object, calculate A first
   if (inherits(mat, "tidyped")) {
     ped <- mat
-    res <- pedmatrix(ped, method = "A")
-    # Now res is a pure matrix with pedmatrix class
+    res <- pedmat(ped, method = "A")
+    # Now res is a pure matrix with pedmat class
     if (is.null(ped)) {
       ped <- attr(res, "ped")
     }
-    class(res) <- setdiff(class(res), "pedmatrix")
+    class(res) <- setdiff(class(res), "pedmat")
     mat <- res
   }
 
-  # 1. Handle list input from pedmatrix
+  # 1. Handle list input from pedmat
   if (is.list(mat) && !is.matrix(mat) && !inherits(mat, "Matrix")) {
     # Reject inverse matrices - primarily via list element names
     # Note: Due to S4 Matrix limitations, unnamed/custom-named lists may bypass this check
@@ -251,7 +251,7 @@ vismat <- function(mat, ped = NULL, type = "heatmap", ids = NULL, reorder = TRUE
     if (has_inverse_name) {
       stop("vismat() does not support inverse matrices (Ainv/Dinv/AAinv). ",
            "Inverse matrix elements do not represent meaningful relationship coefficients. ",
-           "Please use pedmatrix() with method='A', 'D', or 'AA' instead.")
+           "Please use pedmat() with method='A', 'D', or 'AA' instead.")
     }
     
     preferred <- c("A", "D", "AA")
