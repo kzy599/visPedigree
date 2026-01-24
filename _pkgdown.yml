@@ -12,8 +12,8 @@ reference:
 - title: Relationship Matrices
   desc: Tools for computing and analyzing genetic relationship matrices.
   contents:
-  - pedmatrix
-  - expand_pedmatrix
+  - pedmat
+  - expand_pedmat
   - query_relationship
   - vismat
 - title: Pedigree Analysis
@@ -24,11 +24,11 @@ reference:
   desc: Built-in pedigree examples for testing and demonstration.
   contents: ends_with("_ped")
 - title: S3 Methods
-  desc: Generic methods for 'tidyped' and 'pedmatrix' objects.
+  desc: Generic methods for 'tidyped' and 'pedmat' objects.
   contents:
   - starts_with("plot.")
   - starts_with("summary.")
   - starts_with("print.")
   - diag
-  - summary_pedmatrix
+  - summary_pedmat
 
