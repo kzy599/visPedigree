@@ -1,7 +1,8 @@
 # Changes in version 1.0.0 released on 24 Jan 2026
 ## API Standardization (BREAKING)
-To provide a clean and intuitive API for v1.0.0, core function names have been standardized following the "[action][obj]" pattern:
+To provide a clean and intuitive API for v1.0.0, core function names and behaviors have been standardized:
 - **`pedmatrix`** is renamed to **`pedmat`**.
+- **`pedmat` default `method` is now `"A"`** (Additive Relationship Matrix). Previously it was `"f"` (Inbreeding Coefficients).
 - **`expand_pedmatrix`** is renamed to **`expand_pedmat`**.
 - **`summary_pedmatrix`** is renamed to **`summary_pedmat`**.
 - The parameter **`n_threads`** is standardized to **`threads`** across all functions.

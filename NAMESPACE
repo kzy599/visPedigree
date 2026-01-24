@@ -3,6 +3,7 @@
 S3method("[",pedmat)
 S3method(as.matrix,pedmat)
 S3method(as.vector,pedmat)
+S3method(diag,default)
 S3method(diag,pedmat)
 S3method(dim,pedmat)
 S3method(length,pedmat)

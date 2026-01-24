@@ -10,8 +10,8 @@
 #'   \code{pedmat(ped_split$GP1, ...)} to process individual groups.
 #' @param method Character, one of:
 #' \itemize{
-#'   \item \code{"f"}: Inbreeding coefficients (returns named vector). This uses the same optimized engine as \code{tidyped(..., inbreed = TRUE)}.
-#'   \item \code{"A"}: Additive (numerator) relationship matrix
+#'   \item \code{"A"}: Additive (numerator) relationship matrix (default)
+#'   \item \code{"f"}: Inbreeding coefficients (returns named vector)
 #'   \item \code{"Ainv"}: Inverse of A using Henderson's rules (O(n) complexity)
 #'   \item \code{"D"}: Dominance relationship matrix
 #'   \item \code{"Dinv"}: Inverse of D (requires matrix inversion)
@@ -112,14 +112,14 @@
 #' library(visPedigree)
 #' tped <- tidyped(small_ped)
 #' 
+#' # --- Additive Relationship Matrix (default) ---
+#' A <- pedmat(tped)
+#' A["A", "B"]      # Relationship between A and B
+#' diag(A)          # Diagonal = 1 + F (inbreeding)
+#' 
 #' # --- Inbreeding Coefficients ---
 #' f <- pedmat(tped, method = "f")
 #' f["Z1"]  # Inbreeding of individual Z1
-#' 
-#' # --- Additive Relationship Matrix ---
-#' A <- pedmat(tped, method = "A")
-#' A["A", "B"]      # Relationship between A and B
-#' diag(A)          # Diagonal = 1 + F (inbreeding)
 #' 
 #' # --- Using summary_pedmat() ---
 #' summary_pedmat(A)   # Detailed matrix statistics
@@ -166,7 +166,7 @@
 #' Biometrics, 32(1), 69-83.
 #' 
 #' @export
-pedmat <- function(ped, method = "f", sparse = TRUE, invert_method = "auto", 
+pedmat <- function(ped, method = "A", sparse = TRUE, invert_method = "auto", 
                      threads = 0, compact = FALSE) {
   # Check for splitped input - not supported
 
@@ -194,7 +194,7 @@ pedmat <- function(ped, method = "f", sparse = TRUE, invert_method = "auto",
   }
   
   # Validate method
-  all_methods <- c("f", "A", "Ainv", "D", "Dinv", "AA", "AAinv")
+  all_methods <- c("A", "f", "Ainv", "D", "Dinv", "AA", "AAinv")
   if (!method %in% all_methods) {
     stop(sprintf("Invalid method: '%s'. Valid methods: %s", 
                  method, paste(all_methods, collapse = ", ")), call. = FALSE)
@@ -339,7 +339,7 @@ pedmat <- function(ped, method = "f", sparse = TRUE, invert_method = "auto",
   }
 
   # Process methods (ordered by dependency)
-  all_methods <- c("f", "A", "Ainv", "D", "Dinv", "AA", "AAinv")
+  all_methods <- c("A", "f", "Ainv", "D", "Dinv", "AA", "AAinv")
   active_methods <- intersect(all_methods, method)
 
   # Check for invalid methods
@@ -1329,26 +1329,36 @@ length.pedmat <- function(x) {
 #' 
 #' @description
 #' Extract the diagonal of a pedmat object or other matrices.
-#' This generic function delegates to \code{\link[base]{diag}}, \code{Matrix::diag}, 
-#' or specialized S3 methods.
+#' This generic function extending \code{base::diag} to support \code{pedmat} objects.
 #' 
 #' @param x A matrix, vector, or \code{pedmat} object.
-#' @param ... Additional arguments passed to methods.
+#' @param ... Additional arguments passed to \code{base::diag}.
 #' 
 #' @return The diagonal vectors or a diagonal matrix.
 #' @export
 diag <- function(x, ...) {
-    if (inherits(x, "pedmat")) return(diag.pedmat(x))
-    if (isS4(x)) return(Matrix::diag(x))
-    base::diag(x, ...)
+  UseMethod("diag")
+}
+
+#' @export
+diag.default <- function(x, ...) {
+  # If it's an S4 Matrix object, use Matrix's dispatcher
+  if (isS4(x)) return(Matrix::diag(x))
+  # Fallback to base R
+  base::diag(x, ...)
 }
 
 #' @export
 #' @method diag pedmat
 diag.pedmat <- function(x, ...) {
-  class(x) <- setdiff(class(x), "pedmat")
-  if (inherits(x, "Matrix")) return(Matrix::diag(x))
-  diag(x)
+  # Strip pedmat class to avoid infinite recursion
+  obj <- x
+  if (inherits(obj, "pedmat")) {
+    class(obj) <- setdiff(class(obj), "pedmat")
+  }
+  
+  # Delegate to appropriate method
+  diag(obj, ...)
 }
 
 #' @export
