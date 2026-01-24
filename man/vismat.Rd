@@ -142,7 +142,7 @@ ped <- tidyped(simple_ped)
 vismat(ped)
 
 # Method 2: Plot from pedmat object
-A <- pedmat(ped, method = "A")
+A <- pedmat(ped)
 vismat(A)
 
 # Method 3: Plot from plain matrix

@@ -453,6 +453,9 @@ pedmat <- function(ped, method = "A", sparse = TRUE, invert_method = "auto",
     timestamp = Sys.time()
   )
   
+  # Attach method name for easy access
+  attr(result, "method") <- if(length(active_methods) == 1) active_methods else names(output)
+
   # Attach the pedigree used for calculation
   attr(result, "ped") <- ped
   
