@@ -166,7 +166,6 @@ prepare_ped_graph <- function(ped, compact = FALSE, outline = FALSE, cex = NULL,
     virtual_node[real_family_min_x, x := i.minx, on = .(gen, familylabel)]
   }
   ped_igraph$node[nodetype %in% c("virtual")] <- virtual_node
-  l[, 1] <- ped_igraph$node[, x]
 
   s_size <- if (!is.null(symbolsize)) symbolsize else 1
   calc_node_width <- label_max_width * s_size
