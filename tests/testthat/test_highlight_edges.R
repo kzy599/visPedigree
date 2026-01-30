@@ -27,10 +27,10 @@ test_that("highlight edges are correct for shared parents", {
   expect_equal(nrow(highlighted_edge), 1)
   expect_equal(highlighted_edge$color, "#333333")
   
-  # Edge from non-highlighted family should be faded (#3333334D)
+  # Edge from non-highlighted family should match parent node color
   non_highlighted_edge <- edges_to_j0z938[from_highlighted == FALSE]
   expect_equal(nrow(non_highlighted_edge), 1)
-  expect_equal(non_highlighted_edge$color, "#3333334D")
+  expect_equal(non_highlighted_edge$color, j0z938_node$frame.color)
 })
 
 test_that("highlight edges are correct for shared children", {
@@ -116,10 +116,11 @@ test_that("highlight edges work correctly with trace down", {
   expect_false(j0z938_node$highlighted)
   expect_false(j0z843_node$highlighted)
   
-  # Edges from family to parents should be faded (parents not highlighted)
+  # Edges from family to parents should match parent node colors
   family_node <- graph_data$node[id == j1j576_family_id]
   edges_from_family <- graph_data$edge[from == j1j576_family_id]
-  expect_true(all(edges_from_family$color == "#3333334D"))
+  parent_colors <- graph_data$node[id %in% edges_from_family$to, frame.color]
+  expect_true(all(edges_from_family$color %in% parent_colors))
 })
 
 test_that("highlight edges work correctly with trace all", {
@@ -188,10 +189,10 @@ test_that("highlight edges work correctly with multiple individuals without trac
   expect_equal(edge1$color, "#3333334D")
   expect_equal(edge2$color, "#3333334D")
   
-  # Edges from families to shared parent should also be faded
+  # Edges from families to shared parent should match parent node colors
   real_max <- max(graph_data$node[nodetype %in% c("real", "compact")]$id)
   edges_to_parent <- graph_data$edge[to == j0z938_node$id & from > real_max]
-  expect_true(all(edges_to_parent$color == "#3333334D"))
+  expect_true(all(edges_to_parent$color == j0z938_node$frame.color))
 })
 
 test_that("highlight edges work correctly with compact mode", {
@@ -208,9 +209,10 @@ test_that("highlight edges work correctly with compact mode", {
   # Basic edge highlighting rules should still apply
   real_max <- max(graph_data$node[nodetype %in% c("real", "compact")]$id)
   
-  # All edges should be either highlighted (#333333) or faded (#3333334D)
+  # All edges should be either highlighted (#333333), faded (#3333334D), or match parent colors
   all_edges <- graph_data$edge
-  expect_true(all(all_edges$color %in% c("#333333", "#3333334D")))
+  valid_colors <- unique(c("#333333", "#3333334D", graph_data$node$frame.color))
+  expect_true(all(all_edges$color %in% valid_colors))
   
   # Edges from real/compact nodes should respect from_highlighted
   individual_edges <- all_edges[from <= real_max]
@@ -236,7 +238,8 @@ test_that("highlight edges work correctly with compact mode", {
     
     not_both_highlighted <- virtual_edges[!(from_highlighted == TRUE & to_highlighted == TRUE)]
     if (nrow(not_both_highlighted) > 0) {
-      expect_true(all(not_both_highlighted$color == "#3333334D"))
+      parent_colors <- graph_data$node[id %in% not_both_highlighted$to, frame.color]
+      expect_true(all(not_both_highlighted$color %in% parent_colors))
     }
   }
 })
