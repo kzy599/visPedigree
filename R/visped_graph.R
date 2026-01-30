@@ -31,7 +31,7 @@ ped2igraph <- function(ped, compact = FALSE, highlight = NULL, trace = FALSE, sh
   ped_node <- apply_node_styles(ped_node, highlight_info)
   
   # 7. Finalize graph (reindex IDs, set edge colors)
-  result <- finalize_graph(ped_node, ped_edge, h_ids, showf)
+  result <- finalize_graph(ped_node, ped_edge, highlight_info, trace, showf)
   
   return(result)
 }

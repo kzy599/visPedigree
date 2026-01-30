@@ -122,7 +122,7 @@ apply_node_styles <- function(ped_node, highlight_info) {
 #' Finalize graph and reindex IDs
 #' @import data.table
 #' @keywords internal
-finalize_graph <- function(ped_node, ped_edge, h_ids, showf) {
+finalize_graph <- function(ped_node, ped_edge, highlight_info, trace, showf) {
   old_ids <- ped_node$id
   ped_node[, id := seq_len(.N)]
   ped_edge[, from := ped_node$id[match(from, old_ids)]]
@@ -134,13 +134,24 @@ finalize_graph <- function(ped_node, ped_edge, h_ids, showf) {
   ped_edge[ped_node, ":="(tonodecolor = i.frame.color, to_highlighted = i.highlighted), on = .(to = id)]
   ped_edge[ped_node, from_highlighted := i.highlighted, on = .(from = id)]
   
-  if (length(h_ids) > 0) {
-    # Non-highlighted edges stay faded (default), highlighted ones become solid
-    ped_edge[from_highlighted == TRUE | to_highlighted == TRUE, color := "#333333"]
-  }
+  h_ids <- highlight_info$all_ids
+  has_trace <- !isFALSE(trace) && length(highlight_info$relatives) > 0
   
-  ped_edge[from > real_max, color := tonodecolor]
-  ped_edge[from <= real_max & from_highlighted == TRUE, color := "#333333"]
+  if (length(h_ids) > 0 && has_trace) {
+    # When tracing relationships, highlight edges in the path
+    # For edges from real nodes to family virtual nodes (individual -> family):
+    # Highlight only if the individual (from) is highlighted
+    ped_edge[from <= real_max & from_highlighted == TRUE, color := "#333333"]
+    
+    # For edges from virtual family nodes to parents (family -> parent):
+    # Highlight only if BOTH ends are highlighted (family node AND parent)
+    ped_edge[from > real_max & from_highlighted == TRUE & to_highlighted == TRUE, color := "#333333"]
+  } else if (length(h_ids) == 0) {
+    # No highlighting: set color for edges from virtual nodes to match parent's frame color
+    ped_edge[from > real_max, color := tonodecolor]
+  }
+  # When highlighting without trace (has_trace == FALSE), keep all edges faded
+  
   ped_edge[from <= real_max, ":="(curved = 0, arrow.size = 0, arrow.width = 0, arrow.mode = 0)]
   
   new_names_edge <- c(c("from", "to"), setdiff(colnames(ped_edge), c("from", "to", "tonodecolor")))

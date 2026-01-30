@@ -1,3 +1,8 @@
+# Changes in version 1.0.1 released on 31 Jan 2026
+## Bug fixes
+1. **`visped()` edge highlighting**: Fixed edge highlighting logic so relationship edges are only emphasized when `trace` is used. When `trace = FALSE`, only focal individuals are highlighted and all edges remain faded.
+2. **Shared-parent/shared-child paths**: Corrected edge highlighting for cases where a parent has multiple families or a family has multiple children, ensuring only traced paths are highlighted.
+
 # Changes in version 1.0.0 released on 24 Jan 2026
 ## API Standardization (BREAKING)
 To provide a clean and intuitive API for v1.0.0, core function names and behaviors have been standardized:
