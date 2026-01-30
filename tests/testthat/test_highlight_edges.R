@@ -22,15 +22,15 @@ test_that("highlight edges are correct for shared parents", {
   # Should have 2 edges: one from highlighted family (J0Z938xJ0Z843), one from non-highlighted family (J0Z938xJ0Z167)
   expect_equal(nrow(edges_to_j0z938), 2)
   
-  # Edge from highlighted family should be solid (#333333)
+  # Edge from highlighted family should still match parent node color
   highlighted_edge <- edges_to_j0z938[from_highlighted == TRUE]
   expect_equal(nrow(highlighted_edge), 1)
-  expect_equal(highlighted_edge$color, "#333333")
+  expect_equal(highlighted_edge$color, j0z938_node$color)
   
-  # Edge from non-highlighted family should match parent node color
+  # Edge from non-highlighted family should match parent node color with fading
   non_highlighted_edge <- edges_to_j0z938[from_highlighted == FALSE]
   expect_equal(nrow(non_highlighted_edge), 1)
-  expect_equal(non_highlighted_edge$color, j0z938_node$frame.color)
+  expect_true(grepl(paste0("^", j0z938_node$color, "4D$"), non_highlighted_edge$color))
 })
 
 test_that("highlight edges are correct for shared children", {
@@ -84,9 +84,9 @@ test_that("edges work correctly without highlighting", {
   real_max <- max(graph_data$node[nodetype %in% c("real", "compact")]$id)
   virtual_edges <- graph_data$edge[from > real_max]
   
-  # All virtual edges should have color matching their target node's frame.color
+  # All virtual edges should have color matching their target node's color (fill color)
   expect_true(all(!is.na(virtual_edges$color)))
-  expect_true(all(virtual_edges$color %in% graph_data$node$frame.color))
+  expect_true(all(virtual_edges$color %in% graph_data$node$color))
 })
 
 test_that("highlight edges work correctly with trace down", {
@@ -119,7 +119,7 @@ test_that("highlight edges work correctly with trace down", {
   # Edges from family to parents should match parent node colors
   family_node <- graph_data$node[id == j1j576_family_id]
   edges_from_family <- graph_data$edge[from == j1j576_family_id]
-  parent_colors <- graph_data$node[id %in% edges_from_family$to, frame.color]
+  parent_colors <- graph_data$node[id %in% edges_from_family$to, color]
   expect_true(all(edges_from_family$color %in% parent_colors))
 })
 
@@ -192,7 +192,8 @@ test_that("highlight edges work correctly with multiple individuals without trac
   # Edges from families to shared parent should match parent node colors
   real_max <- max(graph_data$node[nodetype %in% c("real", "compact")]$id)
   edges_to_parent <- graph_data$edge[to == j0z938_node$id & from > real_max]
-  expect_true(all(edges_to_parent$color == j0z938_node$frame.color))
+  # Faded edges should have 4D suffix
+  expect_true(all(grepl(paste0("^", j0z938_node$color, "(4D)?$"), edges_to_parent$color)))
 })
 
 test_that("highlight edges work correctly with compact mode", {
@@ -209,9 +210,11 @@ test_that("highlight edges work correctly with compact mode", {
   # Basic edge highlighting rules should still apply
   real_max <- max(graph_data$node[nodetype %in% c("real", "compact")]$id)
   
-  # All edges should be either highlighted (#333333), faded (#3333334D), or match parent colors
+  # All edges should be either highlighted (#333333), faded (#3333334D), or match parent colors (with optional 4D)
   all_edges <- graph_data$edge
-  valid_colors <- unique(c("#333333", "#3333334D", graph_data$node$frame.color))
+  node_colors <- graph_data$node$color
+  node_colors_faded <- paste0(node_colors, "4D")
+  valid_colors <- unique(c("#333333", "#3333334D", node_colors, node_colors_faded))
   expect_true(all(all_edges$color %in% valid_colors))
   
   # Edges from real/compact nodes should respect from_highlighted
@@ -228,18 +231,12 @@ test_that("highlight edges work correctly with compact mode", {
     }
   }
   
-  # Edges from virtual nodes should respect both from and to
+  # Edges from virtual nodes should follow parent colors (with fading for non-highlighted families)
   virtual_edges <- all_edges[from > real_max]
   if (nrow(virtual_edges) > 0) {
-    both_highlighted <- virtual_edges[from_highlighted == TRUE & to_highlighted == TRUE]
-    if (nrow(both_highlighted) > 0) {
-      expect_true(all(both_highlighted$color == "#333333"))
-    }
-    
-    not_both_highlighted <- virtual_edges[!(from_highlighted == TRUE & to_highlighted == TRUE)]
-    if (nrow(not_both_highlighted) > 0) {
-      parent_colors <- graph_data$node[id %in% not_both_highlighted$to, frame.color]
-      expect_true(all(not_both_highlighted$color %in% parent_colors))
-    }
+    parent_colors <- graph_data$node[id %in% virtual_edges$to, color]
+    parent_colors_faded <- paste0(parent_colors, "4D")
+    valid_parent_colors <- unique(c(parent_colors, parent_colors_faded))
+    expect_true(all(virtual_edges$color %in% valid_parent_colors))
   }
 })

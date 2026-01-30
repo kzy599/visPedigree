@@ -130,8 +130,8 @@ finalize_graph <- function(ped_node, ped_edge, highlight_info, trace, showf) {
   
   real_max <- max(ped_node[nodetype %in% c("real", "compact")]$id, na.rm = TRUE)
   
-  tonodecolor = i.frame.color = i.highlighted = from_highlighted = NULL
-  ped_edge[ped_node, ":="(tonodecolor = i.frame.color, to_highlighted = i.highlighted), on = .(to = id)]
+  tonodecolor = i.color = i.highlighted = from_highlighted = NULL
+  ped_edge[ped_node, ":="(tonodecolor = i.color, to_highlighted = i.highlighted), on = .(to = id)]
   ped_edge[ped_node, from_highlighted := i.highlighted, on = .(from = id)]
   
   h_ids <- highlight_info$all_ids
@@ -140,15 +140,17 @@ finalize_graph <- function(ped_node, ped_edge, highlight_info, trace, showf) {
   # Default: edges from family nodes to parents follow the parent node color
   ped_edge[from > real_max, color := tonodecolor]
   
+  # If highlighting is active and family node is not highlighted, fade the edge
+  if (length(h_ids) > 0) {
+    fade_cols <- function(x) ifelse(nchar(x) == 7, paste0(x, "4D"), x)
+    ped_edge[from > real_max & from_highlighted == FALSE, color := fade_cols(tonodecolor)]
+  }
+  
   if (length(h_ids) > 0 && has_trace) {
     # When tracing relationships, highlight edges in the path
     # For edges from real nodes to family virtual nodes (individual -> family):
     # Highlight only if the individual (from) is highlighted
     ped_edge[from <= real_max & from_highlighted == TRUE, color := "#333333"]
-    
-    # For edges from virtual family nodes to parents (family -> parent):
-    # Highlight only if BOTH ends are highlighted (family node AND parent)
-    ped_edge[from > real_max & from_highlighted == TRUE & to_highlighted == TRUE, color := "#333333"]
   } else if (length(h_ids) == 0) {
     # No highlighting: edges already follow parent node color
   }
