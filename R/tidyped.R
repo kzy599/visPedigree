@@ -142,11 +142,68 @@ tidyped <- function(ped,
     ped_dt <- assign_ped_generations(g, ped_dt, topo_order, genmethod)
     
     # Optimization for bottom-up method:
-    # Align full siblings to the same generation (the highest/minimum Gen among them)
+    # 1. Align full siblings to the same generation (the highest/minimum Gen among them)
     # This prevents leaves (individuals with no progeny) from dropping to the bottom
     # when they have siblings who are parents of deep lineages.
     if (genmethod == "bottom") {
       ped_dt[!is.na(Family), Gen := min(Gen), by = Family]
+      
+      # 2. Align mates to the same generation
+      # If Sire and Dam have different generations, align them to the earlier (min) generation.
+      # This ensures pedigree plots look cleaner with horizontal mating lines.
+      # We iterate this until stability or max depth 
+      # (usually one pass is sufficient for most cases, but overlapping generations might need more).
+      # But for speed, we do a single efficient pass that should catch the 'I' vs 'H' case.
+      
+      # We need to lookup mate generations. Join self to self on Sire/Dam.
+      # Create a small lookup table of Ind -> Gen
+      # Using match() is fast.
+      
+      # Iterate a few times to propagate changes (e.g. if A aligns to B, and B aligns to C).
+      # For standard pedigrees, 1 or 2 passes cover the "mate alignment".
+      # Given we already aligned siblings, mates likely just need one sync.
+      
+      for(i in 1:2) {
+        # Get generations of parents for every individual
+        sire_gen <- ped_dt$Gen[match(ped_dt$Sire, ped_dt$Ind)]
+        dam_gen <- ped_dt$Gen[match(ped_dt$Dam, ped_dt$Ind)]
+        
+        # Identify families where SireGen != DamGen (and both exist)
+        valid_mask <- !is.na(sire_gen) & !is.na(dam_gen) & (sire_gen != dam_gen)
+        
+        if (!any(valid_mask)) break
+        
+        # Get the target minimum generation for each mismatched couple
+        # For each offspring row where parents mismatch, we want min(sire_gen, dam_gen).
+        target_gen <- pmin(sire_gen[valid_mask], dam_gen[valid_mask])
+        
+        # We need to update the parents' generations in the main table.
+        # Collect updates needed: (Ind, NewGen)
+        sires_to_upd <- ped_dt$Sire[valid_mask]
+        dams_to_upd <- ped_dt$Dam[valid_mask]
+        
+        # Create a update table
+        upd_dt <- data.table(
+          Ind = c(sires_to_upd, dams_to_upd),
+          NewGen = c(target_gen, target_gen)
+        )
+        
+        # Resolve multiple updates for same individual (take min)
+        upd_dt <- upd_dt[, .(NewGen = min(NewGen)), by = Ind]
+        
+        # Apply updates
+        # Only update if new gen is smaller (higher in chart)
+        curr_gen <- ped_dt$Gen[match(upd_dt$Ind, ped_dt$Ind)]
+        to_change <- upd_dt$NewGen < curr_gen
+        
+        if(any(to_change)) {
+           update_inds <- upd_dt$Ind[to_change]
+           update_gens <- upd_dt$NewGen[to_change]
+           ped_dt[Ind %in% update_inds, Gen := update_gens[match(Ind, update_inds)]]
+        } else {
+           break
+        }
+      }
     }
   }
   
