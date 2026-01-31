@@ -125,8 +125,29 @@ tidyped <- function(ped,
   # We need topo_order for sorting even if addgen=FALSE
   topo_order <- as.integer(topo_sort(g))
   
+  # 6.5. Pre-calculate Family (moved from step 8.5) to assist generation assignment
+  # Create family identifier based on parent combination
+  ped_dt[, Family := ifelse(
+    !is.na(Sire) & !is.na(Dam),
+    paste0(Sire, "x", Dam),
+    NA_character_
+  )]
+  
+  # Calculate family sizes
+  ped_dt[, FamilySize := .N, by = Family]
+  # Individuals without both parents have FamilySize = 1
+  ped_dt[is.na(Family), FamilySize := 1L]
+  
   if (addgen) {
     ped_dt <- assign_ped_generations(g, ped_dt, topo_order, genmethod)
+    
+    # Optimization for bottom-up method:
+    # Align full siblings to the same generation (the highest/minimum Gen among them)
+    # This prevents leaves (individuals with no progeny) from dropping to the bottom
+    # when they have siblings who are parents of deep lineages.
+    if (genmethod == "bottom") {
+      ped_dt[!is.na(Family), Gen := min(Gen), by = Family]
+    }
   }
   
   # 7. Sex Inference and Check
@@ -146,19 +167,6 @@ tidyped <- function(ped,
     ped_dt[, SireNum := match(Sire, Ind, nomatch = 0)]
     ped_dt[, DamNum := match(Dam, Ind, nomatch = 0)]
   }
-  
-  # 8.5. Add Family identification (full-sibling families)
-  # Create family identifier based on parent combination
-  ped_dt[, Family := ifelse(
-    !is.na(Sire) & !is.na(Dam),
-    paste0(Sire, "x", Dam),
-    NA_character_
-  )]
-  
-  # Calculate family sizes
-  ped_dt[, FamilySize := .N, by = Family]
-  # Individuals without both parents have FamilySize = 1
-  ped_dt[is.na(Family), FamilySize := 1L]
   
   if (!is.null(cand)) {
     ped_dt[, Cand := Ind %in% cand]
