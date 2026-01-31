@@ -159,10 +159,8 @@ tidyped <- function(ped,
       # Create a small lookup table of Ind -> Gen
       # Using match() is fast.
       
-      # Iterate a few times to propagate changes (e.g. if A aligns to B, and B aligns to C).
+      # Iterate a few times to propagate changes.
       # For standard pedigrees, 1 or 2 passes cover the "mate alignment".
-      # Given we already aligned siblings, mates likely just need one sync.
-      
       for(i in 1:2) {
         # Get generations of parents for every individual
         sire_gen <- ped_dt$Gen[match(ped_dt$Sire, ped_dt$Ind)]
@@ -173,28 +171,40 @@ tidyped <- function(ped,
         
         if (!any(valid_mask)) break
         
-        # Get the target minimum generation for each mismatched couple
-        # For each offspring row where parents mismatch, we want min(sire_gen, dam_gen).
-        target_gen <- pmin(sire_gen[valid_mask], dam_gen[valid_mask])
+        # Get the target maximum generation for each mismatched couple
+        # We push the "older/higher" parent DOWN to the "younger/lower" parent's generation.
+        # This is safe from parent constraints (moving away from parents), but risky for child constraints.
+        target_gen <- pmax(sire_gen[valid_mask], dam_gen[valid_mask])
         
-        # We need to update the parents' generations in the main table.
         # Collect updates needed: (Ind, NewGen)
         sires_to_upd <- ped_dt$Sire[valid_mask]
         dams_to_upd <- ped_dt$Dam[valid_mask]
         
-        # Create a update table
         upd_dt <- data.table(
           Ind = c(sires_to_upd, dams_to_upd),
           NewGen = c(target_gen, target_gen)
         )
         
-        # Resolve multiple updates for same individual (take min)
-        upd_dt <- upd_dt[, .(NewGen = min(NewGen)), by = Ind]
+        # Resolve multiple updates (take max to go deeper)
+        upd_dt <- upd_dt[, .(NewGen = max(NewGen)), by = Ind]
         
-        # Apply updates
-        # Only update if new gen is smaller (higher in chart)
+        # Constraint check: Individuals cannot move down if they hit their children.
+        # NewGen must be < Min(ChildGen).
+        inds_vec <- upd_dt$Ind
+        relevant_kids <- ped_dt[Sire %in% inds_vec | Dam %in% inds_vec, 
+                                .(Sire, Dam, Gen)]
+        
+        limits <- rbind(
+          relevant_kids[Sire %in% inds_vec, .(Ind=Sire, Limit=Gen)],
+          relevant_kids[Dam %in% inds_vec, .(Ind=Dam, Limit=Gen)]
+        )[, .(Limit = min(Limit)), by = Ind]
+        
+        limit_vals <- limits$Limit[match(upd_dt$Ind, limits$Ind)]
+        
         curr_gen <- ped_dt$Gen[match(upd_dt$Ind, ped_dt$Ind)]
-        to_change <- upd_dt$NewGen < curr_gen
+        
+        # Valid only if pushing down (New > Curr) AND valid against children
+        to_change <- (upd_dt$NewGen > curr_gen) & (is.na(limit_vals) | upd_dt$NewGen < limit_vals)
         
         if(any(to_change)) {
            update_inds <- upd_dt$Ind[to_change]
@@ -204,6 +214,12 @@ tidyped <- function(ped,
            break
         }
       }
+      
+      # Final Sibling Alignment check:
+      # Mate alignment might have pushed one sibling down (away from others) to match a mate.
+      # But Sibling Consistency (P1) > Mate Consistency (P2). 
+      # So we enforce sibling alignment again.
+      ped_dt[!is.na(Family), Gen := min(Gen), by = Family]
     }
   }
   
