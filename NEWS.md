@@ -1,7 +1,8 @@
 # Changes in version 1.0.1 released on 31 Jan 2026
 ## Bug fixes
-1. **`visped()` edge highlighting**: Fixed edge highlighting logic so relationship edges are only emphasized when `trace` is used. When `trace = FALSE`, only focal individuals are highlighted and all edges remain faded.
-2. **Shared-parent/shared-child paths**: Corrected edge highlighting for cases where a parent has multiple families or a family has multiple children, ensuring only traced paths are highlighted.
+1. **Generation Alignment Logic**: Fixed `tidyped(..., genmethod = "bottom")` to prioritize **Sibling Consistency** (P1) over **Mate Alignment** (P2). This ensures that full siblings are always aligned to the same generation (specifically, the highest/earliest generation among them), preventing families from being split across generations when one sibling has a mate in a lower generation.
+2. **`visped()` edge highlighting**: Fixed edge highlighting logic so relationship edges are only emphasized when `trace` is used. When `trace = FALSE`, only focal individuals are highlighted and all edges remain faded.
+3. **Shared-parent/shared-child paths**: Corrected edge highlighting for cases where a parent has multiple families or a family has multiple children, ensuring only traced paths are highlighted.
 
 # Changes in version 1.0.0 released on 24 Jan 2026
 ## API Standardization (BREAKING)
