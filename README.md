@@ -62,3 +62,5 @@ summary(split_list[[1]])
 ## Citation
 
 Luan Sheng (2026). visPedigree: Tidying and Visualizing Animal Pedigrees. R package version 1.0.0, https://github.com/luansheng/visPedigree.
+
+

@@ -26,8 +26,8 @@
 #'   \item \code{"sympd"}: Force Cholesky decomposition (faster for SPD matrices)
 #'   \item \code{"general"}: Force general LU decomposition
 #' }
-#' @param threads Integer, reserved for future parallel support. Currently
-#'   the C++ implementation uses all available cores automatically.
+#' @param threads Integer. Number of OpenMP threads to use. Use 0 to keep
+#'   the system/default setting (typically all available cores).
 #' @param compact Logical, if \code{TRUE} compacts full-sibling families by
 #'   selecting one representative per family. This dramatically reduces matrix
 #'   dimensions for pedigrees with large full-sib groups. See Details.
@@ -202,6 +202,19 @@ pedmat <- function(ped, method = "A", sparse = TRUE, invert_method = "auto",
   
   # Validate invert_method
   invert_method <- match.arg(invert_method, c("auto", "sympd", "general"))
+
+  # Validate threads
+  if (!is.numeric(threads) || length(threads) != 1 || is.na(threads) || threads < 0) {
+    stop("'threads' must be a single non-negative integer.")
+  }
+  threads <- as.integer(threads)
+  if (threads > 0) {
+    if (!cpp_openmp_available()) {
+      warning("OpenMP is not available; 'threads' will be ignored.", call. = FALSE)
+    }
+    prev_threads <- cpp_set_num_threads(threads)
+    on.exit(cpp_set_num_threads(prev_threads), add = TRUE)
+  }
   
   # Store original pedigree N for call_info
   n_original <- if (inherits(ped, "tidyped")) nrow(ped) else {
@@ -1242,10 +1255,17 @@ summary_pedmat <- function(x) {
   if (!is.list(obj_clean)) {
     # For Matrix objects, use Matrix::mean or extract values
     stats$mean_val <- tryCatch({
+      n <- as.numeric(nrow(obj_clean))
+      denom <- n * n - n
+      if (denom <= 0) return(NA_real_)
       if (inherits(obj_clean, "Matrix")) {
-        mean(obj_clean@x)  # Access non-zero elements for sparse
+        total_sum <- Matrix::sum(obj_clean)
+        diag_sum <- sum(Matrix::diag(obj_clean))
+        (total_sum - diag_sum) / denom
       } else {
-        mean(obj_clean)
+        total_sum <- sum(obj_clean)
+        diag_sum <- sum(diag(obj_clean))
+        (total_sum - diag_sum) / denom
       }
     }, error = function(e) NA_real_)
     
@@ -1296,7 +1316,7 @@ print.summary.pedmat <- function(x, ...) {
   
   if (!is.null(x$mean_val)) {
       cat("\nMatrix Properties:\n")
-      cat("- Mean relationship: ", if(is.na(x$mean_val)) "NA" else round(x$mean_val, 6), "\n")
+      cat("- Mean off-diagonal relationship: ", if(is.na(x$mean_val)) "NA" else round(x$mean_val, 6), "\n")
       cat("- Density (non-zero): ", if(is.na(x$sparsity)) "NA" else round(x$sparsity * 100, 2), "%\n", sep="")
   }
   cat("========================================\n")
@@ -1383,4 +1403,3 @@ as.vector.pedmat <- function(x, mode = "any") {
   class(x) <- setdiff(class(x), "pedmat")
   as.vector(x, mode = mode)
 }
-

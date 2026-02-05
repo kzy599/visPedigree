@@ -2,7 +2,7 @@
 #'
 #' A dataset containing a pedigree with many full-sib individuals per family.
 #'
-#' @format A data.table with 7 columns:
+#' @format A data.table with 8 columns:
 #' \describe{
 #'   \item{Ind}{Individual ID}
 #'   \item{Sire}{Sire ID}

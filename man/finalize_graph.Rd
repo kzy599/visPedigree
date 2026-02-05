@@ -4,7 +4,7 @@
 \alias{finalize_graph}
 \title{Finalize graph and reindex IDs}
 \usage{
-finalize_graph(ped_node, ped_edge, h_ids, showf)
+finalize_graph(ped_node, ped_edge, highlight_info, trace, showf)
 }
 \description{
 Finalize graph and reindex IDs

@@ -11,6 +11,27 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
+// cpp_set_num_threads
+int cpp_set_num_threads(int threads);
+RcppExport SEXP _visPedigree_cpp_set_num_threads(SEXP threadsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< int >::type threads(threadsSEXP);
+    rcpp_result_gen = Rcpp::wrap(cpp_set_num_threads(threads));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cpp_openmp_available
+bool cpp_openmp_available();
+RcppExport SEXP _visPedigree_cpp_openmp_available() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(cpp_openmp_available());
+    return rcpp_result_gen;
+END_RCPP
+}
 // cpp_calculate_inbreeding
 List cpp_calculate_inbreeding(IntegerVector sire, IntegerVector dam);
 RcppExport SEXP _visPedigree_cpp_calculate_inbreeding(SEXP sireSEXP, SEXP damSEXP) {
@@ -147,6 +168,8 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
+    {"_visPedigree_cpp_set_num_threads", (DL_FUNC) &_visPedigree_cpp_set_num_threads, 1},
+    {"_visPedigree_cpp_openmp_available", (DL_FUNC) &_visPedigree_cpp_openmp_available, 0},
     {"_visPedigree_cpp_calculate_inbreeding", (DL_FUNC) &_visPedigree_cpp_calculate_inbreeding, 2},
     {"_visPedigree_cpp_build_ainv_triplets", (DL_FUNC) &_visPedigree_cpp_build_ainv_triplets, 3},
     {"_visPedigree_cpp_calculate_A", (DL_FUNC) &_visPedigree_cpp_calculate_A, 2},

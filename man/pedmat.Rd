@@ -39,8 +39,8 @@ large pedigrees). Default is \code{TRUE}.}
   \item \code{"general"}: Force general LU decomposition
 }}
 
-\item{threads}{Integer, reserved for future parallel support. Currently
-the C++ implementation uses all available cores automatically.}
+\item{threads}{Integer. Number of OpenMP threads to use. Use 0 to keep
+the system/default setting (typically all available cores).}
 
 \item{compact}{Logical, if \code{TRUE} compacts full-sibling families by
 selecting one representative per family. This dramatically reduces matrix

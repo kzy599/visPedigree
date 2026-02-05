@@ -5,7 +5,7 @@
 \alias{big_family_size_ped}
 \title{A large pedigree with big family sizes}
 \format{
-A data.table with 7 columns:
+A data.table with 8 columns:
 \describe{
   \item{Ind}{Individual ID}
   \item{Sire}{Sire ID}
