@@ -27,7 +27,14 @@
 #'   \item \code{"general"}: Force general LU decomposition
 #' }
 #' @param threads Integer. Number of OpenMP threads to use. Use 0 to keep
-#'   the system/default setting (typically all available cores).
+#'   the system/default setting. Currently, multi-threading is explicitly implemented for:
+#' \itemize{
+#'   \item \code{"D"}: Dominance relationship matrix (significant speedup).
+#'   \item \code{"Ainv"}: Inverse of A (only for large pedigrees, n >= 5000).
+#' }
+#' For \code{"Dinv"}, \code{"AA"}, and \code{"AAinv"}, parallelism depends on the 
+#' linked BLAS/LAPACK library (e.g., OpenBLAS, MKL, Accelerate) and is not 
+#' controlled by this parameter. Methods \code{"A"} and \code{"f"} are single-threaded.
 #' @param compact Logical, if \code{TRUE} compacts full-sibling families by
 #'   selecting one representative per family. This dramatically reduces matrix
 #'   dimensions for pedigrees with large full-sib groups. See Details.
