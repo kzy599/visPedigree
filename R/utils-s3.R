@@ -78,10 +78,20 @@ plot.tidyped <- function(x, ...) {
 #'
 #' @param object A tidyped object.
 #' @param ... Additional arguments (ignored).
-#' @return A summary.tidyped object containing pedigree statistics.
+#' @return A summary.tidyped object (list) containing:
+#' \itemize{
+#'   \item \code{n_ind}: Total number of individuals.
+#'   \item \code{n_male}, \code{n_female}, \code{n_unknown_sex}: Sex composition counts.
+#'   \item \code{n_founders}: Number of individuals with no known parents.
+#'   \item \code{n_both_parents}: Count of individuals with complete parentage.
+#'   \item \code{max_gen}, \code{gen_dist}: (Optional) Maximum generation and its distribution.
+#'   \item \code{n_families}, \code{family_sizes}, \code{top_families}: (Optional) Family statistics.
+#'   \item \code{f_stats}, \code{n_inbred}: (Optional) Inbreeding coefficient statistics.
+#'   \item \code{n_cand}, \code{cand_f_stats}: (Optional) Candidate-specific statistics.
+#' }
 #' @export
 summary.tidyped <- function(object, ...) {
-  x <- object
+  x <- validate_tidyped(object)
   res <- list()
   
   # Basic counts
@@ -167,11 +177,20 @@ summary.tidyped <- function(object, ...) {
 
   # Inbreeding coefficients statistics
   if ("f" %in% names(x)) {
-    res$f_stats <- list(
-      min = min(x$f, na.rm = TRUE),
-      max = max(x$f, na.rm = TRUE),
-      mean = mean(x$f, na.rm = TRUE)
-    )
+    has_f <- any(!is.na(x$f))
+    if (has_f) {
+      res$f_stats <- list(
+        min = min(x$f, na.rm = TRUE),
+        max = max(x$f, na.rm = TRUE),
+        mean = mean(x$f, na.rm = TRUE)
+      )
+    } else {
+      res$f_stats <- list(
+        min = NA_real_,
+        max = NA_real_,
+        mean = NA_real_
+      )
+    }
     
     # Count inbred individuals (f > 0)
     res$n_inbred <- sum(x$f > 0, na.rm = TRUE)
@@ -206,13 +225,15 @@ print.summary.tidyped <- function(x, ...) {
   
   # Basic information
   cat("Total Individuals: ", x$n_ind, "\n")
-  cat("  - Males:   ", sprintf("%d (%.1f%%)", x$n_male, 
-                               100 * x$n_male / x$n_ind), "\n")
-  cat("  - Females: ", sprintf("%d (%.1f%%)", x$n_female, 
-                               100 * x$n_female / x$n_ind), "\n")
+  pct_male <- if(x$n_ind > 0) 100 * x$n_male / x$n_ind else 0
+  pct_female <- if(x$n_ind > 0) 100 * x$n_female / x$n_ind else 0
+  
+  cat("  - Males:   ", sprintf("%d (%.1f%%)", x$n_male, pct_male), "\n")
+  cat("  - Females: ", sprintf("%d (%.1f%%)", x$n_female, pct_female), "\n")
+  
   if (x$n_unknown_sex > 0) {
-    cat("  - Unknown: ", sprintf("%d (%.1f%%)", x$n_unknown_sex,
-                                 100 * x$n_unknown_sex / x$n_ind), "\n")
+    pct_unknown <- if(x$n_ind > 0) 100 * x$n_unknown_sex / x$n_ind else 0
+    cat("  - Unknown: ", sprintf("%d (%.1f%%)", x$n_unknown_sex, pct_unknown), "\n")
   }
   cat("\n")
   
@@ -288,21 +309,27 @@ print.summary.tidyped <- function(x, ...) {
   # Inbreeding information
   if (!is.null(x$f_stats)) {
     cat("Inbreeding Coefficients:\n")
-    cat("  - All individuals:\n")
-    cat(sprintf("      Mean = %.4f, Min = %.4f, Max = %.4f\n",
-                x$f_stats$mean, x$f_stats$min, x$f_stats$max))
-    if (!is.null(x$n_inbred)) {
-      cat(sprintf("      Inbred (f > 0): %d (%.1f%%)\n",
-                  x$n_inbred, 100 * x$n_inbred / x$n_ind))
-    }
-    
-    if (!is.null(x$cand_f_stats)) {
-      cat("  - Candidates:\n")
+    if (all(is.na(unlist(x$f_stats)))) {
+      cat("  - (Calculated column present, but all values are NA)\n")
+    } else {
+      cat("  - All individuals:\n")
       cat(sprintf("      Mean = %.4f, Min = %.4f, Max = %.4f\n",
-                  x$cand_f_stats$mean, x$cand_f_stats$min, x$cand_f_stats$max))
-      if (!is.null(x$n_cand_inbred)) {
+                  x$f_stats$mean, x$f_stats$min, x$f_stats$max))
+      if (!is.null(x$n_inbred)) {
+        pct_inbred <- if(x$n_ind > 0) 100 * x$n_inbred / x$n_ind else 0
         cat(sprintf("      Inbred (f > 0): %d (%.1f%%)\n",
-                    x$n_cand_inbred, 100 * x$n_cand_inbred / x$n_cand))
+                    x$n_inbred, pct_inbred))
+      }
+      
+      if (!is.null(x$cand_f_stats)) {
+        cat("  - Candidates:\n")
+        cat(sprintf("      Mean = %.4f, Min = %.4f, Max = %.4f\n",
+                    x$cand_f_stats$mean, x$cand_f_stats$min, x$cand_f_stats$max))
+        if (!is.null(x$n_cand_inbred)) {
+          pct_cand_inbred <- if(x$n_cand > 0) 100 * x$n_cand_inbred / x$n_cand else 0
+          cat(sprintf("      Inbred (f > 0): %d (%.1f%%)\n",
+                      x$n_cand_inbred, pct_cand_inbred))
+        }
       }
     }
     cat("\n")
