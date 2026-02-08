@@ -12,10 +12,17 @@
 \item{...}{Additional arguments (ignored).}
 }
 \value{
-A summary.tidyped object (list) containing core pedigree statistics, including
-individual counts, sex composition, founder counts, parent completeness,
-optional generation distribution, offspring counts, optional family
-statistics, candidate counts, and optional inbreeding summaries.
+A summary.tidyped object (list) containing:
+\itemize{
+  \item \code{n_ind}: Total number of individuals.
+  \item \code{n_male}, \code{n_female}, \code{n_unknown_sex}: Sex composition counts.
+  \item \code{n_founders}: Number of individuals with no known parents.
+  \item \code{n_both_parents}: Count of individuals with complete parentage.
+  \item \code{max_gen}, \code{gen_dist}: (Optional) Maximum generation and its distribution.
+  \item \code{n_families}, \code{family_sizes}, \code{top_families}: (Optional) Family statistics.
+  \item \code{f_stats}, \code{n_inbred}: (Optional) Inbreeding coefficient statistics.
+  \item \code{n_cand}, \code{cand_f_stats}: (Optional) Candidate-specific statistics.
+}
 }
 \description{
 Summary method for tidyped objects
