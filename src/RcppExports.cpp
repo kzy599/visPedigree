@@ -153,6 +153,20 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// cpp_calculate_partial_inbreeding
+NumericMatrix cpp_calculate_partial_inbreeding(IntegerVector sire, IntegerVector dam, NumericVector dii, IntegerVector ancestors);
+RcppExport SEXP _visPedigree_cpp_calculate_partial_inbreeding(SEXP sireSEXP, SEXP damSEXP, SEXP diiSEXP, SEXP ancestorsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type sire(sireSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type dam(damSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type dii(diiSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type ancestors(ancestorsSEXP);
+    rcpp_result_gen = Rcpp::wrap(cpp_calculate_partial_inbreeding(sire, dam, dii, ancestors));
+    return rcpp_result_gen;
+END_RCPP
+}
 // cpp_assign_generations_bottom
 IntegerVector cpp_assign_generations_bottom(IntegerVector sire, IntegerVector dam, IntegerVector topo_order);
 RcppExport SEXP _visPedigree_cpp_assign_generations_bottom(SEXP sireSEXP, SEXP damSEXP, SEXP topo_orderSEXP) {
@@ -180,6 +194,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_visPedigree_cpp_invert_auto", (DL_FUNC) &_visPedigree_cpp_invert_auto, 1},
     {"_visPedigree_cpp_solve_A", (DL_FUNC) &_visPedigree_cpp_solve_A, 4},
     {"_visPedigree_cpp_assign_generations_top", (DL_FUNC) &_visPedigree_cpp_assign_generations_top, 3},
+    {"_visPedigree_cpp_calculate_partial_inbreeding", (DL_FUNC) &_visPedigree_cpp_calculate_partial_inbreeding, 4},
     {"_visPedigree_cpp_assign_generations_bottom", (DL_FUNC) &_visPedigree_cpp_assign_generations_bottom, 3},
     {NULL, NULL, 0}
 };

@@ -1,7 +1,21 @@
 # visPedigree 项目待办事项 (TODO)
 
 
-## 3. 文档与学术产出 (Documentation & Manuscript)
+## 7. Pedigree Analysis Module (v2.0)
+- [ ] **Design & Specs**: See [pedigree_analysis_design.md](pedigree_analysis_design.md) for detailed function specifications.
+- [x] **Core Functions (Level 1)**:
+    - [x] `pedstats()`: Main wrapper.
+    - [x] `pedgenint()`: Generation intervals (Pure R).
+    - [x] `pedsubpop()`: Subpopulation stats (Wraps `splitped`).
+- [x] **Advanced Functions (Level 2/3 - C++ Backed)**:
+    - [x] `pedecg()`: Equivalent Complete Generations (R Implementation).
+    - [x] `pedne()`: Effective population size via $\Delta F$ (R Implementation).
+    - [x] `pedcontrib()`: Founder and Ancestor contributions ($f_e, f_a$) (R Implementation).
+- [x] **Visualization**:
+    - [x] `vispstat()`: Plotting function for `pedstats` objects (with `plot.pedstats` S3 method).
+
+## 8. Documentation & Manuscript
+
 - [ ] **完善 manuscript.md**: 
     - [ ] 补充具体的算法复杂度分析（Time Complexity）。
     - [ ] 补充 `deep_ped` 和 `big_family_size_ped` 的实际运行时间基准测试数据。

@@ -49,6 +49,10 @@ cpp_assign_generations_top <- function(sire, dam, topo_order) {
     .Call(`_visPedigree_cpp_assign_generations_top`, sire, dam, topo_order)
 }
 
+cpp_calculate_partial_inbreeding <- function(sire, dam, dii, ancestors) {
+    .Call(`_visPedigree_cpp_calculate_partial_inbreeding`, sire, dam, dii, ancestors)
+}
+
 cpp_assign_generations_bottom <- function(sire, dam, topo_order) {
     .Call(`_visPedigree_cpp_assign_generations_bottom`, sire, dam, topo_order)
 }

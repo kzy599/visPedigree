@@ -63,3 +63,18 @@
 #'   \item{Dam}{Dam ID}
 #' }
 "small_ped"
+
+#' A highly inbred pedigree
+#'
+#' A simulated pedigree designed to demonstrate high levels of inbreeding and partial inbreeding decomposition.
+#' Contains full-sib mating and backcrossing.
+#'
+#' @format A data.table with 5 columns:
+#' \describe{
+#'   \item{Ind}{Individual ID}
+#'   \item{Sire}{Sire ID}
+#'   \item{Dam}{Dam ID}
+#'   \item{Sex}{Sex of the individual}
+#'   \item{Gen}{Generation number}
+#' }
+"inbred_ped"
