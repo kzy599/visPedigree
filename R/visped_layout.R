@@ -108,9 +108,9 @@ prepare_ped_graph <- function(ped, compact = FALSE, outline = FALSE, cex = NULL,
         current_nodes[is.na(familylabel), familylabel := paste0("u_", id)]
       }
       
-      parent_coords <- real_node[, .(label, px = x)]
-      current_nodes[parent_coords, on = .(sirelabel = label), sire_x := i.px]
-      current_nodes[parent_coords, on = .(damlabel = label), dam_x := i.px]
+      parent_coords <- real_node[, .(Ind, px = x)]
+      current_nodes[parent_coords, on = .(sirelabel = Ind), sire_x := i.px]
+      current_nodes[parent_coords, on = .(damlabel = Ind), dam_x := i.px]
       current_nodes[, parent_mid := rowMeans(.SD, na.rm = TRUE), .SDcols = c("sire_x", "dam_x")]
       current_nodes[is.na(parent_mid), parent_mid := x]
       

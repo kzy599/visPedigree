@@ -164,6 +164,9 @@ finalize_graph <- function(ped_node, ped_edge, highlight_info, trace, showf) {
   new_names_node <- c("id", setdiff(colnames(ped_node), "id"))
   ped_node <- ped_node[, ..new_names_node][order(layer, id)]
   
+  # Ensure Ind column exists for layout matching (clean label before modification)
+  ped_node[, Ind := label]
+  
   if (showf && "f" %in% colnames(ped_node)) {
     ped_node[nodetype %in% c("real", "compact") & !is.na(f) & f > 0, 
              label := paste0(label, "\n[", round(f, 4), "]")]
