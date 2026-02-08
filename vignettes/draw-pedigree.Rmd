@@ -12,7 +12,11 @@ vignette: >
 ```{r setup, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#>"
+  comment = "#>",
+  fig.width = 6.5,
+  fig.height = 6.5,
+  dpi = 300,
+  out.width = "100%"
 )
 library(visPedigree)
 ```
@@ -36,7 +40,7 @@ Additionally, isolated individuals (those with no parents and no progeny) are au
 
 A small pedigree is drawn in the following figure. The following code also demonstrates how to save the graph as a high-quality vector graphic in a PDF file.
 
-```{r smallped, fig.width=6.5, fig.height=6.5, fig.show="hold"}
+```{r smallped, fig.show="hold"}
 tidy_small_ped <-
   tidyped(ped = small_ped,
           cand = c("Y", "Z1", "Z2"))
@@ -47,9 +51,9 @@ In the above graph, two shapes and three colors are used. Circles represent indi
 
 ### 1.1 A simple pedigree graph {#1-1}
 The trimmed **simple_ped** pedigree is drawn and displayed on the default graphics device. The **addgen** and **addnum** parameters need to be set to TRUE when tidying the pedigree using the **tidyped** function.
-```{r vissimpleped,  fig.width=6.5, fig.height=6.5, fig.show="hold"}
+```{r vissimpleped, fig.show="hold"}
 tidy_simple_ped <- tidyped(simple_ped)
-visped(tidy_simple_ped)
+visped(tidy_simple_ped, cex=0.3, symbolsize=10)
 ```
 
 Figures displayed in the RStudio Plots panel often have limited resolution. Individual IDs may overlap if the pedigree is large and the plot area is restricted. This can be resolved by saving the graph as a vector graphic in a PDF file. The **visped** function will suppress output to the default device if `showgraph = FALSE`.
@@ -64,18 +68,18 @@ By setting the **file** parameter, you can generate a high-definition PDF versio
 Specific individuals can be highlighted in the pedigree graph using the **highlight** parameter. This is useful for marking candidates, founders, or any individuals of interest.
 
 You can provide a character vector of individual IDs to use the default highlight colors (purple border and light purple fill):
-```{r highlight1, fig.width=6.5, fig.height=6.5}
+```{r highlight1}
 visped(tidyped(small_ped), highlight = c("Y", "Z1"))
 ```
 
 You can also highlight an individual and its relatives (ancestors and descendants) by setting `trace = TRUE`:
-```{r highlight_trace, fig.width=6.5, fig.height=6.5}
+```{r highlight_trace}
 # Highlight individual "Y" and all its ancestors and descendants
 visped(tidyped(small_ped), highlight = "Y", trace = TRUE)
 ```
 
 Alternatively, you can customize the colors by providing a list with **ids**, **frame.color**, and **color**:
-```{r highlight2, fig.width=6.5, fig.height=6.5}
+```{r highlight2}
 visped(tidyped(small_ped), 
        highlight = list(ids = c("Y", "Z1"), 
                         frame.color = "#4caf50", 
@@ -84,7 +88,7 @@ visped(tidyped(small_ped),
 
 ### 1.1.2 Showing inbreeding coefficients {#1-1-2}
 Inbreeding coefficients can be displayed on the pedigree graph using the **showf** parameter in the **visped** function. This requires that the pedigree has been processed with inbreeding coefficients calculated using the **inbreed** parameter in the **tidyped** function.
-```{r showinbreed, fig.width=6.5, fig.height=6.5}
+```{r showinbreed}
 library(data.table)
 test_ped <- data.table(
   Ind = c("A", "B", "C", "D", "E"),
@@ -101,7 +105,13 @@ visped(tidy_test_ped_inbreed, showf = TRUE)
 Warning messages will be shown when you try to draw the pedigree graph of the deep_ped dataset.
 ```{r deepped, eval=FALSE}
 cand_J11_labels <- deep_ped[(substr(Ind, 1, 3) == "K11"), Ind]
-visped(tidyped(deep_ped, cand = cand_J11_labels, tracegen = 3))
+visped(
+  tidyped(deep_ped,
+    cand = cand_J11_labels,
+    tracegen = 3),
+  cex=0.08,
+  symbolsize=5.5
+  )
 ```
 
 ```
@@ -114,7 +124,7 @@ Rerun visped() function!
 The function indicates that there are too many individuals in a single generation to draw a standard pedigree graph. It is recommended to use the **compact** or **outline** parameters to simplify the pedigree.
 
 First, let's try the **compact** parameter and output it to a PDF file. The plot on the default device may suffer from significant overlapping due to the high density of individuals.
-```{r reduceped1, fig.width=6.5, fig.height=6.5}
+```{r reduceped1}
 cand_J11_labels <- deep_ped[(substr(Ind,1,3) == "K11"),Ind]
 visped(
   tidyped(
@@ -123,6 +133,8 @@ visped(
     trace = "up",
     tracegen = 3
   ),
+  cex=0.08, 
+  symbolsize=5.5,
   compact = TRUE,
   showgraph = TRUE,
   file = tempfile(fileext = ".pdf")
@@ -131,7 +143,7 @@ visped(
 
 You can open the generated PDF file to view the high-definition pedigree vectorgraph. Most of shapes are square at bottom, and the internal numbers are the total number of male or female individuals for each family. Individual labels may be shorter than the shapes and might not align perfectly. Individual labels can be resized using the `cex` parameter. The `cex` parameter controls the font size of individual IDs. Increasing `cex` makes the labels larger, while decreasing it makes them smaller. The `cex` value typically ranges from 0 to 1, but can be larger; adjustments of 0.1 are usually sufficient. The **visped** function will output warning messages including the cex value which was used for drawing the pedigreed graph. 
 
-```{r reduceped2, fig.width=6.5, fig.height=6.5}
+```{r reduceped2}
 visped(
   tidyped(
     deep_ped,
@@ -152,7 +164,7 @@ Setting `outline = TRUE` produces an outlined pedigree graph. Individual labels 
 
 The following code generates an outlined pedigree graph in a PDF file.
 
-```{r reduceped3, fig.width=6.5, fig.height=6.5}
+```{r reduceped3}
 suppressMessages(visped(
   tidyped(
     deep_ped,
@@ -170,10 +182,17 @@ suppressMessages(visped(
 Selective breeding is a process of enriching desirable minor genes from multiple founders through successive generations of mating. This is supported by the well-known infinitesimal model (or minor polygene hypothesis).
 
 We select the individual "J110550G" in the deep_ped dataset to visualize its pedigree. The following code generates the pedigree graph for a specific individual in a PDF file.
-```{r pedofoneind, fig.width=6.5, fig.height=6.5}
+```{r pedofoneind}
 suppressWarnings(J110550G_ped <-
                    tidyped(deep_ped, cand = "K110550H"))
-suppressMessages(visped(J110550G_ped, showgraph = TRUE, file = tempfile(fileext = ".pdf")))
+suppressMessages(
+  visped(J110550G_ped, 
+    cex=0.08, 
+    symbolsize=5.5, 
+    showgraph = TRUE, 
+    file = tempfile(fileext = ".pdf")
+  )
+)
 ```
 
 As you can see from the figure above, the number of founder individuals (without parents) of the J110550G individual is `r nrow(J110550G_ped[is.na(Sire) & is.na(Dam)])`. This indicates that the individual has accumulated favorable genes from many founders, contributing to genetic gain in the target traits.
@@ -183,7 +202,7 @@ As you can see from the figure above, the number of founder individuals (without
 Under optimum contribution theory, families contribute different numbers of individuals to the next generation, with higher-indexing families contributing more. By visualizing pedigree, we can directly see the contribution ratio of different families.
 
 The code below shows the parental composition of 106 families born in the nucleus breeding population in 2007. Setting `tracegen = 2` limits the graph to two generations (parents and grandparents).
-```{r optiMate, fig.width=6.5, fig.height=6.5}
+```{r optiMate}
 cand_2007_G8_labels <-
   big_family_size_ped[(Year == 2007) & (substr(Ind, 1, 2) == "G8"), Ind]
 suppressWarnings(
