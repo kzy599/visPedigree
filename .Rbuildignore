@@ -30,4 +30,4 @@
 ^CODE_REVIEW_FIXES\.md$
 ^CRAN-SUBMISSION$
 ^manuscript\.md$
-^complex_100gen_ped\.rda$
+^inst/extdata/complex_100gen_ped\.rda$
