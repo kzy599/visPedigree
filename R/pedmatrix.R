@@ -86,7 +86,7 @@
 #' \itemize{
 #'   \item \code{print(x)}: Display matrix with metadata header
 #'   \item \code{\link{summary_pedmat}(x)}: Detailed statistics (size, compression, mean, density)
-#'   \item \code{dim(x)}, \code{length(x)}, \code{diag(x)}, \code{t(x)}: Standard operations
+#'   \item \code{dim(x)}, \code{length(x)}, \code{Matrix::diag(x)}, \code{t(x)}: Standard operations
 #'   \item \code{x[i, j]}: Subsetting (behaves like underlying matrix)
 #'   \item \code{as.matrix(x)}: Convert to base matrix
 #' }
@@ -122,7 +122,7 @@
 #' # --- Additive Relationship Matrix (default) ---
 #' A <- pedmat(tped)
 #' A["A", "B"]      # Relationship between A and B
-#' diag(A)          # Diagonal = 1 + F (inbreeding)
+#' Matrix::diag(A)  # Diagonal = 1 + F (inbreeding)
 #' 
 #' # --- Inbreeding Coefficients ---
 #' f <- pedmat(tped, method = "f")
@@ -1440,42 +1440,6 @@ dim.pedmat <- function(x) {
 length.pedmat <- function(x) {
   class(x) <- setdiff(class(x), "pedmat")
   length(x)
-}
-
-#' Extract Matrix Diagonals
-#' 
-#' @description
-#' Extract the diagonal of a pedmat object or other matrices.
-#' This generic function extending \code{base::diag} to support \code{pedmat} objects.
-#' 
-#' @param x A matrix, vector, or \code{pedmat} object.
-#' @param ... Additional arguments passed to \code{base::diag}.
-#' 
-#' @return The diagonal vectors or a diagonal matrix.
-#' @export
-diag <- function(x, ...) {
-  UseMethod("diag")
-}
-
-#' @export
-diag.default <- function(x, ...) {
-  # If it's an S4 Matrix object, use Matrix's dispatcher
-  if (isS4(x)) return(Matrix::diag(x))
-  # Fallback to base R
-  base::diag(x, ...)
-}
-
-#' @export
-#' @method diag pedmat
-diag.pedmat <- function(x, ...) {
-  # Strip pedmat class to avoid infinite recursion
-  obj <- x
-  if (inherits(obj, "pedmat")) {
-    class(obj) <- setdiff(class(obj), "pedmat")
-  }
-  
-  # Delegate to appropriate method
-  diag(obj, ...)
 }
 
 #' @export
