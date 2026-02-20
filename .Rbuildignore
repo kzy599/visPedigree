@@ -30,4 +30,5 @@
 ^CODE_REVIEW_FIXES\.md$
 ^CRAN-SUBMISSION$
 ^manuscript\.md$
+^MACOS_OPENMP_FIX\.md$
 ^inst/extdata/complex_100gen_ped\.rda$
