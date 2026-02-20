@@ -2,10 +2,10 @@
 
 
 ## 3. 文档与学术产出 (Documentation & Manuscript)
-- [ ] **完善 manuscript.md**: 
-    - [ ] 补充具体的算法复杂度分析（Time Complexity）。
-    - [ ] 补充 `deep_ped` 和 `big_family_size_ped` 的实际运行时间基准测试数据。
-    - [ ] 导出高清案例图示并插入文稿。
+- [x] **完善 manuscript.md**: 
+    - [x] 补充具体的算法复杂度分析（Time Complexity）。
+    - [x] 补充 `deep_ped` 和 `big_family_size_ped` 的实际运行时间基准测试数据。
+    - [x] 导出高清案例图示并插入文稿。
 
 ## 5. 可视化布局专项优化 (Visualization & UI)
 - [ ] **边路由优化 (Edge Routing)**: 针对复杂近交系谱，探索非线性边路径，避免线条穿过无关节点。
