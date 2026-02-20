@@ -344,4 +344,3 @@ visped <- function(
 
   invisible(graph_data)
 }
-`:=` = function(...) NULL
