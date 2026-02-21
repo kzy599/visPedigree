@@ -60,14 +60,22 @@ test_that("splitped handles isolated individuals", {
 })
 
 test_that("splitped handles all isolated individuals", {
-  ped <- data.frame(
-    Ind = c("A", "B", "C"),
-    Sire = c(NA, NA, NA),
-    Dam = c(NA, NA, NA)
-  )
-  tped <- tidyped(ped)
+  # Cannot construct an empty tidyped with tidyped() because "All parents are missing"
+  # So we manually construct a mimic tidyped object for testing splitped() logic
   
-  res <- splitped(tped)
+  ped <- data.table::data.table(
+    Ind = c("A", "B", "C"),
+    Sire = rep(NA_character_, 3),
+    Dam = rep(NA_character_, 3),
+    Sex = rep(NA_character_, 3),
+    Gen = rep(0L, 3), # Isolated individuals have Gen=0
+    IndNum = 1:3,
+    SireNum = rep(0L, 3),
+    DamNum = rep(0L, 3)
+  )
+  class(ped) <- c("tidyped", "data.table", "data.frame")
+  
+  res <- splitped(ped)
   
   expect_s3_class(res, "splitped")
   expect_equal(attr(res, "n_groups"), 0)
@@ -79,8 +87,10 @@ test_that("splitped handles all isolated individuals", {
 test_that("splitped input validation", {
   expect_error(splitped(data.frame(Ind="A", Sire=NA, Dam=NA)), "must be a tidyped object")
   
-  tped <- tidyped(data.frame(Ind="A", Sire=NA, Dam=NA))
-  tped$IndNum <- NULL
+  # Manually construct valid-class but missing-column object to bypass tidyped() constructor validation
+  tped <- data.table::data.table(Ind="A", Sire=NA, Dam=NA)
+  class(tped) <- c("tidyped", "data.table", "data.frame")
+  
   expect_error(splitped(tped), "must contain IndNum, SireNum, DamNum, Gen columns")
 })
 
