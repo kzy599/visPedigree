@@ -31,7 +31,7 @@
 #' @param symbolsize A numeric value specifying the scaling factor for node size relative to the label size. Values greater than 1 increase the node size (adding padding around the label), while values less than 1 decrease it. This is useful for fine-tuning the whitespace and legibility of dense graphs. The default value is 1.
 #' @param maxiter An integer specifying the maximum number of iterations for the Sugiyama layout algorithm to minimize edge crossings. Higher values (e.g., 2000 or 5000) may result in fewer crossed lines for complex pedigrees but will increase computation time. The default value is 1000.
 #' @param ... Additional arguments passed to \code{\link[igraph:plot.igraph]{plot.igraph}}.
-#' @return No returned values. The graph will be plotted directly on graphic devices.
+#' @return The function mainly produces a plot on the current graphics device and/or a PDF file. It invisibly returns a list containing the graph object, layout coordinates, and node sizes.
 #'
 #' @seealso
 #' \code{\link{tidyped}} for tidying pedigree data (required input)

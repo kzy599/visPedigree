@@ -90,7 +90,13 @@ apply_node_styles <- function(ped_node, highlight_info) {
     ped_node[id %in% h_familynums & nodetype == "virtual", highlighted := TRUE]
     
     # Fade non-highlighted nodes
-    fade_cols <- function(x) ifelse(nchar(x) == 7, paste0(x, "4D"), x)
+    fade_cols <- function(x) {
+      # Handle #RRGGBB (7 chars) -> add 4D
+      # Handle #RRGGBBAA (9 chars) -> replace AA with 4D
+      x_len <- nchar(x)
+      ifelse(x_len == 7, paste0(x, "4D"),
+             ifelse(x_len == 9, paste0(substr(x, 1, 7), "4D"), x))
+    }
     # Batch update non-highlighted
     ped_node[highlighted == FALSE & nodetype %in% c("real", "compact"), `:=`(
       color = fade_cols(color), 
@@ -142,7 +148,11 @@ finalize_graph <- function(ped_node, ped_edge, highlight_info, trace, showf) {
   
   # If highlighting is active and family node is not highlighted, fade the edge
   if (length(h_ids) > 0) {
-    fade_cols <- function(x) ifelse(nchar(x) == 7, paste0(x, "4D"), x)
+    fade_cols <- function(x) {
+      x_len <- nchar(x)
+      ifelse(x_len == 7, paste0(x, "4D"),
+             ifelse(x_len == 9, paste0(substr(x, 1, 7), "4D"), x))
+    }
     ped_edge[from > real_max & from_highlighted == FALSE, color := fade_cols(tonodecolor)]
   }
   
