@@ -495,12 +495,6 @@ pedmat <- function(ped, method = "A", sparse = TRUE, invert_method = "auto",
   return(result)
 }
 
-#' @export
-pedmatrix <- function(...) {
-  .Deprecated("pedmat")
-  pedmat(...)
-}
-
 
 #' Compact pedigree by merging full siblings for matrix calculation
 #' 
@@ -1353,7 +1347,7 @@ summary_pedmat <- function(x) {
       denom <- n * n - n
       if (denom <= 0) return(NA_real_)
       if (inherits(obj_clean, "Matrix")) {
-        total_sum <- Matrix::sum(obj_clean)
+        total_sum <- sum(obj_clean)
         diag_sum <- sum(Matrix::diag(obj_clean))
         (total_sum - diag_sum) / denom
       } else {

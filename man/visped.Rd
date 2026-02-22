@@ -56,7 +56,7 @@ For example: \code{c("A", "B")} or \code{list(ids = c("A", "B"), frame.color = "
 \item{...}{Additional arguments passed to \code{\link[igraph:plot.igraph]{plot.igraph}}.}
 }
 \value{
-No returned values. The graph will be plotted directly on graphic devices.
+The function mainly produces a plot on the current graphics device and/or a PDF file. It invisibly returns a list containing the graph object, layout coordinates, and node sizes.
 }
 \description{
 \code{visped} function draws a graph of a full or compact pedigree.

@@ -16,7 +16,7 @@ To provide a clean and intuitive API for v1.0.0, core function names and behavio
 - **`expand_pedmatrix`** is renamed to **`expand_pedmat`**.
 - **`summary_pedmatrix`** is renamed to **`summary_pedmat`**.
 - The parameter **`n_threads`** is standardized to **`threads`** across all functions.
-- Legacy function names (`pedmatrix`, etc.) are preserved as deprecated wrappers to ensure backward compatibility.
+- Legacy function names (`pedmatrix`, etc.) have been removed. Please use `pedmat()` directly.
 
 ## New Features
 1. **Family Assignment and Summary**: 
