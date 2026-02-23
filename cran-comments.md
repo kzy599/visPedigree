@@ -4,13 +4,7 @@
 
 ## R CMD check results
 
-0 errors | 0 warnings | 1 note
-
-* checking CRAN incoming feasibility ... NOTE
-  - Version contains large components (1.0.1)
-  - Days since last update: ...
-  - Found the following (possibly) invalid URLs: https://luansheng.github.io/visPedigree/
-    - This URL is valid and accessible. The error is likely due to a temporary network issue or a false positive from the CRAN check server.
+0 errors | 0 warnings | 0 notes
 
 This is a major version update from 0.7.1 (last CRAN release) to 1.0.1.
 
