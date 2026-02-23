@@ -32,6 +32,7 @@
 ^manuscript\.md$
 ^MACOS_OPENMP_FIX\.md$
 ^inst/extdata/complex_100gen_ped\.rda$
+^papers$
 
 # --- 开发过程产生的临时文件 ---
 ^Rplots\.pdf$
