@@ -18,7 +18,9 @@
 #' @return A \code{data.table} with columns:
 #' \itemize{
 #'   \item \code{Group}: Grouping level (if \code{by} is used).
-#'   \item \code{Pathway}: One of "SS", "SD", "DS", "DD", or "Average".
+#'   \item \code{Pathway}: One of "SS", "SD", "DS", "DD", "SO", "DO", or "Average".
+#'     SS/SD/DS/DD require offspring sex; SO (Sire-Offspring) and DO (Dam-Offspring)
+#'     are computed from all parent-offspring pairs regardless of offspring sex.
 #'   \item \code{N}: Number of parent-offspring pairs used.
 #'   \item \code{Mean}: Average generation interval in \code{unit}.
 #'   \item \code{SD}: Standard deviation of the interval.
@@ -135,7 +137,7 @@ pedgenint <- function(ped, timevar = NULL, unit = c("year", "month", "day", "hou
     valid_idx <- !is.na(intervals) & intervals > 0
     if (sum(valid_idx) == 0) return(NULL)
     res <- data.table(
-      Pathway = ifelse(parent_col == "Sire", "S-All", "D-All"),
+      Pathway = ifelse(parent_col == "Sire", "SO", "DO"),
       Interval = intervals[valid_idx]
     )
     if (!is.null(by)) {
@@ -169,7 +171,20 @@ pedgenint <- function(ped, timevar = NULL, unit = c("year", "month", "day", "hou
     data.table(Pathway = character(0), N = integer(0), Mean = numeric(0), SD = numeric(0))
   }
   
-  # Compute Average from ALL parent-offspring pairs (not just those with known sex)
+  # SO/DO: Sire-Offspring and Dam-Offspring (sex-independent)
+  so_do_agg_cols <- if (!is.null(by)) c("Group", "Pathway") else "Pathway"
+  
+  so_do_dt <- if (nrow(all_parent_intervals) > 0) {
+    all_parent_intervals[, .(
+      N = .N,
+      Mean = mean(Interval),
+      SD = sd(Interval)
+    ), by = so_do_agg_cols]
+  } else {
+    data.table(Pathway = character(0), N = integer(0), Mean = numeric(0), SD = numeric(0))
+  }
+  
+  # Average: all parent-offspring pairs combined
   overall_agg_cols <- if (!is.null(by)) "Group" else NULL
   
   overall_dt <- all_parent_intervals[, .(
@@ -179,7 +194,7 @@ pedgenint <- function(ped, timevar = NULL, unit = c("year", "month", "day", "hou
     SD = sd(Interval)
   ), by = overall_agg_cols]
   
-  final_res <- rbind(summary_dt, overall_dt, fill = TRUE)
+  final_res <- rbind(summary_dt, so_do_dt, overall_dt, fill = TRUE)
   
   # Handle Cycle Length for Generation Equivalents
   if (!is.null(cycle_length) && is.numeric(cycle_length)) {

@@ -62,6 +62,21 @@ test_that("pedgenint computes Average from all parent-offspring pairs", {
   expect_equal(genint_res[Pathway == "SD", Mean], 6.5)
   expect_equal(genint_res[Pathway == "DS", Mean], 4)
   expect_equal(genint_res[Pathway == "DD", Mean], 5.5)
+  
+  # SO/DO: sex-independent pathways
+  # SO (Sire→Offspring): A→C(5), A→D(6), C→E(5), C→F(7) -> N=4, Mean=5.75
+  so_res <- genint_res[Pathway == "SO"]
+  expect_equal(so_res$N, 4L)
+  expect_equal(so_res$Mean, 5.75)
+  
+  # DO (Dam→Offspring): B→C(4), B→D(5), D→E(4), D→F(6) -> N=4, Mean=4.75
+  do_res <- genint_res[Pathway == "DO"]
+  expect_equal(do_res$N, 4L)
+  expect_equal(do_res$Mean, 4.75)
+  
+  # All 7 pathways present
+  expect_equal(sort(genint_res$Pathway),
+               c("Average", "DD", "DO", "DS", "SD", "SO", "SS"))
 })
 
 test_that("pedcontrib Ne_f and Ne_a compute on full sets despite top cutoff", {
