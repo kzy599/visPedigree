@@ -2,6 +2,11 @@ url: https://luansheng.github.io/visPedigree/
 template:
   bootstrap: 5
   bootswatch: litera
+figures:
+  dev: png
+  dpi: 300
+  fig.width: 6
+  fig.height: 6
 reference:
 - title: Core Functions
   desc: Main tools for processing and visualizing animal pedigrees.
@@ -29,6 +34,5 @@ reference:
   - starts_with("plot.")
   - starts_with("summary.")
   - starts_with("print.")
-  - diag
   - summary_pedmat
 

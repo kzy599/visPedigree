@@ -161,7 +161,11 @@ tidyped <- function(ped,
       
       # Iterate a few times to propagate changes.
       # For standard pedigrees, 1 or 2 passes cover the "mate alignment".
-      for(i in 1:2) {
+      # Using a while loop with a safe maximum to handle deep recursive alignments
+      iter <- 0
+      max_iter <- 10
+      repeat {
+        iter <- iter + 1
         # Get generations of parents for every individual
         sire_gen <- ped_dt$Gen[match(ped_dt$Sire, ped_dt$Ind)]
         dam_gen <- ped_dt$Gen[match(ped_dt$Dam, ped_dt$Ind)]
@@ -169,7 +173,7 @@ tidyped <- function(ped,
         # Identify families where SireGen != DamGen (and both exist)
         valid_mask <- !is.na(sire_gen) & !is.na(dam_gen) & (sire_gen != dam_gen)
         
-        if (!any(valid_mask)) break
+        if (!any(valid_mask) || iter > max_iter) break
         
         # Get the target maximum generation for each mismatched couple
         # We push the "older/higher" parent DOWN to the "younger/lower" parent's generation.

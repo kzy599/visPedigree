@@ -16,10 +16,11 @@
 
 ## 8. Documentation & Manuscript
 
-- [ ] **完善 manuscript.md**: 
-    - [ ] 补充具体的算法复杂度分析（Time Complexity）。
-    - [ ] 补充 `deep_ped` 和 `big_family_size_ped` 的实际运行时间基准测试数据。
-    - [ ] 导出高清案例图示并插入文稿。
+## 3. 文档与学术产出 (Documentation & Manuscript)
+- [x] **完善 manuscript.md**: 
+    - [x] 补充具体的算法复杂度分析（Time Complexity）。
+    - [x] 补充 `deep_ped` 和 `big_family_size_ped` 的实际运行时间基准测试数据。
+    - [x] 导出高清案例图示并插入文稿。
 
 ## 5. 可视化布局专项优化 (Visualization & UI)
 - [ ] **边路由优化 (Edge Routing)**: 针对复杂近交系谱，探索非线性边路径，避免线条穿过无关节点。
@@ -67,4 +68,3 @@
 - [ ] **瓶颈节点 (Bottleneck) 检测**: 使用中介中心度 (Betweenness) 识别对群体遗传多样性至关重要的核心祖先。
 - [ ] **错误自动建议**: 当检测到循环时，利用反馈弧集 (Feedback Arc Set) 算法建议最可能录错的父本/母本记录。
 - [ ] **最短/全亲缘路径搜索**: 计算任意两个体间的所有遗传路径，超越简单近交系数，提供更细致的亲缘评估。
-

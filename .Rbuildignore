@@ -30,4 +30,10 @@
 ^CODE_REVIEW_FIXES\.md$
 ^CRAN-SUBMISSION$
 ^manuscript\.md$
-^complex_100gen_ped\.rda$
+^MACOS_OPENMP_FIX\.md$
+^inst/extdata/complex_100gen_ped\.rda$
+^papers$
+
+# --- 开发过程产生的临时文件 ---
+^Rplots\.pdf$
+^.*\.png$

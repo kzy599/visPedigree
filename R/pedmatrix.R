@@ -86,7 +86,7 @@
 #' \itemize{
 #'   \item \code{print(x)}: Display matrix with metadata header
 #'   \item \code{\link{summary_pedmat}(x)}: Detailed statistics (size, compression, mean, density)
-#'   \item \code{dim(x)}, \code{length(x)}, \code{diag(x)}, \code{t(x)}: Standard operations
+#'   \item \code{dim(x)}, \code{length(x)}, \code{Matrix::diag(x)}, \code{t(x)}: Standard operations
 #'   \item \code{x[i, j]}: Subsetting (behaves like underlying matrix)
 #'   \item \code{as.matrix(x)}: Convert to base matrix
 #' }
@@ -122,7 +122,7 @@
 #' # --- Additive Relationship Matrix (default) ---
 #' A <- pedmat(tped)
 #' A["A", "B"]      # Relationship between A and B
-#' diag(A)          # Diagonal = 1 + F (inbreeding)
+#' Matrix::diag(A)  # Diagonal = 1 + F (inbreeding)
 #' 
 #' # --- Inbreeding Coefficients ---
 #' f <- pedmat(tped, method = "f")
@@ -495,12 +495,6 @@ pedmat <- function(ped, method = "A", sparse = TRUE, invert_method = "auto",
   return(result)
 }
 
-#' @export
-pedmatrix <- function(...) {
-  .Deprecated("pedmat")
-  pedmat(...)
-}
-
 
 #' Compact pedigree by merging full siblings for matrix calculation
 #' 
@@ -585,30 +579,49 @@ compact_ped_for_matrix <- function(ped) {
     ))
   }
   
-  # Step 6: For each family, select representative
-  # Strategy: 
-  # - If family has parent members: choose first parent as representative
-  # - If family has no parents: choose first non-parent as representative
-  # - All parent members are kept (never removed)
-  # - Non-parent, non-representative members are removed
+  # Step 6: For each family, select representative from NON-PARENT members only
+  # Parents are NEVER removed and NEVER represent others to avoid identity loss.
   
-  representatives <- fullsib_families[, {
-    parent_members <- .SD[is_parent == TRUE]
-    non_parent_members <- .SD[is_parent == FALSE]
-    
-    if (nrow(parent_members) > 0) {
-      # Choose first parent as representative
-      list(RepInd = parent_members$Ind[1],
-           RepIndNum = parent_members$IndNum[1])
-    } else {
-      # Choose first non-parent as representative
-      list(RepInd = non_parent_members$Ind[1],
-           RepIndNum = non_parent_members$IndNum[1])
-    }
+  compactable_members <- fullsib_families[is_parent == FALSE]
+  
+  if (nrow(compactable_members) == 0) {
+    # No non-parent full-siblings to compact
+    return(list(
+      ped_compact = ped_dt,
+      compact_map = data.table(
+        Ind = ped_dt$Ind,
+        IndNum = ped_dt$IndNum,
+        RepInd = ped_dt$Ind,
+        RepIndNum = ped_dt$IndNum,
+        FamilyID = NA_character_,
+        SireNum = ped_dt$SireNum,
+        DamNum = ped_dt$DamNum,
+        Sire = ped_dt$Sire,
+        Dam = ped_dt$Dam,
+        FamilyLabel = NA_character_,
+        FamilySize = 1L,
+        IsRepresentative = TRUE,
+        IsCompacted = FALSE
+      ),
+      family_summary = data.table(),
+      compact_stats = list(
+        n_original = n_original,
+        n_compact = n_original,
+        n_removed = 0L,
+        n_families_compacted = 0L,
+        compression_ratio = 1.0,
+        memory_saved_pct = 0.0
+      )
+    ))
+  }
+  
+  representatives <- compactable_members[, {
+    list(RepInd = Ind[1],
+         RepIndNum = IndNum[1])
   }, by = family_key]
   
   # Step 7: Create family lookup table with FamilyID
-  family_lookup <- fullsib_families[, .(
+  family_lookup <- compactable_members[, .(
     SireNum = first(SireNum),
     DamNum = first(DamNum),
     Sire = first(Sire),
@@ -624,10 +637,9 @@ compact_ped_for_matrix <- function(ped) {
   family_lookup <- representatives[family_lookup, on = "family_key"]
   
   # Step 8: Build compact_map for ALL individuals
-  # For full-sibling families, map to representative
-  # Key rule: Parents are ALWAYS kept, non-parent non-representatives are removed
+  # Map compactable members to their representative, others to themselves
   
-  compact_map_fullsibs <- family_lookup[fullsib_families, on = "family_key",
+  compact_map_fullsibs <- family_lookup[compactable_members, on = "family_key",
     .(Ind = i.Ind,
       OldIndNum = i.IndNum,
       RepInd = RepInd,
@@ -639,26 +651,26 @@ compact_ped_for_matrix <- function(ped) {
       Dam = i.Dam,
       FamilyLabel = FamilyLabel,
       FamilySize = FamilySize,
-      is_parent = i.is_parent,
+      is_parent = FALSE,
       IsRepresentative = (i.Ind == RepInd),
       IsCompacted = TRUE)
   ]
   
-  # Add non-compacted individuals (not in any full-sibling family)
-  non_fullsibs <- ped_dt[is.na(family_key) | family_size < 2]
+  # Non-compacted individuals (all parents + unique non-parents)
+  non_compacted <- ped_dt[!(Ind %in% compactable_members$Ind)]
   compact_map_others <- data.table(
-    Ind = non_fullsibs$Ind,
-    OldIndNum = non_fullsibs$IndNum,
-    RepInd = non_fullsibs$Ind,
-    OldRepIndNum = non_fullsibs$IndNum,
+    Ind = non_compacted$Ind,
+    OldIndNum = non_compacted$IndNum,
+    RepInd = non_compacted$Ind,
+    OldRepIndNum = non_compacted$IndNum,
     FamilyID = NA_character_,
-    SireNum = non_fullsibs$SireNum,
-    DamNum = non_fullsibs$DamNum,
-    Sire = non_fullsibs$Sire,
-    Dam = non_fullsibs$Dam,
+    SireNum = non_compacted$SireNum,
+    DamNum = non_compacted$DamNum,
+    Sire = non_compacted$Sire,
+    Dam = non_compacted$Dam,
     FamilyLabel = NA_character_,
     FamilySize = 1L,
-    is_parent = non_fullsibs$is_parent,
+    is_parent = non_compacted$is_parent,
     IsRepresentative = TRUE,
     IsCompacted = FALSE
   )
@@ -827,6 +839,18 @@ compact_ped_for_matrix <- function(ped) {
   } else {
     new_compact_map <- kept_compact_map
   }
+  
+  # CRITICAL: Re-map SireNum and DamNum to match the FINAL ped_compact numbering
+  # because tidyped() might have reordered/added individuals.
+  final_num_mapping <- ped_compact[, .(ParentID = Ind, NewParentNum = IndNum)]
+  
+  # Update SireNum
+  new_compact_map[, SireNum := final_num_mapping$NewParentNum[match(Sire, final_num_mapping$ParentID)]]
+  new_compact_map[is.na(SireNum), SireNum := 0L]
+  
+  # Update DamNum
+  new_compact_map[, DamNum := final_num_mapping$NewParentNum[match(Dam, final_num_mapping$ParentID)]]
+  new_compact_map[is.na(DamNum), DamNum := 0L]
   
   # Sort: kept individuals first (by IndNum), then removed individuals (by Ind)
   new_compact_map[!is.na(IndNum), sort_key := IndNum]
@@ -1055,7 +1079,12 @@ query_relationship <- function(x, id1, id2 = NULL) {
             A_mat <- mat
         } else {
             # Check for stored A matrix in attributes
-            A_mat <- attr(x, "A_matrix")
+            # Try both "A_matrix" and "A_intermediate" for backward/internal compatibility
+            A_mat <- attr(x, "A_intermediate")
+            if (is.null(A_mat)) {
+              A_mat <- attr(x, "A_matrix")
+            }
+            
             if (is.null(A_mat)) {
               mat_all <- attr(x, "mat_all")
               if (!is.null(mat_all) && !is.null(mat_all$A)) {
@@ -1185,6 +1214,58 @@ expand_pedmat <- function(x) {
     result_full <- mat[map_ordered$RepIndNum, map_ordered$RepIndNum]
     rownames(result_full) <- map_ordered$Ind
     colnames(result_full) <- map_ordered$Ind
+    
+    # Fix sibling off-diagonals for A, D, AA
+    # In compact mode, full-siblings share a representative. Their relationship to
+    # others is identical, but their relationship to each other (off-diagonal) 
+    # is different from their relationship to self (diagonal).
+    primary_method <- ci$method[1]
+    if (primary_method %in% c("A", "D", "AA")) {
+      counts <- table(map_ordered$RepIndNum)
+      reps_with_sibs <- as.integer(names(counts[counts > 1]))
+      
+      if (length(reps_with_sibs) > 0) {
+        # Get A matrix (required for sibling calculation)
+        A_mat <- if (primary_method == "A") mat else attr(x, "A_intermediate")
+        
+        if (!is.null(A_mat)) {
+          for (rep_idx in reps_with_sibs) {
+            # Find parents (all siblings share same parents)
+            first_idx <- which(map_ordered$RepIndNum == rep_idx)[1]
+            s_idx <- map_ordered$SireNum[first_idx]
+            d_idx <- map_ordered$DamNum[first_idx]
+            
+            # Use parent relationships to calculate sibling relationship
+            A_ss <- if (s_idx > 0) A_mat[s_idx, s_idx] else 1.0
+            A_dd <- if (d_idx > 0) A_mat[d_idx, d_idx] else 1.0
+            A_sd <- if (s_idx > 0 && d_idx > 0) A_mat[s_idx, d_idx] else 0.0
+            
+            # Sibling A value: 0.25 * (A_ss + A_dd + 2*A_sd)
+            res_A_sib <- 0.25 * (A_ss + A_dd + 2 * A_sd)
+            
+            # Value for current method
+            sib_val <- switch(primary_method,
+              "A" = res_A_sib,
+              "D" = 0.25 * (A_ss * A_dd + A_sd^2),
+              "AA" = res_A_sib^2
+            )
+            
+            # Identify all indices for this representative
+            member_indices <- which(map_ordered$RepIndNum == rep_idx)
+            
+            # Update the off-diagonal elements in this sub-block
+            # Note: diagonal remains mat[rep_idx, rep_idx]
+            if (length(member_indices) > 1) {
+              diag_val <- mat[rep_idx, rep_idx]
+              result_full[member_indices, member_indices] <- sib_val
+              # Restore diagonal
+              diag_indices <- cbind(member_indices, member_indices)
+              result_full[diag_indices] <- diag_val
+            }
+          }
+        }
+      }
+    }
     return(result_full)
   } else {
     # Vector expansion
@@ -1266,7 +1347,7 @@ summary_pedmat <- function(x) {
       denom <- n * n - n
       if (denom <= 0) return(NA_real_)
       if (inherits(obj_clean, "Matrix")) {
-        total_sum <- Matrix::sum(obj_clean)
+        total_sum <- sum(obj_clean)
         diag_sum <- sum(Matrix::diag(obj_clean))
         (total_sum - diag_sum) / denom
       } else {
@@ -1353,42 +1434,6 @@ dim.pedmat <- function(x) {
 length.pedmat <- function(x) {
   class(x) <- setdiff(class(x), "pedmat")
   length(x)
-}
-
-#' Extract Matrix Diagonals
-#' 
-#' @description
-#' Extract the diagonal of a pedmat object or other matrices.
-#' This generic function extending \code{base::diag} to support \code{pedmat} objects.
-#' 
-#' @param x A matrix, vector, or \code{pedmat} object.
-#' @param ... Additional arguments passed to \code{base::diag}.
-#' 
-#' @return The diagonal vectors or a diagonal matrix.
-#' @export
-diag <- function(x, ...) {
-  UseMethod("diag")
-}
-
-#' @export
-diag.default <- function(x, ...) {
-  # If it's an S4 Matrix object, use Matrix's dispatcher
-  if (isS4(x)) return(Matrix::diag(x))
-  # Fallback to base R
-  base::diag(x, ...)
-}
-
-#' @export
-#' @method diag pedmat
-diag.pedmat <- function(x, ...) {
-  # Strip pedmat class to avoid infinite recursion
-  obj <- x
-  if (inherits(obj, "pedmat")) {
-    class(obj) <- setdiff(class(obj), "pedmat")
-  }
-  
-  # Delegate to appropriate method
-  diag(obj, ...)
 }
 
 #' @export

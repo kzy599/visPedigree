@@ -2,10 +2,10 @@
 #'
 #' \code{visped} function draws a graph of a full or compact pedigree.
 #'
-#' This function takes a pedigree tidied by the \code{\link{tidyped}} function and outputs a hierarchical graph for all individuals in the pedigree. The graph can be shown on the default graphic device or saved as a PDF file. The PDF output is a legible vector drawing that is legible and avoids overlapping labels. It is especially useful when the number of individuals is large and individual labels are long. 
-#' 
+#' This function takes a pedigree tidied by the \code{\link{tidyped}} function and outputs a hierarchical graph for all individuals in the pedigree. The graph can be shown on the default graphic device or saved as a PDF file. The PDF output is a legible vector drawing that is legible and avoids overlapping labels. It is especially useful when the number of individuals is large and individual labels are long.
+#'
 #' Rendering is performed using a Two-Pass strategy: edges are drawn first to ensure center-to-center connectivity, followed by nodes and labels. This ensures perfect visual alignment in high-resolution vector outputs. The function also supports real-time ancestry and descendant highlighting.
-#' 
+#'
 #' This function can draw the graph of a very large pedigree (> 10,000 individuals per generation) by compacting full-sib individuals. It is highly effective for aquatic animal pedigrees, which usually include many full-sib families per generation in nucleus breeding populations. The outline of a pedigree without individual labels is still shown if the width of a pedigree graph exceeds the maximum width (500 inches) of the PDF file.
 #'
 #' In the graph, two shapes and three colors are used. Circles represent individuals, and squares represent families. Dark sky blue indicates males, dark goldenrod indicates females, and dark olive green indicates unknown sex. For example, a dark sky blue circle represents a male individual; a dark goldenrod square represents all female individuals in a full-sib family when \code{compact = TRUE}.
@@ -31,9 +31,9 @@
 #' @param symbolsize A numeric value specifying the scaling factor for node size relative to the label size. Values greater than 1 increase the node size (adding padding around the label), while values less than 1 decrease it. This is useful for fine-tuning the whitespace and legibility of dense graphs. The default value is 1.
 #' @param maxiter An integer specifying the maximum number of iterations for the Sugiyama layout algorithm to minimize edge crossings. Higher values (e.g., 2000 or 5000) may result in fewer crossed lines for complex pedigrees but will increase computation time. The default value is 1000.
 #' @param ... Additional arguments passed to \code{\link[igraph:plot.igraph]{plot.igraph}}.
-#' @return No returned values. The graph will be plotted directly on graphic devices.
+#' @return The function mainly produces a plot on the current graphics device and/or a PDF file. It invisibly returns a list containing the graph object, layout coordinates, and node sizes.
 #'
-#' @seealso 
+#' @seealso
 #' \code{\link{tidyped}} for tidying pedigree data (required input)
 #' \code{\link{vismat}} for visualizing relationship matrices as heatmaps
 #' \code{\link{pedmat}} for computing relationship matrices
@@ -47,36 +47,61 @@
 #' library(data.table)
 #' # Drawing a simple pedigree
 #' simple_ped_tidy <- tidyped(simple_ped)
-#' visped(simple_ped_tidy)
-#' 
+#' visped(simple_ped_tidy, 
+#'        cex=0.25, 
+#'        symbolsize=5.5)
+#'
 #' # Highlighting an individual and its ancestors and descendants
-#' visped(simple_ped_tidy, highlight = "J5X804", trace = "all")
-#' 
+#' visped(simple_ped_tidy, 
+#'        highlight = "J5X804", 
+#'        trace = "all", 
+#'        cex=0.25, 
+#'        symbolsize=5.5)
+#'
 #' # Showing inbreeding coefficients in the graph
 #' simple_ped_tidy_inbreed <- tidyped(simple_ped, inbreed = TRUE)
-#' visped(simple_ped_tidy_inbreed, showf = TRUE)
-#' 
+#' visped(simple_ped_tidy_inbreed,
+#'        showf = TRUE, 
+#'        cex=0.25, 
+#'        symbolsize=5.5)
+#'
 #' # Adjusting page width and symbol size for better layout
-#' # Increase pagewidth to spread nodes horizontally
+#' # Increase pagewidth to spread nodes horizontally in the pdf file
 #' # Increase symbolsize for more padding around individual labels
-#' visped(simple_ped_tidy, pagewidth = 100, symbolsize = 1.2)
-#' 
-#' # Highlighting multiple individuals with custom colors
 #' visped(simple_ped_tidy, 
-#'        highlight = list(ids = c("J3Y620", "J1X971"), 
-#'                         frame.color = "#4caf50", 
-#'                         color = "#81c784"))
-#' 
+#'        cex=0.25, 
+#'        symbolsize=5.5, 
+#'        pagewidth = 100, 
+#'        file = tempfile(fileext = ".pdf"))
+#'
+#' # Highlighting multiple individuals with custom colors
+#' visped(simple_ped_tidy,
+#'        highlight = list(ids = c("J3Y620", "J1X971"),
+#'                         frame.color = "#4caf50",
+#'                         color = "#81c784"),
+#'        cex=0.25,
+#'        symbolsize=5.5)
+#'
 #' # Handling large pedigrees: Saving to PDF is recommended for legibility
 #' # The 'trace' and 'tracegen' parameters in tidyped() help prune the graph
 #' cand_labels <- big_family_size_ped[(Year == 2007) & (substr(Ind,1,2) == "G8"), Ind]
 #' \donttest{
-#' big_ped_tidy <- tidyped(big_family_size_ped, cand = cand_labels, trace = "up", tracegen = 2)
+#' big_ped_tidy <- tidyped(big_family_size_ped, 
+#'                         cand = cand_labels, 
+#'                         trace = "up", 
+#'                         tracegen = 2)
 #' # Use compact = TRUE for large families
-#' visped(big_ped_tidy, compact = TRUE, file = tempfile(fileext = ".pdf"))
-#' 
+#' visped(big_ped_tidy, 
+#'        compact = TRUE, 
+#'        cex=0.08, 
+#'        symbolsize=5.5, 
+#'        file = tempfile(fileext = ".pdf"))
+#'
 #' # Use outline = TRUE if individual labels are not required
-#' visped(big_ped_tidy, compact = TRUE, outline = TRUE, file = tempfile(fileext = ".pdf"))
+#' visped(big_ped_tidy, 
+#'        compact = TRUE, 
+#'        outline = TRUE, 
+#'        file = tempfile(fileext = ".pdf"))
 #' }
 #'
 #' @import data.table
@@ -84,10 +109,21 @@
 #' @importFrom grDevices pdf dev.off dev.cur
 #' @importFrom graphics strwidth
 #' @export
-visped <- function(ped,
-                   compact = FALSE, outline = FALSE, cex = NULL, showgraph = TRUE, file = NULL, 
-                   highlight = NULL, trace = FALSE, showf = FALSE, pagewidth = 200, symbolsize = 1, maxiter = 1000, ...) {
-
+visped <- function(
+  ped,
+  compact = FALSE,
+  outline = FALSE,
+  cex = NULL,
+  showgraph = TRUE,
+  file = NULL,
+  highlight = NULL,
+  trace = FALSE,
+  showf = FALSE,
+  pagewidth = 200,
+  symbolsize = 1,
+  maxiter = 1000,
+  ...
+) {
   # Automatically convert raw data to tidyped object if needed
   if (!inherits(ped, "tidyped") || !"Gen" %in% colnames(ped)) {
     # If not a tidyped object, or if it is but lacks Gen/Num columns (e.g. from older creation),
@@ -114,17 +150,24 @@ visped <- function(ped,
     stop("'showf' must be TRUE or FALSE.")
   }
 
-  if (!is.null(cex) && (!is.numeric(cex) || length(cex) != 1 || is.na(cex) || cex <= 0)) {
+  if (
+    !is.null(cex) &&
+      (!is.numeric(cex) || length(cex) != 1 || is.na(cex) || cex <= 0)
+  ) {
     stop("'cex' must be NULL or a single positive number.")
   }
 
-  if (!is.null(file) && (!is.character(file) || length(file) != 1 || is.na(file))) {
+  if (
+    !is.null(file) && (!is.character(file) || length(file) != 1 || is.na(file))
+  ) {
     stop("'file' must be NULL or a single character string.")
   }
 
   # 1. Ensure at least one output is selected (validated after flags are checked)
   if (!showgraph && is.null(file)) {
-    stop("Both 'showgraph' and 'file' are disabled. No output will be generated.")
+    stop(
+      "Both 'showgraph' and 'file' are disabled. No output will be generated."
+    )
   }
 
   if (!is.null(highlight) && !is.character(highlight) && !is.list(highlight)) {
@@ -134,20 +177,40 @@ visped <- function(ped,
   if (!isFALSE(trace)) {
     if (isTRUE(trace)) {
       trace <- "all"
-    } else if (!is.character(trace) || length(trace) != 1 || is.na(trace) || !trace %in% c("up", "down", "all")) {
+    } else if (
+      !is.character(trace) ||
+        length(trace) != 1 ||
+        is.na(trace) ||
+        !trace %in% c("up", "down", "all")
+    ) {
       stop("'trace' must be TRUE, FALSE, 'up', 'down', or 'all'.")
     }
   }
 
-  if (!is.numeric(pagewidth) || length(pagewidth) != 1 || is.na(pagewidth) || pagewidth <= 0) {
+  if (
+    !is.numeric(pagewidth) ||
+      length(pagewidth) != 1 ||
+      is.na(pagewidth) ||
+      pagewidth <= 0
+  ) {
     stop("'pagewidth' must be a single positive number.")
   }
 
-  if (!is.numeric(symbolsize) || length(symbolsize) != 1 || is.na(symbolsize) || symbolsize <= 0) {
+  if (
+    !is.numeric(symbolsize) ||
+      length(symbolsize) != 1 ||
+      is.na(symbolsize) ||
+      symbolsize <= 0
+  ) {
     stop("'symbolsize' must be a single positive number.")
   }
 
-  if (!is.numeric(maxiter) || length(maxiter) != 1 || is.na(maxiter) || maxiter <= 0) {
+  if (
+    !is.numeric(maxiter) ||
+      length(maxiter) != 1 ||
+      is.na(maxiter) ||
+      maxiter <= 0
+  ) {
     stop("'maxiter' must be a single positive integer.")
   }
   maxiter <- as.integer(maxiter)
@@ -157,15 +220,21 @@ visped <- function(ped,
     if (is.character(highlight)) {
       highlight <- highlight[!is.na(highlight) & highlight != ""]
     } else if (is.list(highlight) && !is.null(highlight[["ids"]])) {
-      highlight[["ids"]] <- highlight[["ids"]][!is.na(highlight[["ids"]]) & highlight[["ids"]] != ""]
+      highlight[["ids"]] <- highlight[["ids"]][
+        !is.na(highlight[["ids"]]) & highlight[["ids"]] != ""
+      ]
     }
     # If sanitization left it empty, set to NULL
-    if (is.character(highlight) && length(highlight) == 0) highlight <- NULL
+    if (is.character(highlight) && length(highlight) == 0) {
+      highlight <- NULL
+    }
     if (is.list(highlight) && length(highlight[["ids"]]) == 0) highlight <- NULL
   }
 
   if (showf && !"f" %in% colnames(ped)) {
-    warning("Inbreeding coefficients ('f' column) not found in pedigree. Please run tidyped(..., inbreed = TRUE) to calculate them.")
+    warning(
+      "Inbreeding coefficients ('f' column) not found in pedigree. Please run tidyped(..., inbreed = TRUE) to calculate them."
+    )
     showf <- FALSE
   }
 
@@ -177,31 +246,39 @@ visped <- function(ped,
     # Pass font family if provided in ... to ensure accurate cex estimation
     dots <- list(...)
     pdf_args <- list(file = tmp_pdf)
-    if ("family" %in% names(dots)) pdf_args$family <- dots$family
+    if ("family" %in% names(dots)) {
+      pdf_args$family <- dots$family
+    }
     do.call(pdf, pdf_args)
 
-    on.exit({
-      if (file.exists(tmp_pdf)) unlink(tmp_pdf)
-    }, add = TRUE)
-    
+    on.exit(
+      {
+        if (file.exists(tmp_pdf)) unlink(tmp_pdf)
+      },
+      add = TRUE
+    )
+
     # Calculate graph data using temp device for font metrics
-    graph_data <- tryCatch({
-      prepare_ped_graph(
-        ped = ped,
-        compact = compact,
-        outline = outline,
-        cex = cex,
-        highlight = highlight,
-        trace = trace,
-        showf = showf,
-        pagewidth = pagewidth,
-        symbolsize = symbolsize,
-        maxiter = maxiter,
-        ...
-      )
-    }, finally = {
-      if (dev.cur() > 1) dev.off()
-    })
+    graph_data <- tryCatch(
+      {
+        prepare_ped_graph(
+          ped = ped,
+          compact = compact,
+          outline = outline,
+          cex = cex,
+          highlight = highlight,
+          trace = trace,
+          showf = showf,
+          pagewidth = pagewidth,
+          symbolsize = symbolsize,
+          maxiter = maxiter,
+          ...
+        )
+      },
+      finally = {
+        if (dev.cur() > 1) dev.off()
+      }
+    )
   } else {
     graph_data <- prepare_ped_graph(
       ped = ped,
@@ -228,22 +305,33 @@ visped <- function(ped,
   }
 
   if (!is.null(file)) {
-    pdf(file = file,
-        width = graph_data$canvas_width,
-        height = graph_data$canvas_height)
+    pdf(
+      file = file,
+      width = graph_data$canvas_width,
+      height = graph_data$canvas_height
+    )
     # Ensure the device is closed even if plotting fails.
     on.exit(if (dev.cur() > 1) dev.off(), add = TRUE)
     plot_ped_igraph(g, l, node_size, ...)
-    
+
     # Correct path normalization for the message
-    saved_path <- tryCatch(normalizePath(file, mustWork = FALSE), error = function(e) file)
+    saved_path <- tryCatch(
+      normalizePath(file, mustWork = FALSE),
+      error = function(e) file
+    )
     message(paste("Pedigree saved to: ", saved_path, sep = ""))
   }
 
   if ((showgraph || !is.null(file)) && !outline) {
     current_cex <- if (is.null(cex)) graph_data$best_cex else cex
-    message(paste("Label cex: ", current_cex, ". Symbol size: ", symbolsize, 
-                  ". Adjust 'cex' and 'symbolsize' if labels are too large or small.", sep = ""))
+    message(paste(
+      "Label cex: ",
+      current_cex,
+      ". Symbol size: ",
+      symbolsize,
+      ". Adjust 'cex' and 'symbolsize' if labels are too large or small.",
+      sep = ""
+    ))
   }
 
   if ((showgraph || !is.null(file)) && is.null(file)) {
@@ -256,4 +344,3 @@ visped <- function(ped,
 
   invisible(graph_data)
 }
-`:=` = function(...) NULL

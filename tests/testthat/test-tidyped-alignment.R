@@ -2,9 +2,9 @@ library(testthat)
 library(data.table)
 
 # Load package functions if not available
-if (!exists("tidyped")) {
-  devtools::load_all()
-}
+# if (!exists("tidyped")) {
+#   devtools::load_all()
+# }
 
 test_that("Mate Alignment: Push Down Logic (pmax)", {
   # Case 1: Founder (F) mates with Descendant (D) at Gen 3.

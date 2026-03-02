@@ -1,8 +1,12 @@
 # Changes in version 1.0.1 released on 31 Jan 2026
 ## Bug fixes
-1. **Generation Alignment Logic**: Fixed `tidyped(..., genmethod = "bottom")` to prioritize **Sibling Consistency** (P1) over **Mate Alignment** (P2). This ensures that full siblings are always aligned to the same generation (specifically, the highest/earliest generation among them), preventing families from being split across generations when one sibling has a mate in a lower generation.
-2. **`visped()` edge highlighting**: Fixed edge highlighting logic so relationship edges are only emphasized when `trace` is used. When `trace = FALSE`, only focal individuals are highlighted and all edges remain faded.
-3. **Shared-parent/shared-child paths**: Corrected edge highlighting for cases where a parent has multiple families or a family has multiple children, ensuring only traced paths are highlighted.
+1. **Compact Matrix Correctness**: Fixed a critical data integrity bug in `compact = TRUE` mode where relationship values (A, D, AA) were incorrect for parent-offspring and avuncular pairs due to improper merging of parent individuals with their non-parent siblings.
+2. **Pedigree Compression Strategy**: Updated compaction logic to preserve original genetic identity of any individual that appears as a sire or dam, ensuring parents always have unique entries in the relationship matrix.
+3. **Sibling Row/Column Expansion**: Fixed `expand_pedmat()` to correctly handle sibling off-diagonal elements by dynamically calculating relationship values based on parent kinship, rather than simply duplicating representative diagonal values.
+4. **Generation Alignment Logic**: Fixed `tidyped(..., genmethod = "bottom")` to prioritize **Sibling Consistency** (P1) over **Mate Alignment** (P2). This ensures that full siblings are always aligned to the same generation.
+5. **`visped()` edge highlighting**: Fixed edge highlighting logic so relationship edges are only emphasized when `trace` is used.
+6. **Shared-parent/shared-child paths**: Corrected edge highlighting for cases where a parent has multiple families or a family has multiple children.
+7. **`visped()` layout**: Fixed layout optimization failure when `showf = TRUE`. The layout algorithm now correctly uses immutable individual IDs.
 
 # Changes in version 1.0.0 released on 24 Jan 2026
 ## API Standardization (BREAKING)
@@ -12,7 +16,7 @@ To provide a clean and intuitive API for v1.0.0, core function names and behavio
 - **`expand_pedmatrix`** is renamed to **`expand_pedmat`**.
 - **`summary_pedmatrix`** is renamed to **`summary_pedmat`**.
 - The parameter **`n_threads`** is standardized to **`threads`** across all functions.
-- Legacy function names (`pedmatrix`, etc.) are preserved as deprecated wrappers to ensure backward compatibility.
+- Legacy function names (`pedmatrix`, etc.) have been removed. Please use `pedmat()` directly.
 
 ## New Features
 1. **Family Assignment and Summary**: 
@@ -114,39 +118,35 @@ This release marks the first stable version 1.0.0, polished for CRAN.
 3. Fixed `R CMD check` notes related to `data.table` non-standard evaluation by adding `R/globals.R`.
 
 # Changes in version 0.4.1 released on 25 Dec 2025
+## Bug fixes
+1. Fixed overlapping edge detection for small pedigree graphs.
+2. Improved coloring consistency for compact mode.
 
 # Changes in version 0.2.6 released on 31 Mar 2020
-## New features
 ## Bug fixes
 1. Fixed a bug that the number of generations for candidates would be traced to n+1 when tracegen=n. This bug is found by Mianyu Liu.
 
 # Changes in version 0.2.5 released on 25 Feb 2020
-## New features
 ## Bug fixes
 1. The tidyped() does not work with trace='all' in [certain cases](https://github.com/luansheng/visPedigree/issues/2#issue-568599008)
 
 # Changes in version 0.2.4.1 released on 24 Feb 2020
-## New features
 ## Bug fixes
 1. An unexpected column with the name as NA occured when a tidyped object is tidyed again using the tidyped()
 
 # Changes in version 0.2.4 released on 12 June 2019
-## New features
 ## Bug fixes
 1. The data.table used as the input parameter 'ped' may be changed in tidyped() and visped().
 
-
 # Changes in version 0.2.3 released on 05 Mar 2019
-## New features
 ## Bug fixes
 1. The generation number of individuals is not inferred rightly.
 
 # Changes in version 0.2.2 released on 28 Jan 2019
-## New features
 ## Bug fixes
 1. The tidied pedigree will not include the candidates which are not in the Ind column of the origin pedigree when the cand parameter is not NULL.
 
 # Changes in version 0.2.1 released on 17 Nov 2018
-## New features
 ## Bug fixes
 1. Repel the overlapping nodes due to very small differences (digits > 7) among x positions of nodes
+

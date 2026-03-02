@@ -66,7 +66,7 @@ Returns a matrix or vector with S3 class \code{"pedmat"}.
 \itemize{
   \item \code{print(x)}: Display matrix with metadata header
   \item \code{\link{summary_pedmat}(x)}: Detailed statistics (size, compression, mean, density)
-  \item \code{dim(x)}, \code{length(x)}, \code{diag(x)}, \code{t(x)}: Standard operations
+  \item \code{dim(x)}, \code{length(x)}, \code{Matrix::diag(x)}, \code{t(x)}: Standard operations
   \item \code{x[i, j]}: Subsetting (behaves like underlying matrix)
   \item \code{as.matrix(x)}: Convert to base matrix
 }
@@ -135,7 +135,7 @@ tped <- tidyped(small_ped)
 # --- Additive Relationship Matrix (default) ---
 A <- pedmat(tped)
 A["A", "B"]      # Relationship between A and B
-diag(A)          # Diagonal = 1 + F (inbreeding)
+Matrix::diag(A)  # Diagonal = 1 + F (inbreeding)
 
 # --- Inbreeding Coefficients ---
 f <- pedmat(tped, method = "f")

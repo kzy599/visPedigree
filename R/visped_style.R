@@ -1,3 +1,32 @@
+#' Fade colors by appending a reduced alpha value
+#'
+#' Converts any R color specification to `#RRGGBB4D` form.
+#' Handles hex colors (`#RRGGBB`, `#RRGGBBAA`) and named colors (e.g. `"red"`).
+#'
+#' @param x Character vector of colors.
+#' @return Character vector of faded hex colors.
+#' @keywords internal
+fade_cols <- function(x) {
+  vapply(x, function(col) {
+    nc <- nchar(col)
+    if (nc == 7 && substring(col, 1, 1) == "#") {
+      # #RRGGBB -> append 4D
+      paste0(col, "4D")
+    } else if (nc == 9 && substring(col, 1, 1) == "#") {
+      # #RRGGBBAA -> replace AA with 4D
+      paste0(substring(col, 1, 7), "4D")
+    } else {
+      # Named color or other format -> convert via col2rgb
+      rgb_vals <- tryCatch(
+        grDevices::col2rgb(col),
+        error = function(e) return(col)
+      )
+      if (is.character(rgb_vals)) return(rgb_vals)
+      sprintf("#%02X%02X%02X4D", rgb_vals[1], rgb_vals[2], rgb_vals[3])
+    }
+  }, character(1), USE.NAMES = FALSE)
+}
+
 #' Styling and finalizing pedigree graph
 #' @import data.table
 #' @keywords internal
@@ -89,8 +118,6 @@ apply_node_styles <- function(ped_node, highlight_info) {
     h_familynums <- ped_node[highlighted == TRUE, unique(familynum)]
     ped_node[id %in% h_familynums & nodetype == "virtual", highlighted := TRUE]
     
-    # Fade non-highlighted nodes
-    fade_cols <- function(x) ifelse(nchar(x) == 7, paste0(x, "4D"), x)
     # Batch update non-highlighted
     ped_node[highlighted == FALSE & nodetype %in% c("real", "compact"), `:=`(
       color = fade_cols(color), 
@@ -142,7 +169,6 @@ finalize_graph <- function(ped_node, ped_edge, highlight_info, trace, showf) {
   
   # If highlighting is active and family node is not highlighted, fade the edge
   if (length(h_ids) > 0) {
-    fade_cols <- function(x) ifelse(nchar(x) == 7, paste0(x, "4D"), x)
     ped_edge[from > real_max & from_highlighted == FALSE, color := fade_cols(tonodecolor)]
   }
   
@@ -163,6 +189,9 @@ finalize_graph <- function(ped_node, ped_edge, highlight_info, trace, showf) {
   
   new_names_node <- c("id", setdiff(colnames(ped_node), "id"))
   ped_node <- ped_node[, ..new_names_node][order(layer, id)]
+  
+  # Ensure Ind column exists for layout matching (clean label before modification)
+  ped_node[, Ind := label]
   
   if (showf && "f" %in% colnames(ped_node)) {
     ped_node[nodetype %in% c("real", "compact") & !is.na(f) & f > 0, 

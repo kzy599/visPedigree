@@ -53,6 +53,10 @@ bool cpp_openmp_available() {
 // [[Rcpp::export]]
 List cpp_calculate_inbreeding(IntegerVector sire, IntegerVector dam) {
     int n = sire.size();
+    if (dam.size() != n) {
+        stop("sire and dam vectors must have the same length");
+    }
+    
     NumericVector f(n);
     NumericVector dii(n);
     std::vector<double> a(n, 1.0); // a_ii = 1 + f_i
@@ -68,6 +72,10 @@ List cpp_calculate_inbreeding(IntegerVector sire, IntegerVector dam) {
     for (int i = 0; i < n; ++i) {
         int s = sire[i] - 1;
         int d = dam[i] - 1;
+
+        if (s >= n || d >= n) {
+            stop("Parent index out of bounds");
+        }
 
         // 1. Full-sib optimization
         if (i > 0 && sire[i] == sire[i-1] && dam[i] == dam[i-1]) {
@@ -150,6 +158,16 @@ List cpp_calculate_inbreeding(IntegerVector sire, IntegerVector dam) {
 // [[Rcpp::export]]
 List cpp_build_ainv_triplets(IntegerVector sire, IntegerVector dam, NumericVector dii) {
     int n = sire.size();
+    if (dam.size() != n || dii.size() != n) {
+        stop("sire, dam, and dii vectors must have the same length");
+    }
+    
+    // Check bounds before parallel region
+    for (int i = 0; i < n; ++i) {
+        if (sire[i] > n || dam[i] > n) {
+            stop("Parent index out of bounds");
+        }
+    }
     
     // Adaptive threshold: use serial for small pedigrees to avoid parallel overhead
     const int PARALLEL_THRESHOLD = 5000;
@@ -290,10 +308,24 @@ List cpp_build_ainv_triplets(IntegerVector sire, IntegerVector dam, NumericVecto
 // [[Rcpp::export]]
 arma::mat cpp_calculate_A(IntegerVector sire, IntegerVector dam) {
     int n = sire.size();
+    if (dam.size() != n) {
+        stop("sire and dam vectors must have the same length");
+    }
+    
+    // Protect against massive memory allocation
+    if (n > 20000) {
+        stop("Pedigree too large for dense A matrix calculation (n > 20000). Use sparse methods instead.");
+    }
+    
     arma::mat A(n, n, arma::fill::zeros);
     for (int i = 0; i < n; ++i) {
         int si = sire[i] - 1;
         int di = dam[i] - 1;
+        
+        if (si >= n || di >= n) {
+            stop("Parent index out of bounds");
+        }
+        
         double fi = (si >= 0 && di >= 0) ? 0.5 * A(si, di) : 0.0;
         A(i, i) = 1.0 + fi;
         if (i > 0 && sire[i] == sire[i-1] && dam[i] == dam[i-1]) {
@@ -317,7 +349,6 @@ arma::mat cpp_calculate_A(IntegerVector sire, IntegerVector dam) {
 // Calculate Dominance Relationship Matrix (D)
 // ============================================================================
 // Algorithm: D_ij = 0.25 * (A_si,sj * A_di,dj + A_si,dj * A_di,sj)
-//           where si, di are parents of i; sj, dj are parents of j
 // Complexity: O(n²) for dense matrix construction
 // Parallelization: ✅ Fully parallelized with OpenMP
 // Performance: 
@@ -330,8 +361,20 @@ arma::mat cpp_calculate_A(IntegerVector sire, IntegerVector dam) {
 // Calculate Dominance Matrix (D) using Armadillo
 // Parallelized version - each row computed independently
 // [[Rcpp::export]]
-arma::mat cpp_calculate_D(IntegerVector sire, IntegerVector dam, arma::mat A) {
+arma::mat cpp_calculate_D(IntegerVector sire, IntegerVector dam, const arma::mat& A) {
     int n = sire.size();
+    if (dam.size() != n) {
+        stop("sire and dam vectors must have the same length");
+    }
+    if (A.n_rows != n || A.n_cols != n) {
+        stop("A matrix dimensions must match pedigree size");
+    }
+    
+    // Protect against massive memory allocation
+    if (n > 20000) {
+        stop("Pedigree too large for dense D matrix calculation (n > 20000).");
+    }
+    
     arma::mat D(n, n, arma::fill::zeros); 
     
     // Parallel computation of D matrix
@@ -350,13 +393,16 @@ arma::mat cpp_calculate_D(IntegerVector sire, IntegerVector dam, arma::mat A) {
         // Skip if either parent is missing (founders have D_ij = 0 for i≠j)
         if (si < 0 || di < 0) continue;
         
+        // We don't throw inside OpenMP, but we can skip invalid indices
+        if (si >= n || di >= n) continue;
+        
         // Compute off-diagonal elements: D_ij = 0.25 * (A_si,sj * A_di,dj + A_si,dj * A_di,sj)
         // Note: Full-sib optimization disabled for thread safety
         for (int j = 0; j < i; ++j) {
             int sj = sire[j] - 1;
             int dj = dam[j] - 1;
             
-            if (sj >= 0 && dj >= 0) {
+            if (sj >= 0 && dj >= 0 && sj < n && dj < n) {
                 double val = 0.25 * (A(si, sj) * A(di, dj) + A(si, dj) * A(di, sj));
                 D(i, j) = val;
                 D(j, i) = val;
@@ -377,13 +423,13 @@ arma::mat cpp_calculate_D(IntegerVector sire, IntegerVector dam, arma::mat A) {
 // ============================================================================
 // Hadamard Product
 // [[Rcpp::export]]
-arma::mat cpp_calculate_AA(arma::mat A) {
+arma::mat cpp_calculate_AA(const arma::mat& A) {
     return A % A;
 }
 
 // Invert Dense Matrix (general purpose)
 // [[Rcpp::export]]
-arma::mat cpp_invert_dense(arma::mat M) {
+arma::mat cpp_invert_dense(const arma::mat& M) {
     return arma::inv(M);
 }
 
@@ -391,7 +437,7 @@ arma::mat cpp_invert_dense(arma::mat M) {
 // Uses Cholesky decomposition, approximately 2x faster than general inversion
 // for symmetric positive-definite matrices
 // [[Rcpp::export]]
-arma::mat cpp_invert_sympd(arma::mat M) {
+arma::mat cpp_invert_sympd(const arma::mat& M) {
     return arma::inv_sympd(M);
 }
 
@@ -399,7 +445,7 @@ arma::mat cpp_invert_sympd(arma::mat M) {
 // Checks if matrix is symmetric, then tries Cholesky (for positive-definite)
 // Falls back to general LU decomposition if Cholesky fails
 // [[Rcpp::export]]
-arma::mat cpp_invert_auto(arma::mat M) {
+arma::mat cpp_invert_auto(const arma::mat& M) {
     int n = M.n_rows;
     
     // Check if matrix is square
@@ -432,9 +478,14 @@ arma::mat cpp_invert_auto(arma::mat M) {
 // [[Rcpp::export]]
 arma::vec cpp_solve_A(IntegerVector sire, IntegerVector dam, NumericVector dii, arma::vec b) {
     int n = sire.size();
+    if (dam.size() != n || dii.size() != n || b.size() != n) {
+        stop("sire, dam, dii, and b vectors must have the same length");
+    }
+    
     arma::vec x = b;
     for (int i = n - 1; i >= 0; --i) {
         int s = sire[i] - 1; int d = dam[i] - 1;
+        if (s >= n || d >= n) stop("Parent index out of bounds");
         if (s >= 0) x[s] -= 0.5 * x[i];
         if (d >= 0) x[d] -= 0.5 * x[i];
     }
@@ -451,10 +502,18 @@ arma::vec cpp_solve_A(IntegerVector sire, IntegerVector dam, NumericVector dii, 
 // [[Rcpp::export]]
 IntegerVector cpp_assign_generations_top(IntegerVector sire, IntegerVector dam, IntegerVector topo_order) {
     int n = sire.size();
+    if (dam.size() != n || topo_order.size() != n) {
+        stop("sire, dam, and topo_order vectors must have the same length");
+    }
+    
     IntegerVector gen(n, 1);
     for (int i = 0; i < n; ++i) {
         int idx = topo_order[i] - 1;
+        if (idx < 0 || idx >= n) stop("topo_order index out of bounds");
+        
         int s = sire[idx] - 1; int d = dam[idx] - 1;
+        if (s >= n || d >= n) stop("Parent index out of bounds");
+        
         int sg = (s >= 0) ? gen[s] : 0;
         int dg = (d >= 0) ? gen[d] : 0;
         if (s >= 0 || d >= 0) gen[idx] = (sg > dg ? sg : dg) + 1;
@@ -535,10 +594,18 @@ NumericMatrix cpp_calculate_partial_inbreeding(IntegerVector sire, IntegerVector
 // [[Rcpp::export]]
 IntegerVector cpp_assign_generations_bottom(IntegerVector sire, IntegerVector dam, IntegerVector topo_order) {
     int n = sire.size();
+    if (dam.size() != n || topo_order.size() != n) {
+        stop("sire, dam, and topo_order vectors must have the same length");
+    }
+    
     IntegerVector height(n, 0);
     for (int i = n - 1; i >= 0; --i) {
         int idx = topo_order[i] - 1;
+        if (idx < 0 || idx >= n) stop("topo_order index out of bounds");
+        
         int s = sire[idx] - 1; int d = dam[idx] - 1;
+        if (s >= n || d >= n) stop("Parent index out of bounds");
+        
         if (s >= 0) if (height[idx] + 1 > height[s]) height[s] = height[idx] + 1;
         if (d >= 0) if (height[idx] + 1 > height[d]) height[d] = height[idx] + 1;
     }

@@ -56,13 +56,13 @@ For example: \code{c("A", "B")} or \code{list(ids = c("A", "B"), frame.color = "
 \item{...}{Additional arguments passed to \code{\link[igraph:plot.igraph]{plot.igraph}}.}
 }
 \value{
-No returned values. The graph will be plotted directly on graphic devices.
+The function mainly produces a plot on the current graphics device and/or a PDF file. It invisibly returns a list containing the graph object, layout coordinates, and node sizes.
 }
 \description{
 \code{visped} function draws a graph of a full or compact pedigree.
 }
 \details{
-This function takes a pedigree tidied by the \code{\link{tidyped}} function and outputs a hierarchical graph for all individuals in the pedigree. The graph can be shown on the default graphic device or saved as a PDF file. The PDF output is a legible vector drawing that is legible and avoids overlapping labels. It is especially useful when the number of individuals is large and individual labels are long. 
+This function takes a pedigree tidied by the \code{\link{tidyped}} function and outputs a hierarchical graph for all individuals in the pedigree. The graph can be shown on the default graphic device or saved as a PDF file. The PDF output is a legible vector drawing that is legible and avoids overlapping labels. It is especially useful when the number of individuals is large and individual labels are long.
 
 Rendering is performed using a Two-Pass strategy: edges are drawn first to ensure center-to-center connectivity, followed by nodes and labels. This ensures perfect visual alignment in high-resolution vector outputs. The function also supports real-time ancestry and descendant highlighting.
 
@@ -78,36 +78,61 @@ library(visPedigree)
 library(data.table)
 # Drawing a simple pedigree
 simple_ped_tidy <- tidyped(simple_ped)
-visped(simple_ped_tidy)
+visped(simple_ped_tidy, 
+       cex=0.25, 
+       symbolsize=5.5)
 
 # Highlighting an individual and its ancestors and descendants
-visped(simple_ped_tidy, highlight = "J5X804", trace = "all")
+visped(simple_ped_tidy, 
+       highlight = "J5X804", 
+       trace = "all", 
+       cex=0.25, 
+       symbolsize=5.5)
 
 # Showing inbreeding coefficients in the graph
 simple_ped_tidy_inbreed <- tidyped(simple_ped, inbreed = TRUE)
-visped(simple_ped_tidy_inbreed, showf = TRUE)
+visped(simple_ped_tidy_inbreed,
+       showf = TRUE, 
+       cex=0.25, 
+       symbolsize=5.5)
 
 # Adjusting page width and symbol size for better layout
-# Increase pagewidth to spread nodes horizontally
+# Increase pagewidth to spread nodes horizontally in the pdf file
 # Increase symbolsize for more padding around individual labels
-visped(simple_ped_tidy, pagewidth = 100, symbolsize = 1.2)
+visped(simple_ped_tidy, 
+       cex=0.25, 
+       symbolsize=5.5, 
+       pagewidth = 100, 
+       file = tempfile(fileext = ".pdf"))
 
 # Highlighting multiple individuals with custom colors
-visped(simple_ped_tidy, 
-       highlight = list(ids = c("J3Y620", "J1X971"), 
-                        frame.color = "#4caf50", 
-                        color = "#81c784"))
+visped(simple_ped_tidy,
+       highlight = list(ids = c("J3Y620", "J1X971"),
+                        frame.color = "#4caf50",
+                        color = "#81c784"),
+       cex=0.25,
+       symbolsize=5.5)
 
 # Handling large pedigrees: Saving to PDF is recommended for legibility
 # The 'trace' and 'tracegen' parameters in tidyped() help prune the graph
 cand_labels <- big_family_size_ped[(Year == 2007) & (substr(Ind,1,2) == "G8"), Ind]
 \donttest{
-big_ped_tidy <- tidyped(big_family_size_ped, cand = cand_labels, trace = "up", tracegen = 2)
+big_ped_tidy <- tidyped(big_family_size_ped, 
+                        cand = cand_labels, 
+                        trace = "up", 
+                        tracegen = 2)
 # Use compact = TRUE for large families
-visped(big_ped_tidy, compact = TRUE, file = tempfile(fileext = ".pdf"))
+visped(big_ped_tidy, 
+       compact = TRUE, 
+       cex=0.08, 
+       symbolsize=5.5, 
+       file = tempfile(fileext = ".pdf"))
 
 # Use outline = TRUE if individual labels are not required
-visped(big_ped_tidy, compact = TRUE, outline = TRUE, file = tempfile(fileext = ".pdf"))
+visped(big_ped_tidy, 
+       compact = TRUE, 
+       outline = TRUE, 
+       file = tempfile(fileext = ".pdf"))
 }
 
 }

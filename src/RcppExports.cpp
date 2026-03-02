@@ -70,58 +70,58 @@ BEGIN_RCPP
 END_RCPP
 }
 // cpp_calculate_D
-arma::mat cpp_calculate_D(IntegerVector sire, IntegerVector dam, arma::mat A);
+arma::mat cpp_calculate_D(IntegerVector sire, IntegerVector dam, const arma::mat& A);
 RcppExport SEXP _visPedigree_cpp_calculate_D(SEXP sireSEXP, SEXP damSEXP, SEXP ASEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< IntegerVector >::type sire(sireSEXP);
     Rcpp::traits::input_parameter< IntegerVector >::type dam(damSEXP);
-    Rcpp::traits::input_parameter< arma::mat >::type A(ASEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type A(ASEXP);
     rcpp_result_gen = Rcpp::wrap(cpp_calculate_D(sire, dam, A));
     return rcpp_result_gen;
 END_RCPP
 }
 // cpp_calculate_AA
-arma::mat cpp_calculate_AA(arma::mat A);
+arma::mat cpp_calculate_AA(const arma::mat& A);
 RcppExport SEXP _visPedigree_cpp_calculate_AA(SEXP ASEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arma::mat >::type A(ASEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type A(ASEXP);
     rcpp_result_gen = Rcpp::wrap(cpp_calculate_AA(A));
     return rcpp_result_gen;
 END_RCPP
 }
 // cpp_invert_dense
-arma::mat cpp_invert_dense(arma::mat M);
+arma::mat cpp_invert_dense(const arma::mat& M);
 RcppExport SEXP _visPedigree_cpp_invert_dense(SEXP MSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arma::mat >::type M(MSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type M(MSEXP);
     rcpp_result_gen = Rcpp::wrap(cpp_invert_dense(M));
     return rcpp_result_gen;
 END_RCPP
 }
 // cpp_invert_sympd
-arma::mat cpp_invert_sympd(arma::mat M);
+arma::mat cpp_invert_sympd(const arma::mat& M);
 RcppExport SEXP _visPedigree_cpp_invert_sympd(SEXP MSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arma::mat >::type M(MSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type M(MSEXP);
     rcpp_result_gen = Rcpp::wrap(cpp_invert_sympd(M));
     return rcpp_result_gen;
 END_RCPP
 }
 // cpp_invert_auto
-arma::mat cpp_invert_auto(arma::mat M);
+arma::mat cpp_invert_auto(const arma::mat& M);
 RcppExport SEXP _visPedigree_cpp_invert_auto(SEXP MSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arma::mat >::type M(MSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type M(MSEXP);
     rcpp_result_gen = Rcpp::wrap(cpp_invert_auto(M));
     return rcpp_result_gen;
 END_RCPP

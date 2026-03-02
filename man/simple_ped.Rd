@@ -5,11 +5,12 @@
 \alias{simple_ped}
 \title{A simple pedigree}
 \format{
-A data.table with 3 columns:
+A data.table with 4 columns:
 \describe{
   \item{Ind}{Individual ID}
   \item{Sire}{Sire ID}
   \item{Dam}{Dam ID}
+  \item{Sex}{Sex of the individual}
 }
 }
 \usage{
