@@ -4,31 +4,16 @@
 \alias{pedne}
 \title{Calculate Effective Population Size}
 \usage{
-pedne(
-  ped,
-  timevar = NULL,
-  unit = "year",
-  cycle_length = NULL,
-  cohort = NULL,
-  maxgen = 5
-)
+pedne(ped, timevar = NULL, cohort = NULL)
 }
 \arguments{
 \item{ped}{A \code{tidyped} object.}
 
-\item{timevar}{Character. The name of the column containing time information (e.g., "BirthYear", "Year").
+\item{timevar}{Character. The name of the column used to define cohorts (e.g., "Year", "BirthYear").
 If NULL, attempts to auto-detect from common names.}
-
-\item{unit}{Character. Time unit for analysis: \code{"year"} (default), \code{"month"}, 
-\code{"day"}, or \code{"hour"}.}
-
-\item{cycle_length}{Numeric. Optional length of one generation cycle in \code{unit}s. 
-If provided, Ne is adjusted to represent size per generation.}
 
 \item{cohort}{Character vector. Optional subset of individual IDs defining the reference cohort.
 If NULL, uses all individuals.}
-
-\item{maxgen}{Integer. Maximum number of generations to trace back. Default is 5.}
 }
 \value{
 A \code{data.table} with columns:
@@ -45,14 +30,11 @@ Calculates the effective population size (Ne) based on individual rate of inbree
 Uses the method described by Gutiérrez et al. (2008, 2009).
 }
 \details{
-The effective population size is calculated using the individual rate of inbreeding:
-\deqn{N_e = \frac{1}{2 \Delta F}}
+The effective population size is calculated using the individual rate of inbreeding
+(Gutiérrez et al. 2008, 2009):
+\deqn{\Delta F_i = 1 - (1 - F_i)^{1/(ECG_i - 1)}}
+\deqn{N_e = \frac{1}{2 \overline{\Delta F}}}
 
-where ΔF is computed as:
-\deqn{\Delta F_i = \frac{F_i - \bar{F}_{ancestors}}{t}}
-
-and t is the number of equivalent complete generations (ECG).
-
-If \code{cycle_length} is provided, the function attempts to adjust the calculation to 
-account for the actual generation interval in the population.
+where ECG is the Equivalent Complete Generations, which already encodes the depth
+and completeness of the pedigree. No explicit ancestor traversal is needed.
 }

@@ -587,15 +587,10 @@ print.pedstats <- function(x, ...) {
 #' Uses the method described by Gutiérrez et al. (2008, 2009).
 #'
 #' @param ped A \code{tidyped} object.
-#' @param timevar Character. The name of the column containing time information (e.g., "BirthYear", "Year").
+#' @param timevar Character. The name of the column used to define cohorts (e.g., "Year", "BirthYear").
 #'   If NULL, attempts to auto-detect from common names.
-#' @param unit Character. Time unit for analysis: \code{"year"} (default), \code{"month"}, 
-#'   \code{"day"}, or \code{"hour"}.
-#' @param cycle_length Numeric. Optional length of one generation cycle in \code{unit}s. 
-#'   If provided, Ne is adjusted to represent size per generation.
 #' @param cohort Character vector. Optional subset of individual IDs defining the reference cohort.
 #'   If NULL, uses all individuals.
-#' @param maxgen Integer. Maximum number of generations to trace back. Default is 5.
 #'
 #' @return A \code{data.table} with columns:
 #' \itemize{
@@ -616,8 +611,7 @@ print.pedstats <- function(x, ...) {
 #' and completeness of the pedigree. No explicit ancestor traversal is needed.
 #'
 #' @export
-pedne <- function(ped, timevar = NULL, unit = "year", cycle_length = NULL, 
-                  cohort = NULL, maxgen = 5) {
+pedne <- function(ped, timevar = NULL, cohort = NULL) {
   if (!inherits(ped, "tidyped")) stop("ped must be a tidyped object")
   
   # Auto-detect timevar
@@ -694,22 +688,6 @@ pedne <- function(ped, timevar = NULL, unit = "year", cycle_length = NULL,
   # Base Ne = 1 / (2 * DeltaF)
   # This is Ne per generation of ECG.
   result[, Ne := 1 / (2 * DeltaF)]
-  
-  # If cycle_length provided, we check if we need to adjust further
-  # (Advanced adjustment based on realized generation interval)
-  if (!is.null(cycle_length)) {
-    gi_mean <- tryCatch({
-      gi <- pedgenint(ped, timevar = timevar, unit = unit, cycle_length = cycle_length)
-      gi[Pathway == "Average", Mean]
-    }, error = function(e) NA_real_)
-    
-    if (!is.na(gi_mean) && gi_mean > 0) {
-      # Adjustment: Ne_gen = Ne_ecg * (GenInterval / CycleLength)
-      # But Gutiérrez method is already per 'equivalent generation'.
-      # Usually Ne adjusted is Ne * (L / Gen) where L is interval.
-      # No change needed if ECG is already used, but we can provide a note.
-    }
-  }
   
   # Sort and return
   setorder(result, Cohort)

@@ -33,6 +33,6 @@ p <- vispstat(stats, type = "genint")
 cat("Plot ylab:", p$y.limits[[1]], "\n") # Note: lattice structure varies, but we check if it runs
 
 # Test 5: pedne integration
-cat("\n--- Test 5: pedne with cycle_length ---\n")
-ne_res <- pedne(tped, timevar = "BirthDate", unit = "month", cycle_length = 8)
+cat("\n--- Test 5: pedne ---\n")
+ne_res <- pedne(tped, timevar = "BirthDate")
 print(ne_res)

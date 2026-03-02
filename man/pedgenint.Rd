@@ -34,7 +34,9 @@ If provided, intervals are calculated within each group.}
 A \code{data.table} with columns:
 \itemize{
   \item \code{Group}: Grouping level (if \code{by} is used).
-  \item \code{Pathway}: One of "SS", "SD", "DS", "DD", or "Average".
+  \item \code{Pathway}: One of "SS", "SD", "DS", "DD", "SO", "DO", or "Average".
+    SS/SD/DS/DD require offspring sex; SO (Sire-Offspring) and DO (Dam-Offspring)
+    are computed from all parent-offspring pairs regardless of offspring sex.
   \item \code{N}: Number of parent-offspring pairs used.
   \item \code{Mean}: Average generation interval in \code{unit}.
   \item \code{SD}: Standard deviation of the interval.
