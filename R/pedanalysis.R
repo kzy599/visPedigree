@@ -141,12 +141,20 @@ pedgenint <- function(ped, timevar = NULL, unit = c("year", "month", "day", "hou
   
   overall_agg_cols <- if (!is.null(by)) "Group" else NULL
   
-  overall_dt <- summary_dt[, .(
-    Pathway = "Average",
-    N = sum(N),
-    Mean = mean(Mean),
-    SD = NA_real_
-  ), by = overall_agg_cols]
+  overall_dt <- summary_dt[, {
+    avg_mean <- mean(Mean, na.rm = TRUE)
+    # Variance of a mixture distribution = mean of within-group variances + variance of group means
+    avg_sd <- sqrt(
+      mean(SD^2, na.rm = TRUE) + 
+      mean((Mean - avg_mean)^2, na.rm = TRUE)
+    )
+    .(
+      Pathway = "Average",
+      N = sum(N, na.rm = TRUE),
+      Mean = avg_mean,
+      SD = avg_sd
+    )
+  }, by = overall_agg_cols]
   
   final_res <- rbind(summary_dt, overall_dt, fill = TRUE)
   
@@ -288,8 +296,9 @@ pedsubpop <- function(ped, by = NULL) {
 #' @return A \code{data.table} with columns:
 #' \itemize{
 #'   \item \code{Group}: The grouping identifier.
-#'   \item \code{N}: Number of individuals in the group.
-#'   \item \code{MeanRel}: Average of off-diagonal elements in the A matrix for this group.
+#'   \item \code{NTotal}: Total number of individuals in the group.
+#'   \item \code{NUsed}: Number of individuals used in calculation (could be sampled).
+#'   \item \code{MeanRel}: Average of off-diagonal elements in the A matrix for this group. NA if less than 2 individuals.
 #' }
 #' 
 #' @export
@@ -302,20 +311,28 @@ pedrel <- function(ped, by = "Gen", sample = NULL) {
   
   res_list <- lapply(groups, function(g) {
     sub_ped <- ped[get(by) == g]
-    n_grp <- nrow(sub_ped)
+    n_total <- nrow(sub_ped)
     
-    if (n_grp < 2) return(data.table(Group = g, N = n_grp, MeanRel = NA_real_))
+    if (n_total < 2) {
+      warning(sprintf("Group '%s' has less than 2 individuals, returning NA_real_.", g))
+      return(data.table(Group = g, NTotal = n_total, NUsed = n_total, MeanRel = NA_real_))
+    }
     
     # Sampling for performance on huge groups
-    if (!is.null(sample) && n_grp > sample) {
+    if (!is.null(sample) && n_total > sample) {
       sub_ped <- sub_ped[sample(.N, sample)]
-      n_grp <- sample
+    }
+    n_used <- nrow(sub_ped)
+    
+    if (n_used < 2) {
+      warning(sprintf("Group '%s' has less than 2 individuals after sampling, returning NA_real_.", g))
+      return(data.table(Group = g, NTotal = n_total, NUsed = n_used, MeanRel = NA_real_))
     }
     
     # Calculate A matrix for this subgroup
     # We use a localized tidyped to ensure indices are 1:N for the C++ call
     local_ped <- tryCatch({
-      tidyped(sub_ped, addnum = TRUE)
+      suppressMessages(tidyped(sub_ped, addnum = TRUE))
     }, error = function(e) {
       # If tidyped fails because all parents are missing (e.g. founder generation),
       # it means they are unrelated.
@@ -329,12 +346,24 @@ pedrel <- function(ped, by = "Gen", sample = NULL) {
       # Unrelated group (Identity matrix)
       mean_rel <- 0.0
     } else {
+      # Find original target individuals in the padded pedigree
+      target_inds <- sub_ped$Ind
+      # Get their indices in the local_ped
+      idx <- which(local_ped$Ind %in% target_inds)
+      
       A <- pedmat(local_ped, method = "A", sparse = FALSE)
-      # Mean of off-diagonals
-      mean_rel <- (sum(A) - sum(diag(A))) / (as.numeric(n_grp) * (n_grp - 1))
+      # Subset to only the target individuals we care about
+      A_sub <- A[idx, idx, drop = FALSE]
+      
+      # Mean of off-diagonals among target individuals
+      if (length(idx) < 2) {
+         mean_rel <- NA_real_
+      } else {
+         mean_rel <- (sum(A_sub) - sum(diag(A_sub))) / (as.numeric(n_used) * (n_used - 1))
+      }
     }
     
-    data.table(Group = g, N = n_grp, MeanRel = mean_rel)
+    data.table(Group = g, NTotal = n_total, NUsed = n_used, MeanRel = mean_rel)
   })
   
   result <- rbindlist(res_list)
@@ -832,6 +861,9 @@ pedcontrib <- function(ped, cohort = NULL, mode = c("both", "founder", "ancestor
       founder_dt[, CumContrib := cumsum(Contrib)]
       founder_dt[, Rank := seq_len(.N)]
       
+      # Save full data for summary computation before top slice
+      result$founders_full <- founder_dt
+      
       # Keep only top contributors
       if (nrow(founder_dt) > top) {
         founder_dt <- founder_dt[1:top]
@@ -902,8 +934,8 @@ pedcontrib <- function(ped, cohort = NULL, mode = c("both", "founder", "ancestor
       
       # Iterative Boichard Selection
       candidates <- all_ancestors
-      for (iter in 1:top) {
-        if (length(candidates) == 0) break
+      # Calculate contributions for all possible ancestors with positive contributions
+      while (length(candidates) > 0) {
         
         # 1. Calc current contributions
         current_q <- calc_current_contribs(ped_work_bc, cohort, candidates)
@@ -913,7 +945,8 @@ pedcontrib <- function(ped, cohort = NULL, mode = c("both", "founder", "ancestor
         best_ind <- names(current_q)[best_idx]
         best_val <- as.numeric(current_q[best_idx])
         
-        if (best_val <= 0) break
+        # Break if marginal contribution is practically zero
+        if (best_val <= 1e-10) break
         
         # 3. Record as marginal contribution (pk)
         selected_ancestors <- c(selected_ancestors, best_ind)
@@ -924,12 +957,21 @@ pedcontrib <- function(ped, cohort = NULL, mode = c("both", "founder", "ancestor
         candidates <- setdiff(candidates, best_ind)
       }
       
-      ancestor_dt <- data.table(
+      ancestor_dt_full <- data.table(
         Ind = selected_ancestors,
         Contrib = marginal_contribs
       )
-      ancestor_dt[, CumContrib := cumsum(Contrib)]
-      ancestor_dt[, Rank := seq_len(.N)]
+      ancestor_dt_full[, CumContrib := cumsum(Contrib)]
+      ancestor_dt_full[, Rank := seq_len(.N)]
+      
+      # Save full data for summary computation
+      result$ancestors_full <- ancestor_dt_full
+      
+      # Keep only top contributors for the reported output
+      ancestor_dt <- ancestor_dt_full
+      if (nrow(ancestor_dt) > top) {
+        ancestor_dt <- ancestor_dt[1:top]
+      }
       
       result$ancestors <- ancestor_dt
     }
@@ -941,15 +983,21 @@ pedcontrib <- function(ped, cohort = NULL, mode = c("both", "founder", "ancestor
   )
   
   if (!is.null(result$founders)) {
-    fe2_sum <- sum(result$founders$Contrib^2, na.rm = TRUE)
-    summary_list$n_founders <- nrow(result$founders)
+    # Compute sum of squares on full founder set
+    fe2_sum <- sum(result$founders_full$Contrib^2, na.rm = TRUE)
+    summary_list$n_founders_total <- nrow(result$founders_full)
+    summary_list$n_founders_reported <- nrow(result$founders)
     summary_list$Ne_f <- if (fe2_sum > 0) 1 / fe2_sum else NA_real_
+    result$founders_full <- NULL # Remove intermediate
   }
   
   if (!is.null(result$ancestors)) {
-    fa2_sum <- sum(result$ancestors$Contrib^2, na.rm = TRUE)
-    summary_list$n_ancestors <- nrow(result$ancestors)
+    # Compute sum of squares on full ancestor set
+    fa2_sum <- sum(result$ancestors_full$Contrib^2, na.rm = TRUE)
+    summary_list$n_ancestors_total <- nrow(result$ancestors_full)
+    summary_list$n_ancestors_reported <- nrow(result$ancestors)
     summary_list$Ne_a <- if (fa2_sum > 0) 1 / fa2_sum else NA_real_
+    result$ancestors_full <- NULL # Remove intermediate
   }
   
   result$summary <- summary_list
@@ -978,8 +1026,14 @@ pedancestry <- function(ped, labelvar, labels = NULL) {
   if (!inherits(ped, "tidyped")) stop("ped must be a tidyped object")
   if (!labelvar %in% names(ped)) stop(sprintf("Column '%s' not found.", labelvar))
   
+  # Forward pass requires numbers
+  if (!all(c("SireNum", "DamNum", "IndNum") %in% names(ped))) {
+    ped_work <- tidyped(ped, addnum = TRUE)
+  } else {
+    ped_work <- copy(ped)
+  }
+  
   # Ensure sorted by Gen for correct forward propagation
-  ped_work <- copy(ped)
   setorder(ped_work, Gen, IndNum)
   
   # Identify founder labels
@@ -1007,17 +1061,18 @@ pedancestry <- function(ped, labelvar, labels = NULL) {
   sire_nums <- ped_work$SireNum
   dam_nums <- ped_work$DamNum
   
+  # Map global IndNum to matrix row index in the sorted set
+  indnum_to_row <- integer(max(ped_work$IndNum, na.rm = TRUE))
+  indnum_to_row[ped_work$IndNum] <- seq_len(n)
+  
   # Forward pass: p_offspring = 0.5 * p_sire + 0.5 * p_dam
   for (i in 1:n) {
     s <- sire_nums[i]
     d <- dam_nums[i]
     
     if (s > 0 || d > 0) {
-      # Identify row indices of parents in the sorted ped_work
-      # Since IndNum is global and res_mat matches ped_work order, we need to map IndNum -> Matrix Row
-      # However, if using IndNum directly, we must ensure it's a valid index 1:N
-      s_val <- if (s > 0) res_mat[which(ped_work$IndNum == s), ] else numeric(length(labels))
-      d_val <- if (d > 0) res_mat[which(ped_work$IndNum == d), ] else numeric(length(labels))
+      s_val <- if (s > 0) res_mat[indnum_to_row[s], ] else numeric(length(labels))
+      d_val <- if (d > 0) res_mat[indnum_to_row[d], ] else numeric(length(labels))
       res_mat[i, ] <- 0.5 * s_val + 0.5 * d_val
     }
   }
@@ -1106,8 +1161,14 @@ pedinbreed_class <- function(ped, method = c("summary", "list")) {
 pedpartial <- function(ped, ancestors = NULL, top = 20) {
   if (!inherits(ped, "tidyped")) stop("ped must be a tidyped object")
   
-  # Ensure sorted by IndNum
-  ped_work <- copy(ped)
+  # Need dii from inbreeding algorithm which requires integer indices
+  if (!all(c("SireNum", "DamNum", "IndNum") %in% names(ped))) {
+    ped_work <- tidyped(ped, addnum = TRUE)
+  } else {
+    ped_work <- copy(ped)
+  }
+  
+  # Ensure sorted by IndNum for alignment with C++ output
   setorder(ped_work, IndNum)
   
   # Identify target ancestors
@@ -1123,11 +1184,6 @@ pedpartial <- function(ped, ancestors = NULL, top = 20) {
   anc_ids <- ped_work[Ind %in% ancestors, Ind]
   
   if (length(anc_nums) == 0) stop("None of the specified ancestors found in pedigree.")
-  
-  # Need dii from inbreeding algorithm
-  if (!all(c("SireNum", "DamNum") %in% names(ped_work))) {
-    ped_work <- tidyped(ped_work, addnum = TRUE)
-  }
   
   message(sprintf("Calculating partial inbreeding for %d ancestors...", length(anc_nums)))
   
@@ -1165,14 +1221,14 @@ print.pedcontrib <- function(x, ...) {
   cat(sprintf("Reference cohort size: %d\n", s$n_cohort))
   
   if (!is.null(x$founders)) {
-    cat(sprintf("\nTop Founders: %d\n", s$n_founders))
+    cat(sprintf("\nFounders: %d (reported top %d)\n", s$n_founders_total, s$n_founders_reported))
     cat(sprintf("Effective number of founders (Ne_f): %.2f\n", s$Ne_f))
     cat("\nTop 10 Founder Contributions:\n")
     print(head(x$founders, 10))
   }
   
   if (!is.null(x$ancestors)) {
-    cat(sprintf("\nTop Ancestors: %d\n", s$n_ancestors))
+    cat(sprintf("\nAncestors: %d (reported top %d)\n", s$n_ancestors_total, s$n_ancestors_reported))
     cat(sprintf("Effective number of ancestors (Ne_a): %.2f\n", s$Ne_a))
     cat("\nTop 10 Ancestor Contributions:\n")
     print(head(x$ancestors, 10))

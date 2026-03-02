@@ -18,8 +18,9 @@ to estimate the mean relationship efficiently. Default is NULL (use all).}
 A \code{data.table} with columns:
 \itemize{
   \item \code{Group}: The grouping identifier.
-  \item \code{N}: Number of individuals in the group.
-  \item \code{MeanRel}: Average of off-diagonal elements in the A matrix for this group.
+  \item \code{NTotal}: Total number of individuals in the group.
+  \item \code{NUsed}: Number of individuals used in calculation (could be sampled).
+  \item \code{MeanRel}: Average of off-diagonal elements in the A matrix for this group. NA if less than 2 individuals.
 }
 }
 \description{

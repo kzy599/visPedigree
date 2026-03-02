@@ -1,3 +1,19 @@
+# Changes in version 1.0.2 released on 02 Mar 2026
+
+## Bug fixes
+1. pedrel Correctness.
+2. pedgenint Aggregation.
+3. pedcontrib Accuracy.
+4. pedpartial and pedancestry Input Compatibility.
+
+# Changes in version 1.0.2 released on 02 Mar 2026
+
+## Bug fixes & Refactoring
+1. **pedrel Correctness**: Fixed a critical calculation bug in `pedrel()` where the mean average relatedness calculation erroneously divided the sum of the full relationship matrix (including all traced ancestors) by only the size of the target subgroup. It now cleanly subsets the relationship matrix, and correctly handles boundary limits (`NUsed < 2`). The output columns `N` and `MeanRel` behavior has been replaced with `NTotal`, `NUsed`, and `MeanRel`.
+2. **pedgenint Aggregation**: Fixed `pedgenint()` to output appropriate unweighted mixture standard deviation for generating generation intervals alongside its unweighted 4-pathway average interval estimate.
+3. **pedcontrib Accuracy**: Standardized effective founders (`Ne_f`) and effective ancestors (`Ne_a`) calculation in `pedcontrib()` to ensure they are calculated based upon the full un-truncated cohort before outputting strictly the `top` n-ranked figures. Results list has been augmented with variables tracking the `_total` and `_reported` count values.
+4. **pedpartial / pedancestry Input Compatibility**: Ensured missing numeric identifiers in incoming pedigrees (e.g. `addnum = FALSE`) do not break `pedpartial()` or `pedancestry()`. Increased performance of the pedigree propagation loop in `pedancestry` by dropping an internal array linear probe algorithm with an immediate linear vector lookup.
+
 # Changes in version 1.0.1 released on 31 Jan 2026
 ## Bug fixes
 1. **Compact Matrix Correctness**: Fixed a critical data integrity bug in `compact = TRUE` mode where relationship values (A, D, AA) were incorrect for parent-offspring and avuncular pairs due to improper merging of parent individuals with their non-parent siblings.
