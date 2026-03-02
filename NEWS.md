@@ -1,10 +1,23 @@
 # Changes in version 1.1.1 released on 02 Mar 2026
 
+## New Features
+1. **pedgenint Sex-Independent Pathways**: Added evaluation of `SO` (Sire-to-Offspring) and `DO` (Dam-to-Offspring) generation intervals alongside the standard 4 pathways. This is especially useful for aquatic species (like shrimp) or early-stage screening where offspring sex might remain unknown.
+
+## API Changes and Refactoring
+1. **pedne Interface Standardization**: 
+    - Renamed arguments `timevar` to `by`, and `cohort` to `cand` to harmonize parameter naming conventions across the package.
+    - Removed unused and misleading parameters (`unit`, `cycle_length`, `maxgen`). The effective population size Ne calculation innately depends on Equivalent Complete Generations (ECG), making it independent of scalar temporal units.
+2. **vismat Parameter Alignment**: Renamed `grouping` argument to `by` to maintain grouping consistency.  
+*(Note: Old arguments `timevar`, `cohort` in `pedne()` and `grouping` in `vismat()` are retained for backward compatibility but will display a deprecation warning.)*
+
 ## Bug fixes
 1. **pedrel Correctness**: Fixed a critical calculation bug in `pedrel()` where the mean average relatedness calculation erroneously divided the sum of the full relationship matrix (including all traced ancestors) by only the size of the target subgroup. It now cleanly subsets the relationship matrix, and correctly handles boundary limits (`NUsed < 2`). The output columns `N` and `MeanRel` behavior has been replaced with `NTotal`, `NUsed`, and `MeanRel`.
 2. **pedgenint Aggregation**: Fixed `pedgenint()` to output appropriate unweighted mixture standard deviation for generating generation intervals alongside its unweighted 4-pathway average interval estimate.
-3. **pedcontrib Accuracy**: Standardized effective founders (`Ne_f`) and effective ancestors (`Ne_a`) calculation in `pedcontrib()` to ensure they are calculated based upon the full un-truncated cohort before outputting strictly the `top` n-ranked figures. Results list has been augmented with variables tracking the `_total` and `_reported` count values.
-4. **pedpartial / pedancestry Input Compatibility**: Ensured missing numeric identifiers in incoming pedigrees (e.g. `addnum = FALSE`) do not break `pedpartial()` or `pedancestry()`. Increased performance of the pedigree propagation loop in `pedancestry` by dropping an internal array linear probe algorithm with an immediate linear vector lookup.
+3. **pedgenint Sample Size (N)**: Fixed an issue where the `Average` pathway N was severely underestimated. It now accurately evaluates all parent-offspring pairs via `calc_all_pathway()`.
+4. **pedcontrib Accuracy**: Standardized effective founders (`Ne_f`) and effective ancestors (`Ne_a`) calculation in `pedcontrib()` to ensure they are calculated based upon the full un-truncated cohort before outputting strictly the `top` n-ranked figures. Results list has been augmented with variables tracking the `_total` and `_reported` count values.
+5. **pedcontrib Deep Pedigree Latency**: Replaced a string-named vector backward pass with a pure integer-indexed backward pass, resolving instances where evaluating contributions on deep, large pedigrees (e.g., > 200,000 records) would hang indefinitely due to scaling constraints.
+6. **pedpartial / pedancestry Input Compatibility**: Ensured missing numeric identifiers in incoming pedigrees (e.g. `addnum = FALSE`) do not break `pedpartial()` or `pedancestry()`. Increased performance of the pedigree propagation loop in `pedancestry` by dropping an internal array linear probe algorithm with an immediate linear vector lookup.
+7. **pedne Performance bottleneck**: Removed an obsolete `O(N^2)` individual traversal evaluation (`calc_ancestral_f()`), streamlining calculation purely around the efficient direct formula by Gutiérrez et al.
 
 # Changes in version 1.1.0 released on 01 Mar 2026
 
