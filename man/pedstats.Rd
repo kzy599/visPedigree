@@ -9,25 +9,61 @@ pedstats(ped, timevar = NULL, unit = "year", cycle_length = NULL, ...)
 \arguments{
 \item{ped}{A \code{tidyped} object.}
 
-\item{timevar}{Optional character. Name of the column with time/year info. 
-Passed to \code{\link{pedgenint}}.}
+\item{timevar}{Optional character. Name of the column containing birth time or
+year information (e.g., \code{"BirthYear"}, \code{"HatchDate"}).
+Accepted column formats:
+\itemize{
+  \item \strong{Integer/numeric year}: e.g., \code{2020}, \code{2020.5}.
+    Use \code{unit = "year"} (default).
+  \item \strong{ISO date string}: e.g., \code{"2020-06-15"}.
+    Detected automatically; set \code{unit} to \code{"day"} or \code{"month"}.
+  \item \strong{Custom date format}: e.g., \code{"15/06/2020"} (DD/MM/YYYY).
+    Must specify \code{format = "\%d/\%m/\%Y"} and pass via \code{...}.
+}
+If \code{NULL}, attempts auto-detection from common column names
+(\code{"BirthYear"}, \code{"Year"}, \code{"BirthDate"}, etc.).}
 
-\item{unit}{Character. Time unit for the interval: \code{"year"} (default), 
-\code{"month"}, \code{"day"}, \code{"hour"}, or \code{"gen"}.}
+\item{unit}{Character. Time unit for reporting generation intervals:
+\code{"year"} (default), \code{"month"}, \code{"day"}, \code{"hour"},
+or \code{"gen"} (raw numeric). Must match the scale of \code{timevar};
+e.g., use \code{unit = "day"} when \code{timevar} holds date strings.}
 
-\item{cycle_length}{Numeric. Optional length of one generation cycle in \code{unit}s.}
+\item{cycle_length}{Numeric. Optional target generation cycle length in
+\code{unit}s. When provided, \code{gen_intervals} will include a
+\code{GenEquiv} column (observed Mean / cycle_length). See
+\code{\link{pedgenint}} for details.}
 
-\item{...}{Additional arguments passed to \code{\link{pedgenint}}.}
+\item{...}{Additional arguments passed to \code{\link{pedgenint}},
+e.g., \code{format} for custom date parsing or \code{by} for grouping.}
 }
 \value{
 An object of class \code{pedstats}, which is a list containing:
 \itemize{
   \item \code{summary}: Basic summary statistics.
-  \item \code{gen_intervals}: Generation intervals.
+  \item \code{gen_intervals}: Generation intervals (\code{NULL} if no
+    \code{timevar} is detected).
   \item \code{ecg}: Equi-Generate Coefficients and ancestral depth.
 }
 }
 \description{
 Calculates comprehensive statistics for a pedigree, including population structure,
 generation intervals, and ancestral depth.
+}
+\examples{
+\dontrun{
+# ---- Standard annual pedigree ----
+# 'BirthYear' column contains integer years like 2020, 2021
+tped <- tidyped(ped)
+pedstats(tped, timevar = "BirthYear")
+
+# ---- Short-cycle species (e.g. Pacific white shrimp) ----
+# 'HatchDate' column contains ISO strings like "2020-06-15"
+# target generation cycle = 180 days
+pedstats(tped, timevar = "HatchDate", unit = "day", cycle_length = 180)
+
+# ---- Custom date format passed via ... ----
+# 'HatchDate' contains "15/06/2020" (DD/MM/YYYY)
+pedstats(tped, timevar = "HatchDate", unit = "day", format = "\%d/\%m/\%Y")
+}
+
 }

@@ -10,8 +10,15 @@
 #' @param unit Character. Time unit for the interval: \code{"year"} (default), 
 #'   \code{"month"}, \code{"day"}, \code{"hour"}, or \code{"gen"} (raw numeric).
 #' @param format Character. Optional format string for parsing \code{timevar} if it's character.
-#' @param cycle_length Numeric. Optional length of one generation cycle in \code{unit}s. 
-#'   If provided, an additional column \code{GenEquiv} is calculated.
+#' @param cycle_length Numeric. Optional target (designed) length of one generation
+#'   cycle expressed in \code{unit}s. When provided, an additional column
+#'   \code{GenEquiv} is appended to the result, defined as:
+#'   \deqn{GenEquiv_i = \frac{\bar{L}_i}{L_{cycle}}}
+#'   where \eqn{\bar{L}_i} is the observed mean interval for pathway \eqn{i} and
+#'   \eqn{L_{cycle}} is \code{cycle_length}. A value > 1 means the observed
+#'   interval exceeds the target cycle (lower breeding efficiency).
+#'   Example: for Pacific white shrimp with a 180-day target cycle, set
+#'   \code{unit = "day", cycle_length = 180}.
 #' @param by Character. Optional grouping column (e.g., "Breed", "Farm"). 
 #'   If provided, intervals are calculated within each group.
 #'
@@ -29,12 +36,28 @@
 #' 
 #' @examples
 #' \dontrun{
-#' tped <- tidyped(ped)
-#' # Assuming tped has a 'BirthYear' column
-#' pedgenint(tped, timevar = "BirthYear")
-#' 
-#' # Using date strings for high-frequency species
-#' pedgenint(tped, timevar = "BirthDate", unit = "day", cycle_length = 60)
+#' # ---- Case 1: Integer or numeric year column (most common) ----
+#' # Pedigree column 'BirthYear' contains values like 2020, 2021, 2022
+#' tped <- tidyped(ped)   # ped must have a BirthYear column
+#' pedgenint(tped, timevar = "BirthYear")  # unit defaults to "year"
+#'
+#' # ---- Case 2: Standard ISO date strings "YYYY-MM-DD" ----
+#' # Pedigree column 'HatchDate' contains values like "2020-06-15"
+#' # format= is NOT needed; the function detects ISO strings automatically.
+#' pedgenint(tped, timevar = "HatchDate", unit = "day")
+#'
+#' # ---- Case 3: Non-standard date format, must specify format= ----
+#' # Pedigree column 'HatchDate' contains values like "15/06/2020" (DD/MM/YYYY)
+#' pedgenint(tped, timevar = "HatchDate", unit = "day", format = "%d/%m/%Y")
+#'
+#' # ---- Case 4: cycle_length - generation equivalents ----
+#' # Pacific white shrimp: target one generation per 180 days.
+#' # GenEquiv = Mean / 180; value > 1 means observed interval exceeds target.
+#' pedgenint(tped, timevar = "HatchDate", unit = "day", cycle_length = 180)
+#'
+#' # ---- Case 5: Grouping by breed or farm ----
+#' # Pedigree has an additional column 'Breed'
+#' pedgenint(tped, timevar = "BirthYear", by = "Breed")
 #' }
 #'
 #' @export
@@ -495,20 +518,55 @@ pedecg <- function(ped) {
 #' generation intervals, and ancestral depth.
 #'
 #' @param ped A \code{tidyped} object.
-#' @param timevar Optional character. Name of the column with time/year info. 
-#'   Passed to \code{\link{pedgenint}}.
-#' @param unit Character. Time unit for the interval: \code{"year"} (default), 
-#'   \code{"month"}, \code{"day"}, \code{"hour"}, or \code{"gen"}.
-#' @param cycle_length Numeric. Optional length of one generation cycle in \code{unit}s.
-#' @param ... Additional arguments passed to \code{\link{pedgenint}}.
+#' @param timevar Optional character. Name of the column containing birth time or
+#'   year information (e.g., \code{"BirthYear"}, \code{"HatchDate"}).
+#'   Accepted column formats:
+#'   \itemize{
+#'     \item \strong{Integer/numeric year}: e.g., \code{2020}, \code{2020.5}.
+#'       Use \code{unit = "year"} (default).
+#'     \item \strong{ISO date string}: e.g., \code{"2020-06-15"}.
+#'       Detected automatically; set \code{unit} to \code{"day"} or \code{"month"}.
+#'     \item \strong{Custom date format}: e.g., \code{"15/06/2020"} (DD/MM/YYYY).
+#'       Must specify \code{format = "\%d/\%m/\%Y"} and pass via \code{...}.
+#'   }
+#'   If \code{NULL}, attempts auto-detection from common column names
+#'   (\code{"BirthYear"}, \code{"Year"}, \code{"BirthDate"}, etc.).
+#' @param unit Character. Time unit for reporting generation intervals:
+#'   \code{"year"} (default), \code{"month"}, \code{"day"}, \code{"hour"},
+#'   or \code{"gen"} (raw numeric). Must match the scale of \code{timevar};
+#'   e.g., use \code{unit = "day"} when \code{timevar} holds date strings.
+#' @param cycle_length Numeric. Optional target generation cycle length in
+#'   \code{unit}s. When provided, \code{gen_intervals} will include a
+#'   \code{GenEquiv} column (observed Mean / cycle_length). See
+#'   \code{\link{pedgenint}} for details.
+#' @param ... Additional arguments passed to \code{\link{pedgenint}},
+#'   e.g., \code{format} for custom date parsing or \code{by} for grouping.
 #'
 #' @return An object of class \code{pedstats}, which is a list containing:
 #' \itemize{
 #'   \item \code{summary}: Basic summary statistics.
-#'   \item \code{gen_intervals}: Generation intervals.
+#'   \item \code{gen_intervals}: Generation intervals (\code{NULL} if no
+#'     \code{timevar} is detected).
 #'   \item \code{ecg}: Equi-Generate Coefficients and ancestral depth.
 #' }
-#' 
+#'
+#' @examples
+#' \dontrun{
+#' # ---- Standard annual pedigree ----
+#' # 'BirthYear' column contains integer years like 2020, 2021
+#' tped <- tidyped(ped)
+#' pedstats(tped, timevar = "BirthYear")
+#'
+#' # ---- Short-cycle species (e.g. Pacific white shrimp) ----
+#' # 'HatchDate' column contains ISO strings like "2020-06-15"
+#' # target generation cycle = 180 days
+#' pedstats(tped, timevar = "HatchDate", unit = "day", cycle_length = 180)
+#'
+#' # ---- Custom date format passed via ... ----
+#' # 'HatchDate' contains "15/06/2020" (DD/MM/YYYY)
+#' pedstats(tped, timevar = "HatchDate", unit = "day", format = "%d/%m/%Y")
+#' }
+#'
 #' @export
 pedstats <- function(ped, timevar = NULL, unit = "year", cycle_length = NULL, ...) {
   if (!inherits(ped, "tidyped")) stop("ped must be a tidyped object")

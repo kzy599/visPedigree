@@ -24,8 +24,15 @@ Defaults to "Year" or "BirthYear" if found.}
 
 \item{format}{Character. Optional format string for parsing \code{timevar} if it's character.}
 
-\item{cycle_length}{Numeric. Optional length of one generation cycle in \code{unit}s. 
-If provided, an additional column \code{GenEquiv} is calculated.}
+\item{cycle_length}{Numeric. Optional target (designed) length of one generation
+cycle expressed in \code{unit}s. When provided, an additional column
+\code{GenEquiv} is appended to the result, defined as:
+\deqn{GenEquiv_i = \frac{\bar{L}_i}{L_{cycle}}}
+where \eqn{\bar{L}_i} is the observed mean interval for pathway \eqn{i} and
+\eqn{L_{cycle}} is \code{cycle_length}. A value > 1 means the observed
+interval exceeds the target cycle (lower breeding efficiency).
+Example: for Pacific white shrimp with a 180-day target cycle, set
+\code{unit = "day", cycle_length = 180}.}
 
 \item{by}{Character. Optional grouping column (e.g., "Breed", "Farm"). 
 If provided, intervals are calculated within each group.}
@@ -50,12 +57,28 @@ The generation interval is defined as the age of the parents at the birth of the
 }
 \examples{
 \dontrun{
-tped <- tidyped(ped)
-# Assuming tped has a 'BirthYear' column
-pedgenint(tped, timevar = "BirthYear")
+# ---- Case 1: Integer or numeric year column (most common) ----
+# Pedigree column 'BirthYear' contains values like 2020, 2021, 2022
+tped <- tidyped(ped)   # ped must have a BirthYear column
+pedgenint(tped, timevar = "BirthYear")  # unit defaults to "year"
 
-# Using date strings for high-frequency species
-pedgenint(tped, timevar = "BirthDate", unit = "day", cycle_length = 60)
+# ---- Case 2: Standard ISO date strings "YYYY-MM-DD" ----
+# Pedigree column 'HatchDate' contains values like "2020-06-15"
+# format= is NOT needed; the function detects ISO strings automatically.
+pedgenint(tped, timevar = "HatchDate", unit = "day")
+
+# ---- Case 3: Non-standard date format, must specify format= ----
+# Pedigree column 'HatchDate' contains values like "15/06/2020" (DD/MM/YYYY)
+pedgenint(tped, timevar = "HatchDate", unit = "day", format = "\%d/\%m/\%Y")
+
+# ---- Case 4: cycle_length - generation equivalents ----
+# Pacific white shrimp: target one generation per 180 days.
+# GenEquiv = Mean / 180; value > 1 means observed interval exceeds target.
+pedgenint(tped, timevar = "HatchDate", unit = "day", cycle_length = 180)
+
+# ---- Case 5: Grouping by breed or farm ----
+# Pedigree has an additional column 'Breed'
+pedgenint(tped, timevar = "BirthYear", by = "Breed")
 }
 
 }
