@@ -39,27 +39,29 @@ test_that("pedrel calculates relation correctly and handles boundaries", {
   expect_true(all(is.na(rel_sample$MeanRel)))
 })
 
-test_that("pedgenint keeps unweighted 4-pathway logic for Average", {
+test_that("pedgenint computes Average from all parent-offspring pairs", {
   test_ped$BirthYear <- c(2000, 2001, 2005, 2006, 2010, 2012)
-  # SS: C-A (2005-2000=5), E-C (2010-2005=5)
-  # SD: D-A (2006-2000=6), F-C (2012-2005=7)
-  # DS: C-B (2005-2001=4), E-D (2010-2006=4)
-  # DD: D-B (2006-2001=5), F-D (2012-2006=6)
+  # SS: C-A (5), E-C (5) -> mean=5
+
+  # SD: D-A (6), F-C (7) -> mean=6.5
+  # DS: C-B (4), E-D (4) -> mean=4
+  # DD: D-B (5), F-D (6) -> mean=5.5
+  # Average from ALL 8 pairs: (5+6+5+7+4+5+4+6)/8 = 5.25
   
   suppressMessages(
     genint_res <- pedgenint(test_ped, timevar = "BirthYear", unit = "year")
   )
   
-  # Pathways:
-  # SS mean = 5
-  # SD mean = 6.5
-  # DS mean = 4
-  # DD mean = 5.5
-  # Average mean = (5 + 6.5 + 4 + 5.5) / 4 = 21 / 4 = 5.25
-  
   avg_res <- genint_res[Pathway == "Average"]
   expect_equal(avg_res$Mean, 5.25)
+  expect_equal(avg_res$N, 8L)
   expect_true(!is.na(avg_res$SD))
+  
+  # Sex-specific pathways should still work
+  expect_equal(genint_res[Pathway == "SS", Mean], 5)
+  expect_equal(genint_res[Pathway == "SD", Mean], 6.5)
+  expect_equal(genint_res[Pathway == "DS", Mean], 4)
+  expect_equal(genint_res[Pathway == "DD", Mean], 5.5)
 })
 
 test_that("pedcontrib Ne_f and Ne_a compute on full sets despite top cutoff", {
@@ -93,4 +95,49 @@ test_that("pedpartial and pedancestry run without addnum=TRUE initially", {
   expect_true("Base" %in% names(anc_res))
   # All non-founders descend completely from A and B, so Base should be 1.0 for all
   expect_true(all(anc_res$Base == 1.0))
+})
+
+# --- Additional tests for pedne, pedecg, pedsubpop, pedinbreed_class ---
+
+test_that("pedecg computes equivalent complete generations", {
+  ecg_res <- pedecg(test_ped)
+  expect_true(all(c("ECG", "FullGen", "MaxGen") %in% names(ecg_res)))
+  expect_equal(nrow(ecg_res), nrow(test_ped))
+  # Founders A, B have ECG = 0
+  expect_equal(ecg_res[Ind == "A", ECG], 0)
+  expect_equal(ecg_res[Ind == "B", ECG], 0)
+  # C has 2 known parents -> ECG = 1
+  expect_equal(ecg_res[Ind == "C", ECG], 1)
+  # E has parents C, D who each have ECG=1 -> ECG = 1 + (1+1)/2 = 2
+  expect_equal(ecg_res[Ind == "E", ECG], 2)
+})
+
+test_that("pedne computes effective population size by cohort", {
+  test_ped$BirthYear <- c(2000, 2000, 2005, 2005, 2010, 2010)
+  res <- suppressMessages(pedne(test_ped, timevar = "BirthYear"))
+  expect_true(all(c("Cohort", "N", "MeanF", "DeltaF", "Ne") %in% names(res)))
+  # Only cohort 2010 has ECG > 1 (founders/gen1 filtered out)
+  expect_equal(nrow(res), 1)
+  expect_equal(res$Cohort, 2010)
+  expect_equal(res$MeanF, 0.25)
+  expect_true(res$Ne > 0 && is.finite(res$Ne))
+})
+
+test_that("pedsubpop splits pedigree by grouping variable", {
+  res_gen <- pedsubpop(test_ped, by = "Gen")
+  expect_true(is.data.table(res_gen))
+  expect_equal(nrow(res_gen), length(unique(test_ped$Gen)))
+  expect_true(all(c("Group", "N") %in% names(res_gen)))
+  # Gen 1 (Group=1) has 2 individuals
+  expect_equal(res_gen[Group == 1, N], 2)
+  expect_equal(res_gen[Group == 2, N], 2)
+})
+
+test_that("pedinbreed_class classifies inbreeding levels", {
+  res <- pedinbreed_class(test_ped)
+  expect_true(is.data.table(res))
+  expect_true("F_Class" %in% names(res))
+  # A, B, C, D have f=0 (4 individuals); E, F have f=0.25 (2 individuals)
+  expect_equal(sum(res$Count), nrow(test_ped))
+  expect_equal(res[F_Class == "F = 0", Count], 4)
 })

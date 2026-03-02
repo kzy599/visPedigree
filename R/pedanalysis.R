@@ -123,7 +123,33 @@ pedgenint <- function(ped, timevar = NULL, unit = c("year", "month", "day", "hou
   
   all_intervals <- rbindlist(res_list)
   
-  if (nrow(all_intervals) == 0) {
+  # Compute Average from ALL parent-offspring pairs regardless of offspring sex.
+  # This avoids severely underestimating N when most offspring lack Sex info.
+  calc_all_pathway <- function(parent_col) {
+    valid_pairs <- dt[!is.na(get(parent_col))]
+    if (nrow(valid_pairs) == 0) return(NULL)
+    p_ids <- valid_pairs[[parent_col]]
+    p_times <- time_map[p_ids]
+    o_times <- valid_pairs$Time
+    intervals <- o_times - p_times
+    valid_idx <- !is.na(intervals) & intervals > 0
+    if (sum(valid_idx) == 0) return(NULL)
+    res <- data.table(
+      Pathway = ifelse(parent_col == "Sire", "S-All", "D-All"),
+      Interval = intervals[valid_idx]
+    )
+    if (!is.null(by)) {
+      res[, Group := valid_pairs[[by]][valid_idx]]
+    }
+    return(res)
+  }
+  
+  all_parent_intervals <- rbindlist(list(
+    calc_all_pathway("Sire"),
+    calc_all_pathway("Dam")
+  ))
+  
+  if (nrow(all_intervals) == 0 && nrow(all_parent_intervals) == 0) {
     warning("No valid parent-offspring pairs found with birth dates.")
     res <- data.table(Pathway = character(0), N = integer(0), Mean = numeric(0), SD = numeric(0))
     attr(res, "unit") <- unit
@@ -133,28 +159,25 @@ pedgenint <- function(ped, timevar = NULL, unit = c("year", "month", "day", "hou
   agg_cols <- "Pathway"
   if (!is.null(by)) agg_cols <- c("Group", "Pathway")
   
-  summary_dt <- all_intervals[, .(
+  summary_dt <- if (nrow(all_intervals) > 0) {
+    all_intervals[, .(
+      N = .N,
+      Mean = mean(Interval),
+      SD = sd(Interval)
+    ), by = agg_cols]
+  } else {
+    data.table(Pathway = character(0), N = integer(0), Mean = numeric(0), SD = numeric(0))
+  }
+  
+  # Compute Average from ALL parent-offspring pairs (not just those with known sex)
+  overall_agg_cols <- if (!is.null(by)) "Group" else NULL
+  
+  overall_dt <- all_parent_intervals[, .(
+    Pathway = "Average",
     N = .N,
     Mean = mean(Interval),
     SD = sd(Interval)
-  ), by = agg_cols]
-  
-  overall_agg_cols <- if (!is.null(by)) "Group" else NULL
-  
-  overall_dt <- summary_dt[, {
-    avg_mean <- mean(Mean, na.rm = TRUE)
-    # Variance of a mixture distribution = mean of within-group variances + variance of group means
-    avg_sd <- sqrt(
-      mean(SD^2, na.rm = TRUE) + 
-      mean((Mean - avg_mean)^2, na.rm = TRUE)
-    )
-    .(
-      Pathway = "Average",
-      N = sum(N, na.rm = TRUE),
-      Mean = avg_mean,
-      SD = avg_sd
-    )
-  }, by = overall_agg_cols]
+  ), by = overall_agg_cols]
   
   final_res <- rbind(summary_dt, overall_dt, fill = TRUE)
   
@@ -569,16 +592,13 @@ print.pedstats <- function(x, ...) {
 #' }
 #' 
 #' @details
-#' The effective population size is calculated using the individual rate of inbreeding:
-#' \deqn{N_e = \frac{1}{2 \Delta F}}
+#' The effective population size is calculated using the individual rate of inbreeding
+#' (Gutiérrez et al. 2008, 2009):
+#' \deqn{\Delta F_i = 1 - (1 - F_i)^{1/(ECG_i - 1)}}
+#' \deqn{N_e = \frac{1}{2 \overline{\Delta F}}}
 #' 
-#' where ΔF is computed as:
-#' \deqn{\Delta F_i = \frac{F_i - \bar{F}_{ancestors}}{t}}
-#' 
-#' and t is the number of equivalent complete generations (ECG).
-#' 
-#' If \code{cycle_length} is provided, the function attempts to adjust the calculation to 
-#' account for the actual generation interval in the population.
+#' where ECG is the Equivalent Complete Generations, which already encodes the depth
+#' and completeness of the pedigree. No explicit ancestor traversal is needed.
 #'
 #' @export
 pedne <- function(ped, timevar = NULL, unit = "year", cycle_length = NULL, 
@@ -631,46 +651,17 @@ pedne <- function(ped, timevar = NULL, unit = "year", cycle_length = NULL,
   }
   
   # Use the original timevar for cohort grouping (e.g. Year)
-  # But use the numeric version for interval logic if needed
   ped_work[, CohortLabel := get(timevar)]
   
-  # Calculate mean ancestral F for each individual
-  calc_ancestral_f <- function(ind_id, ped_dt, max_depth = maxgen) {
-    # Get ancestors
-    ancestors <- character(0)
-    current <- ind_id
-    depth <- 0
-    
-    while (depth < max_depth && length(current) > 0) {
-      parents <- unique(c(
-        ped_dt[Ind %in% current & !is.na(Sire), Sire],
-        ped_dt[Ind %in% current & !is.na(Dam), Dam]
-      ))
-      if (length(parents) == 0) break
-      ancestors <- c(ancestors, parents)
-      current <- parents
-      depth <- depth + 1
-    }
-    
-    if (length(ancestors) == 0) return(NA_real_)
-    
-    anc_f <- ped_dt[Ind %in% ancestors, f]
-    mean(anc_f, na.rm = TRUE)
-  }
-  
-  # Calculate for each individual
-  ped_work[, MeanF_Anc := {
-    sapply(Ind, function(x) calc_ancestral_f(x, ped))
-  }]
-  
-  # Calculate individual rate of inbreeding (Gutiérrez et al. formula)
+  # Calculate individual rate of inbreeding (Gutiérrez et al. 2008, 2009)
   # Formula: DeltaF_i = 1 - (1 - F_i)^(1 / (ECG_i - 1))
-  # We only calculate for individuals with ECG > 1 to avoid division by zero/nonsense
+  # ECG already encodes pedigree depth; no need for explicit ancestor traversal.
+  # We only calculate for individuals with ECG > 1 to avoid division by zero.
   ped_work[, DeltaF_Ind := ifelse(ECG > 1, 1 - (1 - f)^(1 / (ECG - 1)), NA_real_)]
   
-  # Filter valid DeltaF (must be positive and finite)
-  # Negative values can occur if pedigree is very shallow or inconsistent
-  ped_work <- ped_work[!is.na(DeltaF_Ind) & is.finite(DeltaF_Ind) & DeltaF_Ind > 0]
+  # Keep non-negative DeltaF (including F=0 individuals with DeltaF=0)
+  # Excluding DeltaF=0 individuals would bias Ne downward.
+  ped_work <- ped_work[!is.na(DeltaF_Ind) & is.finite(DeltaF_Ind) & DeltaF_Ind >= 0]
   
   if (nrow(ped_work) == 0) {
     warning("No valid ΔF values calculated.")
@@ -773,9 +764,13 @@ pedcontrib <- function(ped, cohort = NULL, mode = c("both", "founder", "ancestor
   
   mode <- match.arg(mode)
   
+  # Ensure integer indices exist
+  if (!all(c("SireNum", "DamNum", "IndNum") %in% names(ped))) {
+    ped <- tidyped(ped, addnum = TRUE)
+  }
+  
   # Define reference cohort
   if (is.null(cohort)) {
-    # Use most recent generation
     max_gen <- max(ped$Gen)
     cohort <- ped[Gen == max_gen, Ind]
     message(sprintf("Using %d individuals from generation %d as reference cohort.", 
@@ -783,7 +778,7 @@ pedcontrib <- function(ped, cohort = NULL, mode = c("both", "founder", "ancestor
   } else {
     if (!all(cohort %in% ped$Ind)) {
       missing <- cohort[!cohort %in% ped$Ind]
-      warning(sprintf("Cohort IDs not found in pedigree: %s", paste(missing, collapse = ", ")))
+      warning(sprintf("Cohort IDs not found in pedigree: %s", paste(head(missing, 5), collapse = ", ")))
     }
     cohort <- cohort[cohort %in% ped$Ind]
   }
@@ -795,166 +790,122 @@ pedcontrib <- function(ped, cohort = NULL, mode = c("both", "founder", "ancestor
   n <- nrow(ped)
   n_cohort <- length(cohort)
   
-  # Initialize result
+  # Pre-compute integer arrays for speed (avoid character matching)
+  sire_num <- ped$SireNum   # 0 = unknown
+  dam_num <- ped$DamNum     # 0 = unknown
+  ind_ids <- ped$Ind
+  
+  # Map cohort IDs to integer positions
+  ind_to_pos <- setNames(seq_len(n), ind_ids)
+  cohort_pos <- ind_to_pos[cohort]
+  
+  # Vectorized backward pass: compute total flow from all cohort members at once
+  # contrib[i] = average probability that a randomly chosen gene from the cohort
+  #              traces back to individual i
+  backward_pass <- function(sire_v, dam_v, cohort_positions, n_ped, n_coh) {
+    contrib <- numeric(n_ped)
+    contrib[cohort_positions] <- 1.0 / n_coh
+    
+    # Walk backwards (individuals sorted by Gen ascending, so reverse = top-down)
+    for (i in n_ped:1) {
+      if (contrib[i] == 0) next
+      s <- sire_v[i]
+      d <- dam_v[i]
+      if (s > 0) contrib[s] <- contrib[s] + 0.5 * contrib[i]
+      if (d > 0) contrib[d] <- contrib[d] + 0.5 * contrib[i]
+    }
+    return(contrib)
+  }
+  
   result <- list()
   
   # ---- Founder Contributions ----
   if (mode %in% c("founder", "both")) {
     message("Calculating founder contributions...")
     
-    # Identify founders (individuals with no parents)
-    founders <- ped[is.na(Sire) & is.na(Dam), Ind]
-    n_founders <- length(founders)
+    founder_idx <- which(sire_num == 0 & dam_num == 0)
+    n_founders <- length(founder_idx)
     
     if (n_founders == 0) {
       warning("No founders found (all individuals have at least one parent).")
-      result$founders <- data.table(
-        Ind = character(0),
-        Contrib = numeric(0),
-        CumContrib = numeric(0),
-        Rank = integer(0)
-      )
+      result$founders <- data.table(Ind = character(0), Contrib = numeric(0),
+                                     CumContrib = numeric(0), Rank = integer(0))
     } else {
-      # Gene dropping: calculate contribution of each founder to each cohort member
-      # Strategy: For each cohort member, trace back and accumulate founder contributions
+      # Single vectorized backward pass for all cohort members simultaneously
+      contrib <- backward_pass(sire_num, dam_num, cohort_pos, n, n_cohort)
       
-      founder_contrib <- setNames(rep(0, n_founders), founders)
-      
-      for (cohort_ind in cohort) {
-        # Trace ancestors and their contributions
-        contrib <- setNames(rep(0, n), ped$Ind)
-        contrib[cohort_ind] <- 1.0
-        
-        # Backward pass
-        for (i in n:1) {
-          ind_id <- ped$Ind[i]
-          if (contrib[ind_id] == 0) next
-          
-          sire <- ped$Sire[i]
-          dam <- ped$Dam[i]
-          
-          if (!is.na(sire)) {
-            contrib[sire] <- contrib[sire] + 0.5 * contrib[ind_id]
-          }
-          if (!is.na(dam)) {
-            contrib[dam] <- contrib[dam] + 0.5 * contrib[ind_id]
-          }
-        }
-        
-        # Accumulate founder contributions
-        for (f in founders) {
-          founder_contrib[f] <- founder_contrib[f] + contrib[f]
-        }
-      }
-      
-      # Normalize by cohort size
-      founder_contrib <- founder_contrib / n_cohort
-      
-      # Build result table
       founder_dt <- data.table(
-        Ind = names(founder_contrib),
-        Contrib = as.numeric(founder_contrib)
+        Ind = ind_ids[founder_idx],
+        Contrib = contrib[founder_idx]
       )
       
-      # Sort and add cumulative and rank
       setorder(founder_dt, -Contrib)
       founder_dt[, CumContrib := cumsum(Contrib)]
       founder_dt[, Rank := seq_len(.N)]
       
-      # Save full data for summary computation before top slice
       result$founders_full <- founder_dt
-      
-      # Keep only top contributors
-      if (nrow(founder_dt) > top) {
-        founder_dt <- founder_dt[1:top]
-      }
-      
-      result$founders <- founder_dt
+      result$founders <- if (nrow(founder_dt) > top) founder_dt[1:top] else founder_dt
     }
   }
   
-  # ---- Ancestor Contributions ----
+  # ---- Ancestor Contributions (Boichard's iterative algorithm) ----
   if (mode %in% c("ancestor", "both")) {
     message("Calculating ancestor contributions (Boichard's iterative algorithm)...")
     
-    # Identify all ancestors of the cohort
-    get_all_ancestors <- function(target_ids, ped_dt) {
-      all_anc <- character(0)
-      current <- target_ids
-      visited <- character(0)
-      while (length(current) > 0) {
-        parents <- unique(c(
-          ped_dt[Ind %in% current & !is.na(Sire), Sire],
-          ped_dt[Ind %in% current & !is.na(Dam), Dam]
-        ))
-        new_parents <- setdiff(parents, visited)
-        if (length(new_parents) == 0) break
-        all_anc <- c(all_anc, new_parents)
-        visited <- c(visited, new_parents)
-        current <- new_parents
+    # Work with mutable integer parent arrays
+    work_sire <- as.integer(sire_num)
+    work_dam <- as.integer(dam_num)
+    
+    # Find all ancestors of cohort via forward BFS on integer indices
+    is_ancestor <- logical(n)
+    queue <- cohort_pos
+    visited <- logical(n)
+    visited[queue] <- TRUE
+    while (length(queue) > 0) {
+      parents <- integer(0)
+      for (pos in queue) {
+        s <- sire_num[pos]; d <- dam_num[pos]
+        if (s > 0 && !visited[s]) { parents <- c(parents, s); visited[s] <- TRUE }
+        if (d > 0 && !visited[d]) { parents <- c(parents, d); visited[d] <- TRUE }
       }
-      return(unique(all_anc))
+      if (length(parents) == 0) break
+      is_ancestor[parents] <- TRUE
+      queue <- parents
     }
     
-    all_ancestors <- get_all_ancestors(cohort, ped)
-    n_total_anc <- length(all_ancestors)
+    candidate_idx <- which(is_ancestor)
+    n_total_anc <- length(candidate_idx)
     
     if (n_total_anc == 0) {
-      result$ancestors <- data.table(Ind = character(0), Contrib = numeric(0), CumContrib = numeric(0), Rank = integer(0))
+      result$ancestors <- data.table(Ind = character(0), Contrib = numeric(0),
+                                      CumContrib = numeric(0), Rank = integer(0))
     } else {
-      # Working copy of pedigree to allow modifications (setting parents to NA)
-      ped_work_bc <- copy(ped[, .(Ind, Sire, Dam, Sex)])
-      ped_work_bc[, `:=`(Ind = as.character(Ind), Sire = as.character(Sire), Dam = as.character(Dam))]
-      
       selected_ancestors <- character(0)
       marginal_contribs <- numeric(0)
+      active <- rep(TRUE, n)  # track which candidates are still active
       
-      # Helper to calculate current total contributions to cohort
-      calc_current_contribs <- function(current_ped, target_cohort, candidates) {
-        n_p <- nrow(current_ped)
-        n_c <- length(target_cohort)
+      repeat {
+        # Backward pass with current (modified) parent links
+        contrib <- backward_pass(work_sire, work_dam, cohort_pos, n, n_cohort)
         
-        # Aggregate flow
-        total_flow <- setNames(rep(0, n_p), current_ped$Ind)
-        for(cid in target_cohort) {
-          flow <- setNames(rep(0, n_p), current_ped$Ind)
-          flow[cid] <- 1.0
-          # Backward pass
-          for (i in n_p:1) {
-            ind_id <- current_ped$Ind[i]
-            if (flow[ind_id] == 0) next
-            s <- current_ped$Sire[i]; d <- current_ped$Dam[i]
-            if (!is.na(s)) flow[s] <- flow[s] + 0.5 * flow[ind_id]
-            if (!is.na(d)) flow[d] <- flow[d] + 0.5 * flow[ind_id]
-          }
-          total_flow <- total_flow + flow
-        }
-        return(total_flow[candidates] / n_c)
-      }
-      
-      # Iterative Boichard Selection
-      candidates <- all_ancestors
-      # Calculate contributions for all possible ancestors with positive contributions
-      while (length(candidates) > 0) {
+        # Find best among remaining candidates
+        cand_contribs <- contrib[candidate_idx]
+        active_mask <- active[candidate_idx]
+        cand_contribs[!active_mask] <- 0
         
-        # 1. Calc current contributions
-        current_q <- calc_current_contribs(ped_work_bc, cohort, candidates)
+        best_local <- which.max(cand_contribs)
+        best_pos <- candidate_idx[best_local]
+        best_val <- cand_contribs[best_local]
         
-        # 2. Pick the one with largest contribution
-        best_idx <- which.max(current_q)
-        best_ind <- names(current_q)[best_idx]
-        best_val <- as.numeric(current_q[best_idx])
-        
-        # Break if marginal contribution is practically zero
         if (best_val <= 1e-10) break
         
-        # 3. Record as marginal contribution (pk)
-        selected_ancestors <- c(selected_ancestors, best_ind)
+        selected_ancestors <- c(selected_ancestors, ind_ids[best_pos])
         marginal_contribs <- c(marginal_contribs, best_val)
         
-        # 4. "Account for" this ancestor by setting its parents to NA for next rounds
-        ped_work_bc[Ind == best_ind, `:=`(Sire = NA_character_, Dam = NA_character_)]
-        candidates <- setdiff(candidates, best_ind)
+        # "Account for" this ancestor: sever its parental links
+        work_sire[best_pos] <- 0L
+        work_dam[best_pos] <- 0L
+        active[best_pos] <- FALSE
       }
       
       ancestor_dt_full <- data.table(
@@ -964,45 +915,31 @@ pedcontrib <- function(ped, cohort = NULL, mode = c("both", "founder", "ancestor
       ancestor_dt_full[, CumContrib := cumsum(Contrib)]
       ancestor_dt_full[, Rank := seq_len(.N)]
       
-      # Save full data for summary computation
       result$ancestors_full <- ancestor_dt_full
-      
-      # Keep only top contributors for the reported output
-      ancestor_dt <- ancestor_dt_full
-      if (nrow(ancestor_dt) > top) {
-        ancestor_dt <- ancestor_dt[1:top]
-      }
-      
-      result$ancestors <- ancestor_dt
+      result$ancestors <- if (nrow(ancestor_dt_full) > top) ancestor_dt_full[1:top] else ancestor_dt_full
     }
   }
   
   # ---- Summary Statistics ----
-  summary_list <- list(
-    n_cohort = n_cohort
-  )
+  summary_list <- list(n_cohort = n_cohort)
   
   if (!is.null(result$founders)) {
-    # Compute sum of squares on full founder set
     fe2_sum <- sum(result$founders_full$Contrib^2, na.rm = TRUE)
     summary_list$n_founders_total <- nrow(result$founders_full)
     summary_list$n_founders_reported <- nrow(result$founders)
     summary_list$Ne_f <- if (fe2_sum > 0) 1 / fe2_sum else NA_real_
-    result$founders_full <- NULL # Remove intermediate
+    result$founders_full <- NULL
   }
   
   if (!is.null(result$ancestors)) {
-    # Compute sum of squares on full ancestor set
     fa2_sum <- sum(result$ancestors_full$Contrib^2, na.rm = TRUE)
     summary_list$n_ancestors_total <- nrow(result$ancestors_full)
     summary_list$n_ancestors_reported <- nrow(result$ancestors)
     summary_list$Ne_a <- if (fa2_sum > 0) 1 / fa2_sum else NA_real_
-    result$ancestors_full <- NULL # Remove intermediate
+    result$ancestors_full <- NULL
   }
   
   result$summary <- summary_list
-  
-  # Set class
   class(result) <- "pedcontrib"
   
   return(result)
