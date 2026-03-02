@@ -403,6 +403,36 @@ pedrel <- function(ped, by = "Gen", sample = NULL) {
       stop(e)
     })
     
+    # Auto-reduce sample if local_ped exceeds dense A matrix limit (25k)
+    max_dense <- 25000L
+    if (!is.null(local_ped) && nrow(local_ped) > max_dense) {
+      auto_n <- min(n_used, 2000L)
+      for (attempt in seq_len(10L)) {
+        sub_try <- sub_ped[base::sample(.N, auto_n)]
+        local_try <- tryCatch(
+          suppressMessages(tidyped(sub_try, addnum = TRUE)),
+          error = function(e) NULL
+        )
+        if (!is.null(local_try) && nrow(local_try) <= max_dense) {
+          local_ped <- local_try
+          sub_ped <- sub_try
+          n_used <- auto_n
+          message(sprintf(
+            "Group '%s': auto-sampled %d -> %d individuals (pedigree: %d) to fit dense A limit.",
+            g, n_total, auto_n, nrow(local_ped)))
+          break
+        }
+        auto_n <- max(50L, as.integer(auto_n * 0.6))
+      }
+      # If still too large after retries, skip this group
+      if (nrow(local_ped) > max_dense) {
+        warning(sprintf(
+          "Group '%s': pedigree still too large (%d) after auto-sampling. Returning NA.",
+          g, nrow(local_ped)))
+        return(data.table(Group = g, NTotal = n_total, NUsed = 0L, MeanRel = NA_real_))
+      }
+    }
+    
     if (is.null(local_ped)) {
       # Unrelated group (Identity matrix)
       mean_rel <- 0.0
@@ -757,7 +787,15 @@ pedne <- function(ped, by = NULL, cand = NULL, timevar = NULL, cohort = NULL) {
   
   # Base Ne = 1 / (2 * DeltaF)
   # This is Ne per generation of ECG.
-  result[, Ne := 1 / (2 * DeltaF)]
+  # When DeltaF == 0 (no inbreeding increase), Ne is mathematically infinite.
+  # We report NA for these cohorts and inform the user.
+  result[, Ne := ifelse(DeltaF > 0, 1 / (2 * DeltaF), NA_real_)]
+  
+  na_cohorts <- result[is.na(Ne), Cohort]
+  if (length(na_cohorts) > 0) {
+    message(sprintf("Ne set to NA for cohort(s) with DeltaF=0 (no inbreeding increase): %s",
+                    paste(na_cohorts, collapse = ", ")))
+  }
   
   # Sort and return
   setorder(result, Cohort)
