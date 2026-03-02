@@ -4,16 +4,20 @@
 \alias{pedne}
 \title{Calculate Effective Population Size}
 \usage{
-pedne(ped, timevar = NULL, cohort = NULL)
+pedne(ped, by = NULL, cand = NULL, timevar = NULL, cohort = NULL)
 }
 \arguments{
 \item{ped}{A \code{tidyped} object.}
 
-\item{timevar}{Character. The name of the column used to define cohorts (e.g., "Year", "BirthYear").
+\item{by}{Character. The name of the column used to define cohorts (e.g., "Year", "BirthYear").
 If NULL, attempts to auto-detect from common names.}
 
-\item{cohort}{Character vector. Optional subset of individual IDs defining the reference cohort.
+\item{cand}{Character vector. Optional subset of individual IDs defining the reference cohort.
 If NULL, uses all individuals.}
+
+\item{timevar}{\code{[Deprecated]} Use \code{by} instead.}
+
+\item{cohort}{\code{[Deprecated]} Use \code{cand} instead.}
 }
 \value{
 A \code{data.table} with columns:

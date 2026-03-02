@@ -58,11 +58,11 @@ tryCatch({
 }, error = function(e) cat("ERROR:", e$message, "\n\n"))
 
 # ============================================================
-# Test 2: pedne(timevar = "Year")
+# Test 2: pedne(by = "Year")
 # ============================================================
-cat("=== Test 2: pedne(timevar='Year') ===\n")
+cat("=== Test 2: pedne(by='Year') ===\n")
 tryCatch({
-  ne_result <- pedne(tped, timevar = "Year")
+  ne_result <- pedne(tped, by = "Year")
   cat("Result:\n")
   print(ne_result)
   cat("\n")

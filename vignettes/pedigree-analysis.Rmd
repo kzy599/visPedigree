@@ -94,7 +94,7 @@ print(f_class)
 Estimate $N_e$ based on the rate of inbreeding ($\Delta F$).
 ```{r ne}
 # Estimate Ne based on the latest cohort
-ne_est <- pedne(tped, timevar = "BirthYear")
+ne_est <- pedne(tped, by = "BirthYear")
 print(ne_est)
 ```
 

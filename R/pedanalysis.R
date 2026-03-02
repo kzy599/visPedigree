@@ -587,10 +587,12 @@ print.pedstats <- function(x, ...) {
 #' Uses the method described by Gutiérrez et al. (2008, 2009).
 #'
 #' @param ped A \code{tidyped} object.
-#' @param timevar Character. The name of the column used to define cohorts (e.g., "Year", "BirthYear").
+#' @param by Character. The name of the column used to define cohorts (e.g., "Year", "BirthYear").
 #'   If NULL, attempts to auto-detect from common names.
-#' @param cohort Character vector. Optional subset of individual IDs defining the reference cohort.
+#' @param cand Character vector. Optional subset of individual IDs defining the reference cohort.
 #'   If NULL, uses all individuals.
+#' @param timevar \code{[Deprecated]} Use \code{by} instead.
+#' @param cohort \code{[Deprecated]} Use \code{cand} instead.
 #'
 #' @return A \code{data.table} with columns:
 #' \itemize{
@@ -611,23 +613,33 @@ print.pedstats <- function(x, ...) {
 #' and completeness of the pedigree. No explicit ancestor traversal is needed.
 #'
 #' @export
-pedne <- function(ped, timevar = NULL, cohort = NULL) {
+pedne <- function(ped, by = NULL, cand = NULL, timevar = NULL, cohort = NULL) {
   if (!inherits(ped, "tidyped")) stop("ped must be a tidyped object")
   
-  # Auto-detect timevar
-  if (is.null(timevar)) {
+  # Backward-compatible deprecation
+  if (!is.null(timevar)) {
+    warning("'timevar' is deprecated in pedne(), use 'by' instead.", call. = FALSE)
+    if (is.null(by)) by <- timevar
+  }
+  if (!is.null(cohort)) {
+    warning("'cohort' is deprecated in pedne(), use 'cand' instead.", call. = FALSE)
+    if (is.null(cand)) cand <- cohort
+  }
+  
+  # Auto-detect by
+  if (is.null(by)) {
     candidates <- c("BirthYear", "Year", "birth_year", "year", "BirthDate", "Date")
     match_col <- intersect(names(ped), candidates)
     if (length(match_col) > 0) {
-      timevar <- match_col[1]
-      message(sprintf("Using '%s' as time variable.", timevar))
+      by <- match_col[1]
+      message(sprintf("Using '%s' as time variable.", by))
     } else {
-      stop("Please specify 'timevar' for Ne calculation.")
+      stop("Please specify 'by' for Ne calculation.")
     }
   }
   
-  if (!timevar %in% names(ped)) {
-    stop(sprintf("Column '%s' not found in pedigree.", timevar))
+  if (!by %in% names(ped)) {
+    stop(sprintf("Column '%s' not found in pedigree.", by))
   }
   
   # Ensure inbreeding coefficients are calculated
@@ -643,13 +655,13 @@ pedne <- function(ped, timevar = NULL, cohort = NULL) {
     ped <- merge(ped, ecg_dt[, .(Ind, ECG)], by = "Ind", all.x = TRUE)
   }
   
-  # Filter cohort if specified
-  if (!is.null(cohort)) {
-    if (!all(cohort %in% ped$Ind)) {
-      missing <- cohort[!cohort %in% ped$Ind]
-      warning(sprintf("Cohort IDs not found in pedigree: %s", paste(missing, collapse = ", ")))
+  # Filter candidates if specified
+  if (!is.null(cand)) {
+    if (!all(cand %in% ped$Ind)) {
+      missing <- cand[!cand %in% ped$Ind]
+      warning(sprintf("Candidate IDs not found in pedigree: %s", paste(missing, collapse = ", ")))
     }
-    ped <- ped[Ind %in% cohort]
+    ped <- ped[Ind %in% cand]
   }
   
   # Filter to individuals with sufficient pedigree depth
@@ -659,8 +671,8 @@ pedne <- function(ped, timevar = NULL, cohort = NULL) {
     stop("No individuals with sufficient pedigree depth (ECG >= 1).")
   }
   
-  # Use the original timevar for cohort grouping (e.g. Year)
-  ped_work[, CohortLabel := get(timevar)]
+  # Use the original 'by' column for cohort grouping (e.g. Year)
+  ped_work[, CohortLabel := get(by)]
   
   # Calculate individual rate of inbreeding (Gutiérrez et al. 2008, 2009)
   # Formula: DeltaF_i = 1 - (1 - F_i)^(1 / (ECG_i - 1))

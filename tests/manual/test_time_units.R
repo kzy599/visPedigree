@@ -34,5 +34,5 @@ cat("Plot ylab:", p$y.limits[[1]], "\n") # Note: lattice structure varies, but w
 
 # Test 5: pedne integration
 cat("\n--- Test 5: pedne ---\n")
-ne_res <- pedne(tped, timevar = "BirthDate")
+ne_res <- pedne(tped, by = "BirthDate")
 print(ne_res)

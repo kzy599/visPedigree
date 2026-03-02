@@ -129,7 +129,7 @@ test_that("pedecg computes equivalent complete generations", {
 
 test_that("pedne computes effective population size by cohort", {
   test_ped$BirthYear <- c(2000, 2000, 2005, 2005, 2010, 2010)
-  res <- suppressMessages(pedne(test_ped, timevar = "BirthYear"))
+  res <- suppressMessages(pedne(test_ped, by = "BirthYear"))
   expect_true(all(c("Cohort", "N", "MeanF", "DeltaF", "Ne") %in% names(res)))
   # Only cohort 2010 has ECG > 1 (founders/gen1 filtered out)
   expect_equal(nrow(res), 1)
