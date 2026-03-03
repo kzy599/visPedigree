@@ -142,7 +142,7 @@ tryCatch({
     print(rel_result)
   } else {
     cat("Groups still too large for dense A matrix (>25K). Using sample param.\n")
-    rel_result <- pedrel(sampled_tped, by = "Gen", sample = 5000)
+    rel_result <- pedrel(sampled_tped, by = "Gen", compact = TRUE)
     cat("Result:\n")
     print(rel_result)
   }

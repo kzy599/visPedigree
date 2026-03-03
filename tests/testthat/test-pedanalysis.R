@@ -35,7 +35,7 @@ test_that("pedrel calculates relation correctly and handles boundaries", {
   expect_equal(rel[Gen == 2, MeanRel], 0.5)
   
   # Test sample size
-  rel_sample <- suppressWarnings(pedrel(test_ped, by = "Gen", sample = 1))
+  rel_sample <- suppressWarnings(pedrel(test_ped, by = "Gen", cand = c("A", "C")))
   expect_true(all(is.na(rel_sample$MeanRel)))
 })
 

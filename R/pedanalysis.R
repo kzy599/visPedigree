@@ -351,19 +351,22 @@ pedsubpop <- function(ped, by = NULL) {
 #'
 #' @param ped A \code{tidyped} object.
 #' @param by Character. The column name to group by (e.g., "Year", "Breed", "Generation").
-#' @param sample Numeric. If the group is very large, optionally sample N individuals 
-#'   to estimate the mean relationship efficiently. Default is NULL (use all).
+#' @param cand Character vector. An optional vector of candidate individual IDs to calculate 
+#'   relationships for. If provided, only individuals matching these IDs in each group 
+#'   will be used. Default is NULL (use all individuals in the group).
+#' @param compact Logical. Whether to use compact representation for large families to 
+#'   save memory. Recommended when pedigree size exceeds 25,000. Default is FALSE.
 #'
 #' @return A \code{data.table} with columns:
 #' \itemize{
 #'   \item \code{Group}: The grouping identifier.
 #'   \item \code{NTotal}: Total number of individuals in the group.
-#'   \item \code{NUsed}: Number of individuals used in calculation (could be sampled).
+#'   \item \code{NUsed}: Number of individuals used in calculation (could be subset by cand).
 #'   \item \code{MeanRel}: Average of off-diagonal elements in the A matrix for this group. NA if less than 2 individuals.
 #' }
 #' 
 #' @export
-pedrel <- function(ped, by = "Gen", sample = NULL) {
+pedrel <- function(ped, by = "Gen", cand = NULL, compact = FALSE) {
   if (!inherits(ped, "tidyped")) stop("ped must be a tidyped object")
   if (!by %in% names(ped)) stop(sprintf("Column '%s' not found.", by))
   
@@ -371,86 +374,98 @@ pedrel <- function(ped, by = "Gen", sample = NULL) {
   groups <- groups[!is.na(groups)]
   
   res_list <- lapply(groups, function(g) {
-    sub_ped <- ped[get(by) == g]
-    n_total <- nrow(sub_ped)
+    sub_ped_full <- ped[get(by) == g]
+    n_total <- nrow(sub_ped_full)
     
     if (n_total < 2) {
       warning(sprintf("Group '%s' has less than 2 individuals, returning NA_real_.", g))
       return(data.table(Group = g, NTotal = n_total, NUsed = n_total, MeanRel = NA_real_))
     }
     
-    # Sampling for performance on huge groups
-    if (!is.null(sample) && n_total > sample) {
-      sub_ped <- sub_ped[sample(.N, sample)]
+    if (!is.null(cand)) {
+      sub_ped <- sub_ped_full[Ind %in% cand]
+    } else {
+      sub_ped <- sub_ped_full
     }
     n_used <- nrow(sub_ped)
     
     if (n_used < 2) {
-      warning(sprintf("Group '%s' has less than 2 individuals after sampling, returning NA_real_.", g))
+      warning(sprintf("Group '%s' has less than 2 individuals after applying 'cand', returning NA_real_.", g))
       return(data.table(Group = g, NTotal = n_total, NUsed = n_used, MeanRel = NA_real_))
     }
     
-    # Calculate A matrix for this subgroup
-    # We use a localized tidyped to ensure indices are 1:N for the C++ call
     local_ped <- tryCatch({
       suppressMessages(tidyped(sub_ped, addnum = TRUE))
     }, error = function(e) {
-      # If tidyped fails because all parents are missing (e.g. founder generation),
-      # it means they are unrelated.
       if (all(is.na(sub_ped$Sire) & is.na(sub_ped$Dam))) {
         return(NULL)
       }
       stop(e)
     })
     
-    # Auto-reduce sample if local_ped exceeds dense A matrix limit (25k)
-    max_dense <- 25000L
-    if (!is.null(local_ped) && nrow(local_ped) > max_dense) {
-      auto_n <- min(n_used, 2000L)
-      for (attempt in seq_len(10L)) {
-        sub_try <- sub_ped[base::sample(.N, auto_n)]
-        local_try <- tryCatch(
-          suppressMessages(tidyped(sub_try, addnum = TRUE)),
-          error = function(e) NULL
-        )
-        if (!is.null(local_try) && nrow(local_try) <= max_dense) {
-          local_ped <- local_try
-          sub_ped <- sub_try
-          n_used <- auto_n
-          message(sprintf(
-            "Group '%s': auto-sampled %d -> %d individuals (pedigree: %d) to fit dense A limit.",
-            g, n_total, auto_n, nrow(local_ped)))
-          break
-        }
-        auto_n <- max(50L, as.integer(auto_n * 0.6))
-      }
-      # If still too large after retries, skip this group
-      if (nrow(local_ped) > max_dense) {
-        warning(sprintf(
-          "Group '%s': pedigree still too large (%d) after auto-sampling. Returning NA.",
-          g, nrow(local_ped)))
-        return(data.table(Group = g, NTotal = n_total, NUsed = 0L, MeanRel = NA_real_))
-      }
-    }
-    
     if (is.null(local_ped)) {
-      # Unrelated group (Identity matrix)
       mean_rel <- 0.0
     } else {
-      # Find original target individuals in the padded pedigree
       target_inds <- sub_ped$Ind
-      # Get their indices in the local_ped
-      idx <- which(local_ped$Ind %in% target_inds)
       
-      A <- pedmat(local_ped, method = "A", sparse = FALSE)
-      # Subset to only the target individuals we care about
-      A_sub <- A[idx, idx, drop = FALSE]
+      max_dense <- 25000L
+      if (!compact && nrow(local_ped) > max_dense) {
+        warning(sprintf(
+          paste0("Group '%s': pedigree too large (%d individuals including ancestors) ",
+                 "for dense A matrix (limit: %d). Returning NA.\n",
+                 "Hint: use 'cand' parameter to reduce group size, or set compact = TRUE."),
+          g, nrow(local_ped), max_dense))
+        return(data.table(Group = g, NTotal = n_total, NUsed = n_used, MeanRel = NA_real_))
+      }
       
-      # Mean of off-diagonals among target individuals
-      if (length(idx) < 2) {
-         mean_rel <- NA_real_
+      A <- tryCatch({
+        pedmat(local_ped, method = "A", sparse = FALSE, compact = compact)
+      }, error = function(e) {
+        warning(sprintf(
+          paste0("Group '%s': %s\n",
+                 "Hint: subset with 'cand' or use 'compact = TRUE'."),
+          g, e$message))
+        return(NULL)
+      })
+      
+      if (is.null(A)) {
+        return(data.table(Group = g, NTotal = n_total, NUsed = n_used, MeanRel = NA_real_))
+      }
+      
+      if (isTRUE(attr(A, "call_info")$compact)) {
+        c_map <- attr(A, "compact_map")
+        c_map_target <- c_map[Ind %in% target_inds]
+        
+        freq_dt <- c_map_target[, .(W = .N), by = RepIndNum]
+        W_idx <- freq_dt$RepIndNum
+        W <- freq_dt$W
+        
+        A_rep <- A[W_idx, W_idx, drop = FALSE]
+        sum_total_rep <- as.numeric(t(W) %*% (A_rep %*% W))
+        sum_between <- sum_total_rep - sum(W^2 * diag(A_rep))
+        
+        sib_reps <- freq_dt[W > 1]
+        sum_within <- 0.0
+        
+        if (nrow(sib_reps) > 0) {
+          rep_parents <- unique(c_map_target[RepIndNum %in% sib_reps$RepIndNum,
+                                             .(RepIndNum, rep_sire = SireNum, rep_dam = DamNum)])
+          
+          for (i in seq_len(nrow(sib_reps))) {
+            w_i <- sib_reps$W[i]
+            r_idx <- sib_reps$RepIndNum[i]
+            sire_idx <- rep_parents[RepIndNum == r_idx, rep_sire]
+            dam_idx <- rep_parents[RepIndNum == r_idx, rep_dam]
+            A_sib <- 0.25 * (A[sire_idx, sire_idx] + A[dam_idx, dam_idx] + 2 * A[sire_idx, dam_idx])
+            sum_within <- sum_within + w_i * (w_i - 1) * A_sib
+          }
+        }
+        
+        mean_rel <- (sum_between + sum_within) / (as.numeric(n_used) * (n_used - 1))
       } else {
-         mean_rel <- (sum(A_sub) - sum(diag(A_sub))) / (as.numeric(n_used) * (n_used - 1))
+        idx <- which(local_ped$Ind %in% target_inds)
+        A_sub <- A[idx, idx, drop = FALSE]
+        mean_rel <- (sum(A_sub) - sum(diag(A_sub))) / (as.numeric(n_used) * (n_used - 1))
       }
     }
     

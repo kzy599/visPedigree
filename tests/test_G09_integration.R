@@ -167,9 +167,9 @@ tryCatch({
 }, error = function(e) cat("ERROR:", e$message, "\n\n"))
 
 # ── Test 11: pedrel(by='Year') ───────────────────────────────────
-cat("=== Test 11: pedrel(by='Year', sample=500) ===\n")
+cat("=== Test 11: pedrel(by='Year', compact=TRUE) ===\n")
 tryCatch({
-  rel_year <- suppressMessages(suppressWarnings(pedrel(tped, by = "Year", sample = 500)))
+  rel_year <- suppressMessages(suppressWarnings(pedrel(tped, by = "Year", compact = TRUE)))
   print(rel_year)
   stopifnot(all(c("Year","NTotal","NUsed","MeanRel") %in% names(rel_year)))
   cat("PASS\n\n")
