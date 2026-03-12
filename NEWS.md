@@ -1,3 +1,12 @@
+# Changes in version 1.0.2 released on 12 Mar 2026
+## New features
+1. Added the `selfing` argument to `tidyped()` to support plant and aquaculture pedigrees where an individual can appear as both Sire and Dam, resolving biologically impossible sex conflict errors (#10).
+
+## Minor improvements and bug fixes
+1. Individuals acting as both parents are now identified as `"monoecious"` in the `Sex` column.
+2. `visped()` now uses a distinct teal color (`#26a69a`) to render `"monoecious"` individuals, ensuring clear visual separation from males, females, and highlighted nodes.
+3. `summary()` and `print()` methods for `tidyped` objects now accurately report the count and percentage of monoecious individuals.
+
 # Changes in version 1.0.1 released on 31 Jan 2026
 ## Bug fixes
 1. **Compact Matrix Correctness**: Fixed a critical data integrity bug in `compact = TRUE` mode where relationship values (A, D, AA) were incorrect for parent-offspring and avuncular pairs due to improper merging of parent individuals with their non-parent siblings.

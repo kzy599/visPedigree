@@ -58,7 +58,8 @@ get_highlight_ids <- function(ped, highlight, trace) {
     
     if (!isFALSE(trace) && length(focal_ids) > 0) {
       trace_dir <- if (isTRUE(trace)) "all" else trace
-      relatives_ped <- suppressWarnings(tidyped(ped, cand = focal_ids, trace = trace_dir))
+      selfing_val <- isTRUE(attr(ped, "selfing"))
+      relatives_ped <- suppressWarnings(tidyped(ped, cand = focal_ids, trace = trace_dir, selfing = selfing_val))
       relative_ids <- setdiff(unique(relatives_ped$Ind), focal_ids)
     }
   }
@@ -88,6 +89,7 @@ apply_node_styles <- function(ped_node, highlight_info) {
   ped_node[nodetype == "compact", shape := "square"]
   ped_node[sex == "male", `:=`(frame.color = "#119ecc", color = "#119ecc")]
   ped_node[sex == "female", `:=`(frame.color = "#f4b131", color = "#f4b131")]
+  ped_node[sex == "monoecious", `:=`(frame.color = "#26a69a", color = "#26a69a")]
   ped_node[is.na(sex) | sex == "unknown", `:=`(frame.color = "#9cb383", color = "#9cb383")]
   
   # Virtual nodes: circle with tiny size and transparency to fix edge gaps

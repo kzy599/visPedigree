@@ -49,13 +49,22 @@ inject_missing_parents <- function(ped) {
   s_nums <- ped_new$SireNum
   missing_sire_nums <- unique(s_nums[s_nums != 0 & !is.na(s_nums) & !(s_nums %in% all_ind_nums)])
   
+  # Find missing Dams (compute early to detect monoecious)
+  d_nums <- ped_new$DamNum
+  missing_dam_nums <- unique(d_nums[d_nums != 0 & !is.na(d_nums) & !(d_nums %in% all_ind_nums)])
+  
+  # Detect monoecious: individuals that are both missing sires and missing dams
+  monoecious_nums <- intersect(missing_sire_nums, missing_dam_nums)
+  
   if (length(missing_sire_nums) > 0) {
     sire_info <- unique(ped_new[SireNum %in% missing_sire_nums, .(SireNum, Sire)])
+    # Determine sex: monoecious if also a dam, otherwise male
+    sire_sex <- ifelse(sire_info$SireNum %in% monoecious_nums, "monoecious", "male")
     new_sires <- data.table(
       Ind = sire_info$Sire,
       Sire = NA_character_,
       Dam = NA_character_,
-      Sex = "male",
+      Sex = sire_sex,
       Gen = min(ped_new$Gen, na.rm=TRUE) - 1,
       IndNum = sire_info$SireNum,
       SireNum = 0L,
@@ -68,12 +77,11 @@ inject_missing_parents <- function(ped) {
     all_ind_nums <- ped_new$IndNum
   }
 
-  # Find missing Dams
-  d_nums <- ped_new$DamNum
-  missing_dam_nums <- unique(d_nums[d_nums != 0 & !is.na(d_nums) & !(d_nums %in% all_ind_nums)])
+  # Find missing Dams (exclude monoecious already added as sires)
+  missing_dam_nums_only <- setdiff(missing_dam_nums, monoecious_nums)
   
-  if (length(missing_dam_nums) > 0) {
-    dam_info <- unique(ped_new[DamNum %in% missing_dam_nums, .(DamNum, Dam)])
+  if (length(missing_dam_nums_only) > 0) {
+    dam_info <- unique(ped_new[DamNum %in% missing_dam_nums_only, .(DamNum, Dam)])
     new_dams <- data.table(
       Ind = dam_info$Dam,
       Sire = NA_character_,
