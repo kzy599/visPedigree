@@ -5,7 +5,8 @@
 ## Minor improvements and bug fixes
 1. Individuals acting as both parents are now identified as `"monoecious"` in the `Sex` column.
 2. `visped()` now uses a distinct teal color (`#26a69a`) to render `"monoecious"` individuals, ensuring clear visual separation from males, females, and highlighted nodes.
-3. `summary()` and `print()` methods for `tidyped` objects now accurately report the count and percentage of monoecious individuals.
+3. Pedigree edges are now colored based on the parent's role in a specific mating (Sire blue, Dam gold, Selfing teal) rather than invariant node sex, allowing monoecious individuals to display role-appropriate connection colors.
+4. `summary()` and `print()` methods for `tidyped` objects now accurately report the count and percentage of monoecious individuals.
 
 # Changes in version 1.0.1 released on 31 Jan 2026
 ## Bug fixes

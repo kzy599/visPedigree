@@ -203,15 +203,31 @@ compact_pedigree <- function(ped_node, compact, h_ids) {
 #' @param h_ids Highlighted IDs.
 #' @keywords internal
 generate_graph_structure <- function(ped_node, h_ids) {
-  ped_edge <- rbind(
-    ped_node[, .(from = id, to = familynum)],
-    ped_node[, .(from = familynum, to = sirenum)],
-    ped_node[, .(from = familynum, to = damnum)]
+  # Individual → family edges
+  edge_ind <- ped_node[familynum > 0, .(from = id, to = familynum, role = "ind")]
+
+  # Family → sire edges (dedup siblings in same family)
+  edge_sire <- unique(
+    ped_node[sirenum > 0 & familynum > 0, .(from = familynum, to = sirenum, role = "sire")]
   )
-  ped_edge <- ped_edge[!(to == 0)]
-  ped_edge <- unique(ped_edge)
+
+  # Family → dam edges (dedup siblings in same family)
+  edge_dam <- unique(
+    ped_node[damnum > 0 & familynum > 0, .(from = familynum, to = damnum, role = "dam")]
+  )
+
+  # Detect selfing: same (from, to) appearing in both sire and dam roles
+  edge_parents <- rbind(edge_sire, edge_dam)
+  dup_ft <- edge_parents[, .N, by = .(from, to)]
+  selfing_ft <- dup_ft[N > 1]
+  if (nrow(selfing_ft) > 0) {
+    edge_parents[selfing_ft, on = .(from, to), role := "selfing"]
+    edge_parents <- unique(edge_parents, by = c("from", "to"))
+  }
+
+  ped_edge <- rbind(edge_ind, edge_parents)
   ped_edge <- ped_edge[order(from, to)]
-  
+
   width = arrow.size = arrow.width = color = curved = NULL
   edge_default_color <- if (length(h_ids) > 0) "#3333334D" else "#333333"
   ped_edge[, ":="(width = 1, arrow.size = 1, arrow.width = 1, arrow.mode = 2, 

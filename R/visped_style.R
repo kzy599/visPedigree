@@ -159,19 +159,26 @@ finalize_graph <- function(ped_node, ped_edge, highlight_info, trace, showf) {
   
   real_max <- max(ped_node[nodetype %in% c("real", "compact")]$id, na.rm = TRUE)
   
-  tonodecolor = i.color = i.highlighted = from_highlighted = NULL
+  tonodecolor = i.color = i.highlighted = from_highlighted = role = NULL
   ped_edge[ped_node, ":="(tonodecolor = i.color, to_highlighted = i.highlighted), on = .(to = id)]
   ped_edge[ped_node, from_highlighted := i.highlighted, on = .(from = id)]
   
   h_ids <- highlight_info$all_ids
   has_trace <- !isFALSE(trace) && length(highlight_info$relatives) > 0
   
-  # Default: edges from family nodes to parents follow the parent node color
-  ped_edge[from > real_max, color := tonodecolor]
+  # Role-based edge coloring for family→parent edges
+  ped_edge[role == "sire", color := "#119ecc"]
+  ped_edge[role == "dam", color := "#f4b131"]
+  ped_edge[role == "selfing", color := "#26a69a"]
   
-  # If highlighting is active and family node is not highlighted, fade the edge
+  # If highlighting is active, fade edges based on endpoint highlight status
   if (length(h_ids) > 0) {
-    ped_edge[from > real_max & from_highlighted == FALSE, color := fade_cols(tonodecolor)]
+    # Fade if target parent is not highlighted
+    ped_edge[role %in% c("sire", "dam", "selfing") & to_highlighted == FALSE,
+             color := fade_cols(color)]
+    # Further fade if source family node is not highlighted
+    ped_edge[role %in% c("sire", "dam", "selfing") & from_highlighted == FALSE,
+             color := fade_cols(color)]
   }
   
   if (length(h_ids) > 0 && has_trace) {
@@ -186,7 +193,7 @@ finalize_graph <- function(ped_node, ped_edge, highlight_info, trace, showf) {
   
   ped_edge[from <= real_max, ":="(curved = 0, arrow.size = 0, arrow.width = 0, arrow.mode = 0)]
   
-  new_names_edge <- c(c("from", "to"), setdiff(colnames(ped_edge), c("from", "to", "tonodecolor")))
+  new_names_edge <- c(c("from", "to"), setdiff(colnames(ped_edge), c("from", "to", "tonodecolor", "role")))
   ped_edge <- ped_edge[, ..new_names_edge][order(from, to)]
   
   new_names_node <- c("id", setdiff(colnames(ped_node), "id"))

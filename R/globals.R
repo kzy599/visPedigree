@@ -112,4 +112,4 @@ if (getRversion() >= "2.15.1") {
   )
 }
 
-utils::globalVariables(c('i.SireNum', 'i.DamNum', 'i.Sire', 'i.Dam', 'i.is_parent', 'sort_key', 'n_compressed', 'Family', 'grp', 'NewGen', 'Limit', 'monoecious_nums'))
+utils::globalVariables(c('i.SireNum', 'i.DamNum', 'i.Sire', 'i.Dam', 'i.is_parent', 'sort_key', 'n_compressed', 'Family', 'grp', 'NewGen', 'Limit', 'monoecious_nums', 'role'))
