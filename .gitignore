@@ -33,3 +33,6 @@ packrat/
 
 /.quarto/
 **/*.quarto_ipynb
+
+# 开发沙盒（不进入版本库）
+sandbox/
